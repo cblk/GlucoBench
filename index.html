@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CGM 塔肯斯热力学探针 v6.3</title>
+<!-- SheetJS for Excel parsing -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<!-- Plotly.js for 3D visualization -->
+<script src="https://cdn.plot.ly/plotly-2.29.1.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0f172a;          /* Darker, void-like background */
+  --surface: #1e293b;
+  --surface-light: #334155;
+  --primary: #3b82f6;
+  --primary-light: #60a5fa;
+  --text: #f8fafc;
+  --text-secondary: #94a3b8;
+  --border: #334155;
+  --green: #10b981;
+  --yellow: #f59e0b;
+  --red: #ef4444;
+  --purple: #8b5cf6;
+  --radius: 12px;
+  --shadow: 0 4px 6px -1px rgba(0,0,0,0.5), 0 2px 4px -1px rgba(0,0,0,0.3);
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+}
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+/* --- HEADER --- */
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+  box-shadow: var(--shadow);
+  z-index: 10;
+}
+.header-title-box { display: flex; align-items: baseline; gap: 12px; }
+header h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; color: #fff; }
+header .subtitle { font-size: 13px; color: var(--primary-light); font-family: monospace; }
+/* The Oracle Badge - Top Level */
+.health-rating {
+  display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-radius: 8px; 
+  font-size: 14px; font-weight: 600; background: var(--surface-light); color: var(--text-secondary);
+  border: 1px solid var(--border);
+  transition: all 0.3s ease;
+}
+.health-rating.good { background: rgba(16,185,129,0.1); color: var(--green); border-color: rgba(16,185,129,0.3); }
+.health-rating.warn { background: rgba(245,158,11,0.1); color: var(--yellow); border-color: rgba(245,158,11,0.3); }
+.health-rating.bad { background: rgba(239,68,68,0.1); color: var(--red); border-color: rgba(239,68,68,0.3); }
+.health-rating .dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+
+/* --- MAIN LAYOUT --- */
+.main-layout { display: flex; flex: 1; min-height: 0; }
+
+/* --- SIDEBAR --- */
+.sidebar {
+  width: 320px; min-width: 320px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 16px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.sidebar section { background: var(--bg); border-radius: var(--radius); padding: 16px; border: 1px solid var(--border); }
+.sidebar section h2 {
+  font-size: 12px; font-weight: 700; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+
+/* Upload zone */
+.upload-zone {
+  border: 2px dashed var(--border); border-radius: 8px; padding: 24px 16px;
+  text-align: center; cursor: pointer; transition: all 0.2s; background: var(--surface);
+}
+.upload-zone:hover, .upload-zone.dragover { border-color: var(--primary); background: rgba(59, 130, 246, 0.1); }
+.upload-zone .icon { font-size: 28px; margin-bottom: 6px; opacity: 0.8; }
+.upload-zone .label { font-size: 14px; font-weight: 500; }
+.upload-zone .hint { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+.upload-zone .file-info { font-size: 12px; color: var(--primary-light); margin-top: 8px; display: none; }
+.upload-zone.has-file .file-info { display: block; }
+.upload-zone.has-file .placeholder { display: none; }
+
+/* Buttons & Controls */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-light); }
+.btn-highlight { background: rgba(59,130,246,0.15); color: var(--primary-light); border: 1px solid rgba(59,130,246,0.3); }
+.btn-highlight:hover { background: rgba(59,130,246,0.25); }
+
+.control-group select { 
+  width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; 
+  background: var(--surface); color: var(--text); font-size: 13px; outline: none;
+}
+.control-group select:focus { border-color: var(--primary); }
+
+/* Collapsible Advanced */
+.advanced-toggle { font-size: 11px; color: var(--primary-light); cursor: pointer; user-select: none; }
+.advanced-content { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.advanced-content.open { display: block; }
+
+/* Oracle Log Button */
+#btn-copy-oracle {
+  background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(59,130,246,0.15));
+  border: 1px dashed var(--purple); cursor: pointer; text-align: center; padding: 16px; 
+  transition: all 0.3s; border-radius: var(--radius);
+}
+#btn-copy-oracle:hover { background: linear-gradient(135deg, rgba(139,92,246,0.25), rgba(59,130,246,0.25)); }
+
+/* --- CONTENT AREA --- */
+.content-area { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
+
+/* Plot Containers */
+.plot-container { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+.plot-3d-wrapper { flex: 7; position: relative; min-height: 0; }
+.plot-2d-wrapper { flex: 3; position: relative; min-height: 0; border-top: 1px solid var(--border); background: var(--bg); }
+#plotly-div, #plotly-2d-div { width: 100%; height: 100%; }
+
+.plot-placeholder {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: var(--text-secondary); gap: 16px; background: var(--bg); z-index: 10;
+}
+.plot-placeholder .icon { font-size: 56px; opacity: 0.2; }
+
+/* --- METRICS PANEL (THERMODYNAMICS) --- */
+.metrics-panel { 
+  background: var(--surface); border-top: 1px solid var(--border); padding: 16px 24px; 
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; flex-shrink: 0; box-shadow: 0 -4px 10px rgba(0,0,0,0.2); z-index: 5;
+}
+.metric-card { background: var(--bg); border-radius: 10px; padding: 12px 16px; border: 1px solid var(--border); position: relative; overflow: hidden; }
+.metric-card .metric-title { font-size: 11px; color: var(--text-secondary); font-weight: 700; letter-spacing: 0.5px; }
+.metric-card .metric-value { font-size: 22px; font-weight: 800; margin: 4px 0; font-variant-numeric: tabular-nums; }
+.metric-card .metric-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+.metric-card::before { content:''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--border); }
+.metric-card.good::before { background: var(--green); }
+.metric-card.warn::before { background: var(--yellow); }
+.metric-card.bad::before { background: var(--red); }
+
+input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="header-title-box">
+      <h1>CGM 塔肯斯热力学探针</h1>
+      <span class="subtitle">v6.3 / Fractal Embedology & RQA (递归定量分析)</span>
+    </div>
+    <div class="health-rating" id="health-rating">
+      <span class="dot" style="background:var(--text-secondary); box-shadow:none;"></span>
+      等待输入高维序列
+    </div>
+  </header>
+
+  <div class="main-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar-controls">
+      <section>
+        <h2>物理摩擦输入</h2>
+        <div class="upload-zone" id="upload-zone">
+          <div class="placeholder">
+            <div class="icon">🌌</div>
+            <div class="label">投喂时间序列 (CSV/XLSX)</div>
+            <div class="hint">要求包含时序与血糖两列</div>
+          </div>
+          <div class="file-info" id="file-info"></div>
+          <input type="file" id="file-input" accept=".xlsx,.csv" style="display:none">
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn btn-highlight" id="btn-load-sample" style="flex:1">加载演示数据</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>相态视窗 (认知切片)</h2>
+        <div class="control-group">
+          <select id="sel-period">
+            <option value="all">全天视角 (宏观引力场)</option>
+            <option value="night">夜间基线 (0:00-6:00 纯净态)</option>
+            <option value="daytime">白昼受迫 (6:00-18:00 冲击态)</option>
+          </select>
+        </div>
+        <div style="font-size:11px; color:var(--text-secondary); margin-top:8px;">
+          切换视角以观察引力核在受迫前后的拓扑变迁。
+        </div>
+      </section>
+
+      <section>
+        <h2>
+          高级降维设定 
+          <span class="advanced-toggle" id="toggle-advanced">[ 展开 ]</span>
+        </h2>
+        <div class="advanced-content" id="advanced-content">
+          <div style="margin-bottom:12px;">
+            <label style="font-size:11px; color:var(--text-secondary);">分形嵌入学 (SYC定理): <strong id="dim-display" style="color:var(--primary-light)">m=4 (dA=1.5)</strong></label>
+          </div>
+          <div style="margin-bottom:12px;">
+            <label style="font-size:11px; color:var(--text-secondary);">Tau 延迟 (时间债): <strong id="tau-display" style="color:var(--primary-light)">6</strong> 步</label>
+            <input type="range" id="tau-slider" min="1" max="60" value="6" step="1">
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" id="chk-smooth" checked>
+            <label for="chk-smooth" style="font-size:12px;">使用 EMA 滤波剔除传感器高频底噪</label>
+          </div>
+        </div>
+      </section>
+
+      <section id="btn-copy-oracle" style="display:none;">
+        <div style="font-size:24px; margin-bottom:4px;">📋</div>
+        <div style="font-size:14px; font-weight:bold; color:var(--purple);">输出日志</div>
+      </section>
+    </aside>
+
+    <!-- Content -->
+    <div class="content-area">
+      <div class="plot-container">
+        <!-- 3D Phase Space & 2D Recurrence Plot (RQA) -->
+        <div class="plot-3d-wrapper" style="display: flex; flex-direction: row;">
+          <div id="plotly-div" style="flex: 2;"></div>
+          <div id="plotly-rp-div" style="flex: 1; border-left: 1px solid var(--border); background: var(--bg); display: none;"></div>
+          <div class="plot-placeholder" id="plot-placeholder">
+            <div class="icon">⚛️</div>
+            <div class="text" style="font-size:18px; font-weight:600; color:#fff;">系统绝对静默 (∅)</div>
+            <div class="subtext">等待打破对称性...</div>
+          </div>
+        </div>
+        <!-- 2D Timeline -->
+        <div class="plot-2d-wrapper" id="plot-2d-wrapper" style="display:none;">
+          <div id="plotly-2d-div"></div>
+        </div>
+      </div>
+
+      <!-- Thermodynamics Metrics -->
+      <div class="metrics-panel" id="metrics-panel">
+        <div class="metric-card" id="metric-volume">
+          <div class="metric-title">稳态弹簧厚度 (Volume)</div>
+          <div class="metric-value" style="color:var(--text)">-</div>
+          <div class="metric-desc">受碳水冲击后的飘移幅度。越小表示控盘能力越强、张力越好。</div>
+        </div>
+        <div class="metric-card" id="metric-velocity">
+          <div class="metric-title">胰岛素响应阻力 (Recovery)</div>
+          <div class="metric-value" style="color:var(--text)">-</div>
+          <div class="metric-desc">轨迹向心收敛速度。极度快为超调，慢为重度胰岛素抵抗。</div>
+        </div>
+        <div class="metric-card" id="metric-shape">
+          <div class="metric-title">磁滞迟缓指数 (Hysteresis)</div>
+          <div class="metric-value" style="color:var(--text)">-</div>
+          <div class="metric-desc">上升/下降轨迹重合度(λ₁/λ₂)。越接近1表示肚大圆鼓，释放严重滞后。</div>
+        </div>
+        <div class="metric-card" id="metric-core">
+          <div class="metric-title">日夜引力核偏移 (Core Dist)</div>
+          <div class="metric-value" style="color:var(--text)">-</div>
+          <div class="metric-desc">全天基线偏离夜间纯净稳态的距离。反映白天对底盘的系统性透支。</div>
+        </div>
+        <div class="metric-card" id="metric-dimension">
+          <div class="metric-title">吸引子分形维度 (Dimension)</div>
+          <div class="metric-value" style="color:var(--text)">-</div>
+          <div class="metric-desc">相空间充盈/混沌度(盒计数)。趋1为僵硬极限环，趋3为噪声化失稳。</div>
+        </div>
+        <div class="metric-card" id="metric-lyapunov">
+          <div class="metric-title">李雅普诺夫指数 (Lyapunov)</div>
+          <div class="metric-value" style="color:var(--text)">-</div>
+          <div class="metric-desc">相邻轨迹发散率。&gt;0为混沌/对初值敏感，≈0临界，&lt;0收敛稳定。</div>
+        </div>
+        <div class="metric-card" id="metric-det">
+          <div class="metric-title">代谢僵化度 (DET)</div>
+          <div class="metric-value" style="color:var(--text)">-</div>
+          <div class="metric-desc">被因果律锁死的轨迹占比。极高为僵死，极低为白噪音化失序。</div>
+        </div>
+        <div class="metric-card" id="metric-entr">
+          <div class="metric-title">适应性资本 (ENTR)</div>
+          <div class="metric-value" style="color:var(--text)">-</div>
+          <div class="metric-desc">对角线长度香农熵。越高代表应对冲击的代谢手段越丰富灵活。</div>
+        </div>
+        <div class="metric-card" id="metric-insulin-pred">
+          <div class="metric-title">空腹胰岛素 (Predicted FINS)</div>
+          <div class="metric-value" style="color:var(--text)">-</div>
+          <div class="metric-desc">多尺度基线预言机推断的潜在底盘阻力。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CGM Thermodynamics Attractor Analyzer v6.3
+// Features: SYC Fractal Embedology (Dynamic m > 2*dA), 99% Variance Razor, Independent Recovery/Lyapunov
+//           RQA (Recurrence Quantification Analysis) for DET & ENTR
+//
+// [V6.3 升级]
+// 引入递归定量分析 (RQA)，基于纯粹的拓扑学和非线性动力学测量工具。
+// 1. 新增 DET (Determinism): 测量系统被因果律锁死的程度。
+// 2. 新增 ENTR (Shannon Entropy of Diagonal Lines): 测量适应性资本/计算不可约性。
+// 3. 增加递归图 (Recurrence Plot) 的二维热力图渲染。
+//
+// [V6.3 热修 (Review Pass)]
+// Bug25: computeRQA 最初 k(=j-i) 从 1 开始扫描，未排除 Theiler 窗口。CGM 慢变，
+//        相邻时间点几乎必然"递归"，这是时间连续性的伪影而非真实回归，会在主对角线
+//        附近生成贯穿全长的伪对角线，把 DET 系统性推向 1.0 并让 ENTR 分布失真。
+//        修复：复用 lyapunovProxy 同源的 THEILER=5 常量，k 从 THEILER+1 起扫描，
+//        RR 的分母同步排除窗口内点对。
+// Bug26: epsilon 阈值所需的标准差最初用单次遍历 E[X²]-E[X]² 公式，在极端平坦片段下
+//        可能因浮点抵消产生负数导致 Math.sqrt 返回 NaN。
+//        修复：改用两遍遍历的均值中心化求方差，与 computeNormalizedRecovery 一致。
+// Bug27: predictInsulinBaseline 对 4 个 Tau 尺度的扫描每次都恒定跑一次 O(n²) 的
+//        RQA，但其 FEATURE_SCALES 从不消费 det/entr，纯属浪费算力。
+//        修复：新增 skipRQA 开关，预言机路径按需跳过。
+// Bug28: 递归图使用 SVG 的 'scatter' trace，高 RR 天数点数可能上万导致卡顿。
+//        修复：换用 WebGL 的 'scattergl'。
+// Bug29: epsilon 阈值最初取 1D 原始序列标准差的固定比例，未考虑塔肯斯嵌入后的距离是在
+//        m 维空间中测量的，导致高维下几乎找不到任何递归点(递归图里只剩主对角线)。
+//        修复(V6.3.2)：弃用"标准差 × 维度补偿系数"的间接估算(该方案假设各嵌入维度独立，
+//        但塔肯斯延迟坐标实为同一信号的相关副本，补偿系数会随 Tau/维度漂移，易矫枉过正)，
+//        改为直接从相空间实际点对距离分布中按目标递归率(RR≈5%)反推 epsilon，自适应任意
+//        维度/Tau/平滑组合。副产品：不再需要计算标准差，Bug26 随之成为历史遗留问题。
+// Bug30: parse() 的 FileReader.onload 内完全没有 try/catch。若 XLSX 实际是旧版 .xls/
+//        损坏/加密文件，或 sheet_to_json 因表头前有额外标题行而返回空表，XLSX.read 或
+//        后续列名猜测会直接抛出未捕获异常，导致整个上传流程静默中断——不弹窗、不报错，
+//        用户只会看到"什么都没发生"。
+//        修复(V6.3.2)：为解析过程加上 try/catch 并在失败时弹出具体错误信息；同时在
+//        parseCGMFromXLSX 中打印检测到的列名/时间血糖列选择结果，以及 0 行通过校验时
+//        的首行原始值，让"列名猜错"这类无异常但结果为空的失败也能被诊断。
+//
+// [V6.2.1 热修]
+// Bug23: dA 探针曾使用受 EMA 开关影响的 values，导致"是否滤波"这一 UI 偏好会
+//        偷偷改变嵌入维度 m 本身，污染了所有下游反应性指标的可比性。
+//        修复：dA 探针恒定锚定原始未平滑数据，与 Recovery/Tau/边界击穿同源。
+// Bug24: SYC 定理 m > 2*dA 在理论上无懈可击，但典型单日 CGM 采样量(约300~500点)
+//        撑不起 5~6 维盒计数/近邻搜索的统计密度——维度越"聪明地"升高，
+//        Dimension/Lyapunov 反而越失真(向下偏置)，恰好在最需要它们的混沌病人身上失灵。
+//        修复：引入采样密度熔断 capDimBySampleDensity()，按经验阈值限制可信的最高维度，
+//        维度不足以支撑时宁可保守欠拟合，也不制造虚假的高维分辨力假象。
+// 消息文案：Dimension/Lyapunov 为 null 时的提示语从笼统的"数据点不足"改为区分真实成因。
+// ============================================================
+
+const ColorScale = [
+  [0, '#3b82f6'],      // Hypo - blue
+  [0.35, '#10b981'],   // Normal - green
+  [0.55, '#f59e0b'],   // Borderline - amber
+  [0.7, '#ef4444'],    // High - red
+  [1, '#991b1b']       // Very high - dark red
+];
+
+// ---- Math Utils ----
+// [V6.0新增] N维实对称矩阵雅可比特征值算法
+function jacobiEigenvalues(A, maxIter = 50) {
+  const n = A.length;
+  const a = A.map(row => [...row]);
+  for (let iter = 0; iter < maxIter; iter++) {
+    let maxVal = 0, p = 0, q = 1;
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        if (Math.abs(a[i][j]) > maxVal) { maxVal = Math.abs(a[i][j]); p = i; q = j; }
+      }
+    }
+    if (maxVal < 1e-10) break;
+    const theta = 0.5 * Math.atan2(2 * a[p][q], a[p][p] - a[q][q]);
+    const c = Math.cos(theta), s = Math.sin(theta);
+    const app = a[p][p], aqq = a[q][q], apq = a[p][q];
+    a[p][p] = c*c*app - 2*s*c*apq + s*s*aqq;
+    a[q][q] = s*s*app + 2*s*c*apq + c*c*aqq;
+    a[p][q] = a[q][p] = 0;
+    for (let j = 0; j < n; j++) {
+      if (j === p || j === q) continue;
+      const apj = a[p][j], aqj = a[q][j];
+      a[p][j] = a[j][p] = c * apj - s * aqj;
+      a[q][j] = a[j][q] = s * apj + c * aqj;
+    }
+  }
+  const ev = [];
+  for (let i = 0; i < n; i++) ev.push(a[i][i]);
+  ev.sort((x, y) => y - x);
+  return ev;
+}
+
+// 保持向下兼容
+function eigenvalues3x3(A) { return jacobiEigenvalues(A); }
+
+// [V6.3 新增] 递归定量分析 (RQA) 核心引擎 - Fractal Embedology
+// 物理意义：测量非交换幺半群中的“不可逆链式锁定(DET)”与“适应性资本(ENTR)”
+//
+// [V6.3 修复 Bug25] Theiler 窗口缺失：k(=j-i) 从 1 开始扫描时，相邻时间点
+// (如 t 与 t+3min) 在慢变的 CGM 序列上几乎必然"递归"，这只是时间连续性/自
+// 相关的伪影，并非真实的"系统回到历史相似状态"。若不排除，主对角线附近会
+// 生成一条几乎贯穿全长的伪对角线，把 DET 系统性推向 1.0、并让 ENTR 的分布
+// 被这条伪对角线主导，掩盖真正有意义的中长程回归结构。
+// 修复：复用 lyapunovProxy 中同源的 THEILER=5 常量，k 从 THEILER+1 起扫描，
+// 与 Lyapunov 近邻搜索的隔离公理保持一致。
+const RQA_THEILER = 5;
+// [V6.3.2 修复 Bug29] epsilon 阈值最初取 1D 原始序列标准差的固定比例，未考虑塔肯斯嵌入
+// 后的距离是在 m 维空间中测量的——同样的相对阈值在高维下几何距离会自然膨胀，导致几乎找
+// 不到任何递归点(递归图里只剩主对角线)。曾尝试用 sqrt(m) 补偿，但该系数假设了"各嵌入维度
+// 相互独立"，而塔肯斯延迟坐标其实是同一条曲线在不同延迟下的相关副本(Tau 只是让 ACF 衰减
+// 到 1/e，并非衰减到 0)，真实的距离膨胀倍数会随 Tau/平滑度/维度漂移，sqrt(m) 容易矫枉过正
+// (令 RR 反而飙到过高，图变成一块块黑色实心方块)。
+// 修复：弃用"标准差 × 维度补偿系数"的间接估算，改为直接从相空间实际点对距离分布中，按
+// 目标递归率(RR)反推 epsilon——不依赖任何独立性假设，自动适配任意维度/Tau/平滑组合。
+// 目标 RR 锚定在 RQA 文献(Marwan et al.)推荐区间(1%~10%)的中低端。
+// 副产品：该方案不再需要计算标准差，Bug26(方差数值稳定性)随之成为历史遗留问题。
+const RQA_TARGET_RR = 0.05;
+function computeRQA(validPoints, targetRR = RQA_TARGET_RR, skipRPMatrix = false) {
+  const n = validPoints.length;
+  if (n < 10) return { rr: null, det: null, entr: null, rpMatrix: null };
+
+  // 1. 收集 Theiler 窗口外的全部点对距离 (与第 2 步共用同一套 k/i 遍历顺序，稍后按序复用，避免重复计算)
+  const distances = [];
+  for (let k = RQA_THEILER + 1; k < n; k++) {
+    for (let i = 0; i < n - k; i++) {
+      distances.push(calcDistance(validPoints[i], validPoints[i + k]));
+    }
+  }
+  if (distances.length === 0) return { rr: null, det: null, entr: null, rpMatrix: null };
+
+  // 2. 按目标递归率，从实际距离分布中取分位数作为 epsilon —— 自校准，不受维度/Tau/平滑影响
+  const sortedDist = [...distances].sort((a, b) => a - b);
+  const epsIdx = Math.min(sortedDist.length - 1, Math.max(0, Math.floor(targetRR * sortedDist.length)));
+  const epsilon = sortedDist[epsIdx];
+
+  // 3. 沿对角线扫描递归矩阵，按与第 1 步完全一致的 k/i 顺序复用 distances，避免二次调用 calcDistance
+  let totalRecurrences = 0; // 记录非对角线上的递归点总数
+  let diagPointsCount = 0;  // 记录组成有效对角线(长度>=l_min)的点数
+  const lineLengths = [];   // 记录所有有效对角线的长度
+  const l_min = 2;          // 构成“物理因果链”的最小长度
+  
+  // 用于渲染 RP 图的稀疏矩阵 (胰岛素预言机的多尺度扫描不需要渲染，可跳过节省内存)
+  const rpMatrix = skipRPMatrix ? null : { x: [], y: [] };
+
+  // k 为对角线偏移量 (k = j - i)；k 必须越过 Theiler 窗口，排除纯时间连续性伪影
+  let distPtr = 0;
+  for (let k = RQA_THEILER + 1; k < n; k++) {
+    let currentLen = 0;
+    for (let i = 0; i < n - k; i++) {
+      const j = i + k;
+      const dist = distances[distPtr++];
+      
+      if (dist < epsilon) {
+        currentLen++;
+        totalRecurrences++;
+        if (rpMatrix) { rpMatrix.x.push(i); rpMatrix.y.push(j); rpMatrix.x.push(j); rpMatrix.y.push(i); }
+      } else {
+        // 链条断裂，结算当前对角线
+        if (currentLen >= l_min) {
+          lineLengths.push(currentLen);
+          diagPointsCount += currentLen;
+        }
+        currentLen = 0;
+      }
+    }
+    // 结算触碰到矩阵边缘的对角线
+    if (currentLen >= l_min) {
+      lineLengths.push(currentLen);
+      diagPointsCount += currentLen;
+    }
+  }
+
+  // 4. 结算指标 (由于矩阵对称，上下三角的概率分布一致，无需乘以2)
+  // 递归率 RR (Recurrence Rate): 发生拓扑谐振的概率
+  // 分母 = 扫描区间内实际的点对总数 Σ_{k=T+1}^{n-1}(n-k) = (n-T-1)(n-T)/2，同步排除 Theiler 窗口
+  const gap = n - RQA_THEILER - 1;
+  const maxPossibleRecurrences = gap > 0 ? gap * (gap + 1) / 2 : 0;
+  const rr = maxPossibleRecurrences > 0 ? totalRecurrences / maxPossibleRecurrences : 0;
+
+  // 确定性 DET (Determinism): 被因果律锁死的点占比
+  const det = totalRecurrences > 0 ? diagPointsCount / totalRecurrences : 0;
+
+  // 对角线熵 ENTR (Shannon Entropy): 适应性资本/计算不可约性
+  let entr = 0;
+  if (lineLengths.length > 0) {
+    const counts = {};
+    for (const l of lineLengths) counts[l] = (counts[l] || 0) + 1;
+    
+    const totalLines = lineLengths.length;
+    for (const l in counts) {
+      const p = counts[l] / totalLines;
+      entr -= p * Math.log(p); // 使用自然对数 ln
+    }
+  }
+
+  // 添加主对角线 (仅用于绘图展示基准线，不参与任何指标统计)
+  if (rpMatrix) {
+    for(let i=0; i<n; i++) { rpMatrix.x.push(i); rpMatrix.y.push(i); }
+  }
+
+  return { rr, det, entr, rpMatrix };
+}
+
+function getMedian(arr) {
+  if (!arr || arr.length === 0) return 0;
+  const s = [...arr].sort((a,b) => a-b);
+  const mid = Math.floor(s.length/2);
+  return s.length % 2 !== 0 ? s[mid] : (s[mid-1] + s[mid]) / 2;
+}
+
+// [V6.0] 泛化 N 维距离计算
+function calcDistance(p1, p2) {
+  let sum = 0;
+  for (let d = 0; d < p1.length; d++) sum += (p1[d] - p2[d]) ** 2;
+  return Math.sqrt(sum);
+}
+
+// ---- Parsers & Preprocess ----
+// [V5.7新增] 智能量纲坍缩 (mg/dL -> mmol/L)
+function applyDimensionCollapse(parsed) {
+  if (!parsed || parsed.values.length === 0) return parsed;
+  const med = getMedian(parsed.values);
+  if (med > 30) {
+    console.log(`检测到极高中位数 (${med.toFixed(1)} > 30)，触发智能量纲坍缩：mg/dL -> mmol/L (除以 18.0182)`);
+    parsed.values = parsed.values.map(v => v / 18.0182);
+    parsed.collapsed = true;
+  }
+  return parsed;
+}
+
+function parseCGMFromCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  const timestamps = [], values = [];
+  const delim = lines[0].includes('\t') ? '\t' : ',';
+  let timeIdx = 0, valIdx = 1;
+  lines[0].split(delim).forEach((c, i) => {
+    if (c.includes('时间') || c.toLowerCase().includes('time')) timeIdx = i;
+    // [V5修复] 排除"血糖自增ID"之类含 ID/编号 的列名，防止误判为血糖值列
+    if ((c.includes('血糖') || c.toLowerCase().includes('glucose') || c.toLowerCase().includes('value')) && !c.includes('ID') && !c.includes('编号') && !c.includes('自增')) valIdx = i;
+  });
+  for (let i = 1; i < lines.length; i++) {
+    const parts = lines[i].split(delim);
+    if (parts.length <= Math.max(timeIdx, valIdx)) continue;
+    const t = new Date(parts[timeIdx]?.trim());
+    const v = parseFloat(parts[valIdx]?.trim());
+    if (!isNaN(t.getTime()) && !isNaN(v) && v > 0) { timestamps.push(t); values.push(v); }
+  }
+  if (timestamps.length === 0) return null;
+  // [V5修复] 强制按时间箭头（热力学时间单向性）进行升序排列
+  const sorted = timestamps.map((t, i) => ({t, v: values[i]})).sort((a, b) => a.t - b.t);
+  return applyDimensionCollapse({ timestamps: sorted.map(x=>x.t), values: sorted.map(x=>x.v) });
+}
+
+function fixExcelDate(serial) {
+  const t = new Date((serial - 25569) * 86400 * 1000);
+  return new Date(t.getTime() + t.getTimezoneOffset() * 60000);
+}
+
+function parseCGMFromXLSX(arrayBuffer) {
+  const wb = XLSX.read(arrayBuffer, { type: 'array', codepage: 65001 });
+  const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+  if (!json || json.length === 0) {
+    console.warn('[XLSX解析] 首个工作表为空，或表头行前有额外的标题/说明行导致 sheet_to_json 读不到数据。');
+    return null;
+  }
+  const timestamps = [], values = [];
+  const keys = Object.keys(json[0]);
+  let timeKey = keys[1], valKey = keys[2];
+  keys.forEach(k => {
+    if (k.includes('时间') || k.toLowerCase().includes('time')) timeKey = k;
+    // [V5修复] 排除"血糖自增ID"之类含 ID/编号 的列名，防止误判为血糖值列
+    if ((k.includes('血糖') || k.toLowerCase().includes('glucose') || k.toLowerCase().includes('value')) && !k.includes('ID') && !k.includes('编号') && !k.includes('自增')) valKey = k;
+  });
+  // [V6.3.2 修复 Bug30 诊断] 打印检测到的列名与选中的时间/血糖列，方便定位"列名猜错"这类无提示的静默失败。
+  console.log(`[XLSX解析] 检测到列: [${keys.join(', ')}] -> 时间列="${timeKey}" 血糖列="${valKey}"`);
+  for (const row of json) {
+    let t = row[timeKey], v = parseFloat(row[valKey]);
+    if (typeof t === 'number' && t > 10000) t = fixExcelDate(t);
+    else if (typeof t === 'string') t = new Date(t.trim());
+    if (t instanceof Date && !isNaN(t.getTime()) && !isNaN(v) && v > 0) {
+      timestamps.push(t); values.push(v);
+    }
+  }
+  if (timestamps.length === 0) {
+    const sampleT = json[0][timeKey];
+    const parsedSampleT = typeof sampleT === 'number' ? fixExcelDate(sampleT) : new Date(String(sampleT).trim());
+    console.warn('[XLSX解析] 0 行通过校验。首行原始数据:', json[0], `-> 时间列原始值="${sampleT}"，解析为 ${parsedSampleT}，血糖列解析为 ${parseFloat(json[0][valKey])}`);
+    return null;
+  }
+  // [V5修复] 强制按时间箭头（热力学时间单向性）进行升序排列
+  const sorted = timestamps.map((t, i) => ({t, v: values[i]})).sort((a, b) => a.t - b.t);
+  return applyDimensionCollapse({ timestamps: sorted.map(x=>x.t), values: sorted.map(x=>x.v) });
+}
+
+function resampleData(data, smooth = false) {
+  const ts = data.timestamps, vs = data.values;
+  const newTs = [ts[0]], newVs = [vs[0]];
+  for (let i = 1; i < ts.length; i++) {
+    const gap = (ts[i].getTime() - ts[i-1].getTime()) / 60000;
+    // [V5修复] 限制线性插值：超过15分钟的缺口直接置为null，避免生成无摩擦的“人造直线弦”
+    if (gap > 4 && gap <= 15) {
+      const steps = Math.round(gap / 3);
+      const tStep = (ts[i].getTime() - ts[i-1].getTime()) / steps;
+      const vStep = (vs[i] - vs[i-1]) / steps;
+      for (let j = 1; j < steps; j++) { newTs.push(new Date(ts[i-1].getTime() + tStep * j)); newVs.push(vs[i-1] + vStep * j); }
+    } else if (gap > 15) {
+      newTs.push(new Date(ts[i-1].getTime() + 15 * 60000));
+      newVs.push(null);
+    }
+    newTs.push(ts[i]); newVs.push(vs[i]);
+  }
+  
+  // [V5.2修复] 如果勾选了滤波，对生成的 resample 序列进行 EMA（指数移动平均）降噪，Alpha 设为 0.3
+  if (smooth) {
+    let ema = null;
+    const alpha = 0.3;
+    const smoothedVs = [];
+    for (let i = 0; i < newVs.length; i++) {
+      if (newVs[i] === null) {
+        ema = null; // 断联处重置 EMA
+        smoothedVs.push(null);
+      } else {
+        if (ema === null) {
+          ema = newVs[i];
+        } else {
+          ema = alpha * newVs[i] + (1 - alpha) * ema;
+        }
+        smoothedVs.push(ema);
+      }
+    }
+    return { timestamps: newTs, values: smoothedVs };
+  }
+  
+  return { timestamps: newTs, values: newVs };
+}
+
+function computeACF(values, maxLag) {
+  const valid = values.filter(v => v !== null);
+  const n = valid.length;
+  if (n < 10) return new Float64Array(maxLag+1).fill(0);
+  const mean = valid.reduce((a,b)=>a+b,0)/n;
+  // [V5修复] 计算方差的平均值，用于无偏估计，避免因 null 导致总体方差假大
+  const var_avg = valid.reduce((s,x)=>s+(x-mean)**2,0) / n;
+  if (var_avg === 0) return new Float64Array(maxLag+1).fill(0);
+
+  const acf = new Float64Array(maxLag+1); acf[0]=1;
+  for (let lag = 1; lag <= maxLag; lag++) {
+    let cov=0, cnt=0;
+    for (let i = 0; i < values.length - lag; i++) {
+      if (values[i] !== null && values[i+lag] !== null) {
+        cov += (values[i]-mean)*(values[i+lag]-mean); cnt++;
+      }
+    }
+    // [V5修复] 严格除以实际配对的对数(cnt)，消除因数据断联导致的数学伪衰减
+    acf[lag] = cnt > 0 ? (cov / cnt) / var_avg : 0;
+  }
+  return acf;
+}
+
+function recommendTau(acf) {
+  // [V5核心修复] "首次局部极小值"判据必须在 ACF 已发生实质性衰减(低于0.8)后才被信任，
+  // 否则传感器在浅层(lag=1~2)的微小抖动会制造虚假的单点局部极小值，把 Tau 错判为 1。
+  // 同时要求"连续两步回升"(acf[i+1] >= acf[i])作为局部极小值的确证，而非单点噪声抖动。
+  let decayed = false;
+  for (let i = 1; i < acf.length - 1; i++) {
+    if (acf[i] < 0.8) decayed = true;
+    if (acf[i] < 1/Math.E) return i;
+    if (decayed && acf[i] > acf[i-1] && acf[i+1] >= acf[i]) return i - 1;
+  }
+  // [V5修复] 解除硅基锁死封印，允许系统暴露高达 40 的重度物理时间债
+  return Math.min(40, acf.length - 1);
+}
+
+function sliceByPeriod(ts, vs, period) {
+  if (period === 'all') return { timestamps: ts, values: vs };
+  const newTs = [], newVs = [];
+  const startH = period === 'night' ? 0 : 6;
+  const endH = period === 'night' ? 6 : 18;
+  for (let i = 0; i < ts.length; i++) {
+    if (vs[i] === null) { newTs.push(ts[i]); newVs.push(null); continue; }
+    const h = ts[i].getHours() + ts[i].getMinutes() / 60;
+    const inRange = startH <= endH ? (h >= startH && h < endH) : (h >= startH || h < endH);
+    if (inRange) { newTs.push(ts[i]); newVs.push(vs[i]); } 
+    else if (newVs.length > 0 && newVs[newVs.length - 1] !== null) { newTs.push(ts[i]); newVs.push(null); }
+  }
+  return { timestamps: newTs, values: newVs };
+}
+
+// ---- Takens Core ----
+// [V6.0] 支持任意维度 d，默认为 3
+function takensEmbedding(values, tau, dim = 3) {
+  const n = values.length;
+  const points = [];
+  for (let i = 0; i < n - (dim - 1) * tau; i++) {
+    let hasNull = false;
+    const pt = new Array(dim);
+    for (let d = 0; d < dim; d++) {
+      const v = values[i + d * tau];
+      if (v === null) { hasNull = true; break; }
+      pt[d] = v;
+    }
+    if (hasNull) points.push(null);
+    else points.push(pt);
+  }
+  return points;
+}
+
+// [V6.0] 泛化为 N 维
+function boxCountingDimension(points) {
+  const valid = points.filter(p => p !== null);
+  const n = valid.length;
+  if (n < 20) return null;
+  const dim = valid[0].length;
+
+  const min = new Array(dim).fill(Infinity);
+  const max = new Array(dim).fill(-Infinity);
+  for (const p of valid) {
+    for (let d = 0; d < dim; d++) {
+      if (p[d] < min[d]) min[d] = p[d];
+      if (p[d] > max[d]) max[d] = p[d];
+    }
+  }
+  let range = 0;
+  for (let d = 0; d < dim; d++) range = Math.max(range, max[d] - min[d]);
+  if (range <= 1e-9) return 0;
+
+  const divs = [2, 4, 8, 16];
+  const logN = [], logInvEps = [];
+  for (const g of divs) {
+    const eps = range / g;
+    const occ = new Set();
+    for (const p of valid) {
+      const parts = [];
+      for (let d = 0; d < dim; d++) parts.push(Math.floor((p[d] - min[d]) / eps));
+      occ.add(parts.join('_'));
+    }
+    logN.push(Math.log(occ.size));
+    logInvEps.push(Math.log(g / range));
+  }
+
+  const k = logN.length;
+  let sx=0, sy=0, sxx=0, sxy=0;
+  for (let i = 0; i < k; i++) { sx+=logInvEps[i]; sy+=logN[i]; sxx+=logInvEps[i]*logInvEps[i]; sxy+=logInvEps[i]*logN[i]; }
+  const denom = k*sxx - sx*sx;
+  if (Math.abs(denom) < 1e-12) return 0;
+  const slope = (k*sxy - sx*sy) / denom;
+  return Math.max(0, Math.min(dim, slope));
+}
+
+// [V6.0] 泛化为 N 维
+function lyapunovProxy(points) {
+  const idx = [];
+  for (let i = 0; i < points.length; i++) if (points[i] !== null) idx.push(i);
+  const m = idx.length;
+  if (m < 30) return null;
+  const dim = points[idx[0]].length;
+
+  const min = new Array(dim).fill(Infinity);
+  const max = new Array(dim).fill(-Infinity);
+  for (const i of idx) {
+    for (let d = 0; d < dim; d++) {
+      const v = points[i][d];
+      if (v < min[d]) min[d] = v;
+      if (v > max[d]) max[d] = v;
+    }
+  }
+  let range = 0;
+  for (let d = 0; d < dim; d++) range = Math.max(range, max[d] - min[d]);
+  range = range || 1;
+  const G = 16, cell = range / G;
+
+  const keyOf = (p) => {
+    const parts = [];
+    for (let d = 0; d < dim; d++) parts.push(Math.floor((p[d] - min[d]) / cell));
+    return parts.join('_');
+  };
+
+  const grid = new Map();
+  for (const i of idx) { const kk = keyOf(points[i]); if (!grid.has(kk)) grid.set(kk, []); grid.get(kk).push(i); }
+
+  const THEILER = 5;
+  const divs = [];
+  for (const i of idx) {
+    if (points[i+1] == null) continue;
+    const cand = grid.get(keyOf(points[i])) || [];
+    let best = -1, bestD = Infinity;
+    for (const j of cand) {
+      if (Math.abs(i - j) <= THEILER) continue;
+      if (points[j+1] == null) continue;
+      const d0 = calcDistance(points[i], points[j]);
+      if (d0 > 1e-6 && d0 < bestD) { bestD = d0; best = j; }
+    }
+    if (best < 0) continue;
+    const d1 = calcDistance(points[i+1], points[best+1]);
+    if (d1 > 1e-9 && bestD > 1e-9) divs.push(Math.log(d1 / bestD));
+  }
+  if (divs.length < 10) return null;
+  return divs.reduce((a,b)=>a+b,0) / divs.length;
+}
+
+// [V6.2.1 新增] 采样密度熔断 (Bug24 修复)
+// SYC 定理 m > 2*dA 只在渐近意义(N→∞)下保证无损重构；盒计数使用的最细分辨率是
+// g=16，占用格数上限为 16^d，维度每升 1，可信统计所需的样本量近似指数增长。
+// 下表是基于典型单日 CGM(约300~500点/24h)工程经验设定的保守熔断阈值，
+// 并非严格数学证明——目的是防止在采样密度撑不住的维度上产生"虚假的高维分辨力"。
+const MIN_POINTS_FOR_DIM = { 4: 150, 5: 600, 6: 1500 };
+function capDimBySampleDensity(calculatedDim, n) {
+  let dim = 3;
+  for (let d = 4; d <= calculatedDim; d++) {
+    if (n >= (MIN_POINTS_FOR_DIM[d] || Infinity)) dim = d;
+    else break;
+  }
+  return Math.max(3, dim);
+}
+
+// [V6.0] 泛化为 N 维
+function computeNormalizedRecovery(points) {
+  const valid = points.filter(p => p !== null);
+  const n = valid.length; if (n < 4) return 0;
+  const dim = valid[0].length;
+  const gc = [];
+  for (let d = 0; d < dim; d++) gc.push(getMedian(valid.map(p => p[d])));
+
+  const mean0 = valid.reduce((s,p)=>s+p[0],0)/n;
+  let var0 = 0; for (const p of valid) var0 += (p[0]-mean0)*(p[0]-mean0);
+  const glucoseStd = Math.sqrt(var0/(n-1));
+
+  const recovery = []; let prevDist = null;
+  for (let i = 1; i < points.length; i++) {
+    if (points[i] && points[i-1]) {
+      const d = calcDistance(points[i], gc); // 朝向真实引力核的向心力
+      const speed = calcDistance(points[i], points[i-1]); // 每步欧式迁移距离
+      if (prevDist !== null && d < prevDist) recovery.push(speed);
+      prevDist = d;
+    } else prevDist = null;
+  }
+  const avg = recovery.length > 0 ? recovery.reduce((a,b)=>a+b,0)/recovery.length : 0;
+  return glucoseStd > 1e-6 ? avg / glucoseStd : 0;
+}
+
+// Pre-computed volume coefficients: V_d = π^(d/2) / Γ(d/2 + 1)
+const VOLUME_COEFF = {
+  3: (4/3) * Math.PI,                  // ≈ 4.18879
+  4: Math.PI * Math.PI / 2,            // ≈ 4.93480
+  5: 8 * Math.PI * Math.PI / 15,       // ≈ 5.26379
+  6: Math.PI * Math.PI * Math.PI / 6,  // ≈ 5.16771
+};
+
+// Stirling's approximation for Gamma(x), x > 0
+function gammaApprox(x) {
+  if (x <= 0) return 1;
+  if (Math.abs(x - 2.5) < 0.001) return 1.329340388179137;  // Γ(2.5)
+  if (Math.abs(x - 3.0) < 0.001) return 2;                   // Γ(3)
+  if (Math.abs(x - 3.5) < 0.001) return 3.3233509704478426; // Γ(3.5)
+  if (Math.abs(x - 4.0) < 0.001) return 6;                   // Γ(4)
+  return Math.sqrt(2 * Math.PI / x) * Math.pow(x / Math.E, x);
+}
+
+// [V6.0] 架构：引入 % Razor 剔除高频底噪防维数灾难；N维泛化
+// [V6.3 优化 Bug27] 新增 skipRQA 开关：predictInsulinBaseline 的多尺度扫描(4个Tau)
+// 从不消费 det/entr(FEATURE_SCALES 里没有这两项)，此前恒定跑一次 O(n²) RQA
+// 纯属浪费算力，现由调用方按需跳过。
+function computeAttractorMetrics(shapePoints, rawPoints, smoothPoints, skipRQA = false) {
+  const points = shapePoints;
+  const valid = points.filter(p => p !== null);
+  const n = valid.length; if (n < 4) return null;
+  const dim = valid[0].length;
+
+  const arithMean = new Array(dim).fill(0);
+  for (const p of valid) for (let d = 0; d < dim; d++) arithMean[d] += p[d];
+  for (let d = 0; d < dim; d++) arithMean[d] /= n;
+
+  const gravityCore = [];
+  for (let d = 0; d < dim; d++) gravityCore.push(getMedian(valid.map(p => p[d])));
+
+  const cov = Array.from({length: dim}, () => new Float64Array(dim));
+  for (const p of valid) {
+    for (let i = 0; i < dim; i++) {
+      const di = p[i] - arithMean[i];
+      for (let j = 0; j < dim; j++) cov[i][j] += di * (p[j] - arithMean[j]);
+    }
+  }
+  for (let i = 0; i < dim; i++) for (let j = 0; j < dim; j++) cov[i][j] /= (n - 1);
+
+  const eigvals = jacobiEigenvalues(cov).map(v => Math.max(v, 1e-10));
+
+  // [V6.0 核心] % Razor 信噪比剃刀：提取累计方差占比 > 99% 的有效自由度，切断高维噪声爆炸
+  const totalEnergy = eigvals.reduce((a, b) => a + b, 0);
+  let accumulatedEnergy = 0;
+  let effectiveDim = 0;
+  for (let i = 0; i < dim; i++) {
+    accumulatedEnergy += eigvals[i];
+    effectiveDim++;
+    if (accumulatedEnergy / totalEnergy > 0.99) break;
+  }
+
+  // 广义体积计算，仅使用有效维度防止坍缩
+  const coeff = VOLUME_COEFF[effectiveDim] || (Math.pow(Math.PI, effectiveDim/2) / gammaApprox(effectiveDim/2 + 1));
+  let volProduct = 1;
+  for (let i = 0; i < effectiveDim; i++) volProduct *= Math.sqrt(eigvals[i]);
+  const volume = coeff * volProduct;
+
+  // [V6.1修复Bug21] 磁滞比恒定锚定 λ1/λ2 (与 v5.x 历史阈值和物理定义保持一致)。
+  // 原 v6.0 误用 effectiveDim 的最小特征值做分母，Razor 把 effectiveDim 收缩到 3~4 时
+  // 会把比值系统性拉大，导致旧阈值(<1.2 球状磁滞 / <1.8 回线臃肿)集体失明。
+  const shapeRatio = eigvals[1] > 1e-12 ? eigvals[0] / eigvals[1] : Infinity;
+
+  // 反应性指标
+  const normalizedRecovery = computeNormalizedRecovery(rawPoints);
+  const dimension = boxCountingDimension(points);
+  const lyapunov = lyapunovProxy(smoothPoints);
+
+  // [V6.3] 引入 RQA 引擎
+  // [V6.3.2] 不再传入 epsilonRatio，改用 computeRQA 内部按目标递归率自校准 epsilon (见 Bug29 修复注释)
+  const rqa = skipRQA
+    ? { det: null, entr: null, rr: null, rpMatrix: null }
+    : computeRQA(smoothPoints.filter(p => p !== null));
+
+  return { 
+    volume, shapeRatio, avgRecovery: normalizedRecovery, 
+    dimension, lyapunov, 
+    det: rqa.det, entr: rqa.entr, rr: rqa.rr, rpMatrix: rqa.rpMatrix,
+    mean: arithMean, gravityCore, validPoints: valid, effectiveDim, embeddingDim: dim 
+  };
+}
+
+// ---- Multi-Scale Composite Analysis & Insulin Predictor ----
+const DEFAULT_TAUS = [5, 10, 15, 20];
+const INSULIN_MEAN = 7.75;
+const INSULIN_STD  = 4.40;
+
+const REF_MEDIANS = { volume: 393093, shapeRatio: 4.04, avgRecovery: 0.345, dimension: 1.934, lyapunov: 0.416 };
+const FEATURE_SCALES = { volume: -0.0000005, shapeRatio: -0.98, avgRecovery: -9.49, dimension: +7.43, lyapunov: -6.98 };
+const TAU_WEIGHTS_V2 = { 5: 0.15, 10: 0.20, 15: 0.50, 20: 0.15 };
+
+// [V6.1修复Bug22] 参数改名为 rawValues 以强制调用方传入真原始序列；
+// 内部自行派生平滑序列，不再信任外部传入已被污染的"smoothValues"当作 raw 使用。
+function predictInsulinBaseline(rawValues, dim = 4) {
+  const rawDataShim = { timestamps: rawValues.map((v,i)=>new Date(i*180000)), values: rawValues };
+  const smoothValues = resampleData(rawDataShim, true).values;
+
+  const allValid = [];
+  for (const tau of DEFAULT_TAUS) {
+    if (rawValues.length < (dim - 1) * tau + 4) continue;
+    // 形状/Recovery 恒用真原始；Lyapunov 恒用真平滑——与主分析管线的隔离公理一致
+    const ptsRaw = takensEmbedding(rawValues, tau, dim);
+    const ptsSmooth = takensEmbedding(smoothValues, tau, dim);
+
+    // 预言机的 FEATURE_SCALES 不消费 det/entr，跳过 RQA 节省算力(见 skipRQA 注释)
+    const m = computeAttractorMetrics(ptsRaw, ptsRaw, ptsSmooth, true);
+    if (m) allValid.push({ tau, ...m });
+  }
+
+  if (allValid.length < 1) return { predicted: null, confidence: 'low', reason: 'Insufficient data' };
+
+  let totalDelta = 0;
+  const contributions = [];
+
+  for (const item of allValid) {
+    const tw = TAU_WEIGHTS_V2[item.tau] || (1.0 / allValid.length);
+    for (const metric of Object.keys(FEATURE_SCALES)) {
+      const val = item[metric];
+      if (val === null || val === undefined) continue;
+      const ref = REF_MEDIANS[metric] || 0;
+      const scale = FEATURE_SCALES[metric] || 0;
+      const rawContrib = scale * (val - ref);
+      const clamped = Math.max(-2 * INSULIN_STD, Math.min(2 * INSULIN_STD, rawContrib));
+      const contrib = tw * clamped;
+      totalDelta += contrib;
+      contributions.push({ tau: item.tau, metric, value: val, contribution: +contrib.toFixed(3) });
+    }
+  }
+
+  const predicted = INSULIN_MEAN + totalDelta;
+  const nScales = allValid.length;
+  // [V6.1] "confidence" 仅描述多尺度内部一致性(是否足够 Tau 样本、贡献量是否失控)，
+  // 不代表临床可信度——标定源(53人队列, Ridge线性回归)的解释力 R²≈0.04，属实验性弱信号。
+  let confidence = 'low';
+  if (nScales >= 4 && Math.abs(totalDelta) < 2.5 * INSULIN_STD) confidence = 'high';
+  else if (nScales >= 2) confidence = 'medium';
+
+  return { predicted: +predicted.toFixed(1), contributions, confidence, nScales, experimental: true, r2: 0.04 };
+}
+
+// ---- UI Logic ----
+const UI = {
+  rawData: null, plotInit: false,
+  
+  init() {
+    document.getElementById('toggle-advanced').onclick = (e) => {
+      const c = document.getElementById('advanced-content');
+      c.classList.toggle('open');
+      e.target.textContent = c.classList.contains('open') ? '[ 收起 ]' : '[ 展开 ]';
+    };
+    
+    document.getElementById('btn-load-sample').onclick = () => {
+      fetch('1.csv').then(r=>r.text()).then(t => {
+        this.rawData = parseCGMFromCSV(t);
+        if(this.rawData) this.analyze();
+      }).catch(e => alert("无本地演示文件，请上传数据"));
+    };
+
+    document.getElementById('file-input').onchange = e => { 
+      if (e.target.files.length) {
+        const file = e.target.files[0];
+        document.getElementById('upload-zone').classList.add('has-file');
+        document.getElementById('file-info').textContent = file.name;
+        this.parse(file); 
+      }
+    };
+    
+    const z = document.getElementById('upload-zone');
+    z.onclick = () => document.getElementById('file-input').click();
+    
+    // 防止浏览器默认打开文件
+    window.addEventListener('dragover', e => e.preventDefault());
+    window.addEventListener('drop', e => e.preventDefault());
+
+    z.ondragenter = e => { e.preventDefault(); e.stopPropagation(); z.classList.add('dragover'); };
+    z.ondragover = e => { e.preventDefault(); e.stopPropagation(); z.classList.add('dragover'); };
+    z.ondragleave = e => { e.preventDefault(); e.stopPropagation(); z.classList.remove('dragover'); };
+    z.ondrop = e => { 
+      e.preventDefault(); 
+      e.stopPropagation(); 
+      z.classList.remove('dragover'); 
+      if (e.dataTransfer.files.length) {
+        const file = e.dataTransfer.files[0];
+        z.classList.add('has-file');
+        document.getElementById('file-info').textContent = file.name;
+        this.parse(file); 
+      }
+    };
+
+    document.getElementById('sel-period').onchange = () => this.analyze();
+    document.getElementById('tau-slider').oninput = e => { 
+      document.getElementById('tau-display').textContent = e.target.value; 
+      this.analyze(); 
+    };
+    document.getElementById('chk-smooth').onchange = () => this.analyze();
+
+    document.getElementById('btn-copy-oracle').onclick = () => {
+      if (!this.lastReport) {
+        alert('请先加载并分析数据！');
+        return;
+      }
+      navigator.clipboard.writeText(this.lastReport).then(() => {
+        const btn = document.getElementById('btn-copy-oracle');
+        const oldHtml = btn.innerHTML;
+        const oldBg = btn.style.background;
+        const oldBorder = btn.style.borderColor;
+        
+        btn.style.background = 'rgba(16, 185, 129, 0.15)';
+        btn.style.borderColor = 'var(--green)';
+        btn.innerHTML = `<div style="font-size:24px; margin-bottom:4px;">✅</div><div style="font-size:14px; font-weight:bold; color:var(--green);">复制成功</div>`;
+        
+        setTimeout(() => {
+          btn.innerHTML = oldHtml;
+          btn.style.background = oldBg;
+          btn.style.borderColor = oldBorder;
+        }, 2000);
+      });
+    };
+  },
+
+// [V5.1修复] 支持 GBK 编码的 CSV 读取
+  parse(f) {
+    const isCSV = f.name.toLowerCase().endsWith('.csv');
+    const r = new FileReader();
+    
+    r.onload = e => {
+      // [V6.3.2 修复 Bug30] 原先解析过程完全没有 try/catch：若 XLSX 实际是旧版 .xls/损坏/
+      // 加密文件，XLSX.read 或 sheet_to_json 会直接抛异常，onload 内的未捕获异常会让整个
+      // 流程静默中断——不弹窗、不报错，用户只会看到"什么都没发生"。
+      // 修复：捕获异常并把具体错误信息展示出来，避免真实故障被"静默吞掉"。
+      try {
+        if (isCSV) {
+          // Read as ArrayBuffer, then try UTF-8 first, fallback to GBK
+          const arr = new Uint8Array(e.target.result);
+          const utf8decoder = new TextDecoder('utf-8', {fatal: true});
+          let text = '';
+          try {
+              text = utf8decoder.decode(arr);
+          } catch (err) {
+              const gbkdecoder = new TextDecoder('gbk');
+              text = gbkdecoder.decode(arr);
+          }
+          this.rawData = parseCGMFromCSV(text);
+        } else {
+          this.rawData = parseCGMFromXLSX(e.target.result);
+        }
+      } catch (err) {
+        console.error('[解析异常]', err);
+        alert(`解析失败: 文件无法被识别为有效的 ${isCSV ? 'CSV' : 'XLSX'} (${err.message})\n可能是文件已损坏、被加密、或实际是旧版 .xls 格式。`);
+        return;
+      }
+        
+      if(this.rawData) {
+        // [V5.2 修复] 计算 Tau 时暂不启用滤波，以保障原始时间债物理测算的绝对客观性
+        const { values } = resampleData(this.rawData, false);
+        // [V5修复] 提升 ACF 的探测深度，确保长延迟时间债不会被截断
+        const acf = computeACF(values, 60);
+        const recTau = recommendTau(acf);
+        
+        // [V5核心修复] 动态拓宽滑块上限，绝对防止 DOM 值在赋值时被 max 截断导致 UI 与逻辑脱节
+        const slider = document.getElementById('tau-slider');
+        if (recTau > parseInt(slider.max)) {
+          slider.max = Math.min(60, recTau + 10);
+        }
+        slider.value = recTau;
+        document.getElementById('tau-display').textContent = slider.value; // 严格用 slider 的实际落点值赋值显示
+        
+        this.analyze(); 
+      } else {
+        alert("解析失败: 无法提取 '时间' 和 '血糖' 列");
+      }
+    };
+    // [V5.1修复] 针对 GBK 和 UTF-8 的兼容读取。
+    if (isCSV) {
+      r.readAsArrayBuffer(f);
+    } else {
+      r.readAsArrayBuffer(f);
+    }
+  },
+
+  analyze() {
+    if (!this.rawData) return;
+    document.getElementById('plot-placeholder').style.display = 'none';
+
+    // [V5.7新增] UI提示量纲坍缩
+    if (this.rawData.collapsed) {
+      if (!document.getElementById('collapse-notice')) {
+        const notice = document.createElement('div');
+        notice.id = 'collapse-notice';
+        notice.style = 'background: rgba(245, 158, 11, 0.1); color: var(--yellow); padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 13px; border: 1px solid rgba(245,158,11,0.2);';
+        notice.innerHTML = '⚠️ <strong>智能量纲坍缩激活：</strong>检测到原始数据为 mg/dL，已在底层自动转换为 mmol/L 拓扑空间。';
+        // [V6.1修复Bug20] 原 .controls 选择器在当前 DOM 中不存在，挂载必崩溃(尤其 mg/dL 数据集如OhioT1DM必炸)。
+        document.getElementById('sidebar-controls').prepend(notice);
+      }
+    } else {
+      const notice = document.getElementById('collapse-notice');
+      if (notice) notice.remove();
+    }
+    
+    // [V5.2 修复] 根据 chk-smooth 的选中状态，决定是否在重采样中启用低通滤波
+    const smooth = document.getElementById('chk-smooth').checked;
+    const { timestamps, values } = resampleData(this.rawData, smooth);
+    
+    const p = document.getElementById('sel-period').value;
+    const tau = parseInt(document.getElementById('tau-slider').value);
+    
+    // [V6.2.1 修复 Bug23] dA 探针与维度决策必须恒定锚定原始未平滑数据。
+    // resampleData 的时间栅格与 smooth 无关(仅 values 变化)，故沿用同一份 timestamps 切片即可，
+    // 但绝不能再用会随 EMA 开关变化的 `values` 去探测 dA——否则用户点一下滤波开关，
+    // 嵌入维度 m 本身就会漂移，进而污染所有下游反应性指标的可比性(与 Recovery/Tau 的隔离公理一致)。
+    const { values: probeRawValues } = resampleData(this.rawData, false);
+    const sliced = sliceByPeriod(timestamps, values, p);
+    const slicedProbe = sliceByPeriod(timestamps, probeRawValues, p);
+    const probePoints = takensEmbedding(slicedProbe.values, tau, 3);
+    const dA = boxCountingDimension(probePoints) || 1.0;
+    
+    // 步骤 2：根据 Sauer-Yorke-Casdagli 扩展定理，计算完美重构拓扑所需的无损嵌入维数 m > 2 * dA。
+    // 我们在此取 Math.ceil(2 * dA)，并加上 1 的冗余安全垫。同时限制在 3~6 维之间。
+    const calculatedDim = Math.max(3, Math.min(6, Math.ceil(2 * dA) + 1));
+
+    // [V6.2.1 修复 Bug24] 采样密度熔断：SYC 理论维度可能远超过当前样本量能可靠支撑的维度，
+    // 盲目升维会让 Dimension/Lyapunov 因维度灾难而向下偏置失真。此处按有效探针点数下调。
+    const probeN = slicedProbe.values.filter(v => v !== null).length;
+    const dim = capDimBySampleDensity(calculatedDim, probeN);
+    const dimCapped = dim < calculatedDim;
+    console.log(`[Fractal Embedology] dA=${dA.toFixed(3)} -> SYC 理论维度=${calculatedDim}, 样本量=${probeN} -> 熔断后 m=${dim}${dimCapped ? ' (⚠️ 采样密度不足，已下调)' : ''}`);
+
+    // [V5修复] 强制使用与当前分析一致的 Tau 提取夜间基线点
+    const nightS = sliceByPeriod(timestamps, values, 'night');
+    const nightPoints = takensEmbedding(nightS.values, tau, dim).filter(p=>p!==null);
+    const nightCore = nightPoints.length > 0 ? (new Array(dim).fill(0).map((_, d) => getMedian(nightPoints.map(p => p[d])))) : null;
+
+    const points = takensEmbedding(sliced.values, tau, dim); // 视图路径(随 EMA 开关)
+
+    // [V5.5 架构] 反应性指标脱离 EMA 开关：Recovery 恒用原始、Lyapunov 恒用平滑。
+    // resampleData 的时间栅格与 smooth 无关(仅 values 变化)，故可共用 timestamps 切片。
+    const { values: rawValues } = resampleData(this.rawData, false);
+    const { values: smoothValues } = resampleData(this.rawData, true);
+    const pointsRaw = takensEmbedding(sliceByPeriod(timestamps, rawValues, p).values, tau, dim);
+    const pointsSmooth = takensEmbedding(sliceByPeriod(timestamps, smoothValues, p).values, tau, dim);
+
+    const metrics = computeAttractorMetrics(points, pointsRaw, pointsSmooth);
+    if(!metrics) return;
+
+    let displacement = 0;
+    // [V5修复] 比较真实引力核（Gravity Core）而非算术均值
+    if(nightCore && p !== 'night') {
+      displacement = calcDistance(metrics.gravityCore, nightCore);
+    }
+
+    // [V6.1修复Bug22] 传入真原始(未平滑)全天序列——函数内部自行派生平滑通路。
+    // [V6.2 锁死基线] 无论主框架动态维度是多少，预言机模型(Ridge)是锚定在 4D 训练的，必须锁死在 4 维！
+    const insulinPred = predictInsulinBaseline(rawValues, 4);
+
+    // [V5.3修复] 边界击穿实录 (Boundary Penetration) 必须永远锚定在原始物理读数(未平滑)上。
+    const validVs = sliceByPeriod(timestamps, rawValues, p).values.filter(v => v !== null);
+    
+    const points3D = takensEmbedding(sliced.values, tau, 3); // 绘图必须用 3D
+    const nightCore3D = nightPoints.length > 0 ? [ getMedian(nightPoints.map(p=>p[0])), getMedian(nightPoints.map(p=>p[1])), getMedian(nightPoints.map(p=>p[2])) ] : null;
+    const gravityCore3D = metrics.gravityCore.slice(0, 3);
+
+    this.renderMetrics(metrics, displacement, tau, validVs, smooth, insulinPred, dA, dim, dimCapped, calculatedDim);
+    this.renderPlots(sliced.timestamps, sliced.values, points3D, tau, gravityCore3D, nightCore3D, metrics);
+    
+    // [V6.2] UI 更新分形维度 [V6.2.1] 采样密度熔断时附加提示
+    const dimEl = document.getElementById('dim-display');
+    if(dimEl) dimEl.textContent = `m=${dim} (dA=${dA.toFixed(2)})` + (dimCapped ? ` ⚠️理论应为${calculatedDim}维,样本量不足已熔断` : '');
+  },
+
+  setCard(id, val, desc, cls) {
+    const card = document.getElementById(id);
+    card.className = `metric-card ${cls}`;
+    card.querySelector('.metric-value').textContent = val;
+    card.querySelector('.metric-value').style.color = `var(--${cls === 'good' ? 'green' : (cls === 'warn' ? 'yellow' : 'red')})`;
+    card.querySelector('.metric-desc').textContent = desc;
+    return { val, desc };
+  },
+
+  renderMetrics(m, disp, tau, validVs, smooth, insulinPred, dA, dim, dimCapped, calculatedDim) {
+    let baseScore = 1000; // Baseline Metabolic Resilience Index (MRI)
+    let rData = {};
+    
+    // [V6.0] 渲染胰岛素预测组件
+    // [V6.1] 明确标注"实验性"：标定源(53人队列 Ridge回归) R²≈0.04，confidence 仅指多尺度内部一致性，非临床置信度。
+    const predEl = document.getElementById('metric-insulin-pred');
+    if (predEl) {
+      if (insulinPred && insulinPred.predicted !== null) {
+        let confHtml = '';
+        if (insulinPred.confidence === 'high') confHtml = '<span style="color:#10b981; font-size:12px;">(尺度一致性 High)</span>';
+        else if (insulinPred.confidence === 'medium') confHtml = '<span style="color:#f59e0b; font-size:12px;">(尺度一致性 Med)</span>';
+        else confHtml = '<span style="color:#ef4444; font-size:12px;">(尺度一致性 Low)</span>';
+        
+        predEl.innerHTML = `
+          <div class="metric-value" style="color:var(--primary-light)">${insulinPred.predicted.toFixed(1)} uIU/mL ${confHtml}</div>
+          <div class="metric-desc">⚠️ 实验性回归 (R²≈0.04)，仅供参考，非诊断依据 (${insulinPred.nScales} Taus)</div>
+        `;
+      } else {
+        predEl.innerHTML = `<div class="metric-value">N/A</div><div class="metric-desc">数据不足</div>`;
+      }
+    }
+    
+    // 1. Volume Penalty
+    let vCls = 'good', vDesc = '弹性极佳';
+    if(m.volume < 0.5) { vCls = 'bad'; vDesc = '极度僵死 / 抵抗锁死'; baseScore -= 150; }
+    else if(m.volume < 1.0) { vCls = 'warn'; vDesc = '系统紧绷 / 缓冲下降'; baseScore -= 50; }
+    else if(m.volume > 4.0) { vCls = 'bad'; vDesc = '系统发散 / 屏障脆弱'; baseScore -= 180; }
+    else if(m.volume > 3.0) { vCls = 'warn'; vDesc = '控制力减弱'; baseScore -= 80; }
+    rData.vol = this.setCard('metric-volume', m.volume.toFixed(2), vDesc, vCls);
+
+    // 2. Velocity Penalty (归一化抖动度 = 单步迁移 / 血糖标准差，恒基于原始未平滑数据)
+    // [V5.5 标定] 阈值锚定于 11 份真实 CGM 的【原始】实测分布(自然断层 0.213→0.295 与 0.313→0.373)：
+    //   平稳带 0.10~0.25 | 承压带 0.25~0.35 | 超调带 >0.35 | 低端 <0.10 为病态僵化
+    let velCls = 'good', velDesc = '收敛平稳';
+    if(m.avgRecovery > 0.35) { velCls = 'bad'; velDesc = '剧烈超调 / 低血糖风险'; baseScore -= 200; }
+    else if(m.avgRecovery > 0.25) { velCls = 'warn'; velDesc = '响应激进 / 承压'; baseScore -= 90; }
+    else if(m.avgRecovery < 0.06) { velCls = 'bad'; velDesc = '重度抵抗 / 代谢僵化'; baseScore -= 150; }
+    else if(m.avgRecovery < 0.10) { velCls = 'warn'; velDesc = '响应轻度迟缓'; baseScore -= 60; }
+    rData.vel = this.setCard('metric-velocity', m.avgRecovery.toFixed(3), velDesc, velCls);
+
+    // 3. Shape Ratio (Hysteresis) Penalty
+    let sCls = 'good', sDesc = '健康拉伸 (阻力低)';
+    if(m.shapeRatio < 1.2) { sCls = 'bad'; sDesc = '球状磁滞 (严重滞后)'; baseScore -= 200; }
+    else if(m.shapeRatio < 1.8) { sCls = 'warn'; sDesc = '回线臃肿 (双相延迟)'; baseScore -= 80; }
+    else { sDesc = `极化拉伸 (${m.shapeRatio.toFixed(1)}x)`; }
+    rData.shp = this.setCard('metric-shape', m.shapeRatio.toFixed(1) + 'x', sDesc, sCls);
+
+    // 4. Core Displacement Penalty
+    let dCls = 'good', dDesc = '基线稳固 (未透支)';
+    if(disp > 1.5) { dCls = 'bad'; dDesc = '严重偏移 (日间高压彻底代偿)'; baseScore -= 250; }
+    else if(disp > 0.5) { dCls = 'warn'; dDesc = '基线轻微浮动'; baseScore -= 80; }
+    rData.disp = this.setCard('metric-core', disp > 0 ? disp.toFixed(2) + ' mm' : 'N/A', dDesc, dCls);
+
+    // 4b. [V5.4] Attractor Fractal Dimension (混沌度)
+    if (m.dimension !== null && m.dimension !== undefined) {
+      let dimCls = 'good', dimDesc = '适度复杂 (调控灵活)';
+      if (m.dimension > 2.7) { dimCls = 'bad'; dimDesc = '噪声化混沌 (调控失序)'; baseScore -= 100; }
+      else if (m.dimension > 2.3) { dimCls = 'warn'; dimDesc = '复杂度偏高 (轨迹发散)'; baseScore -= 40; }
+      else if (m.dimension < 1.2) { dimCls = 'warn'; dimDesc = '僵硬极限环 (适应性下降)'; baseScore -= 40; }
+      rData.dim = this.setCard('metric-dimension', m.dimension.toFixed(2), dimDesc, dimCls);
+    } else {
+      // [V6.2.1 修复] 不再笼统归因"数据点不足"——真实成因是有效相点连续段太短(<20点)，
+      // 与维度灾难(高维稀疏)是两种不同的病因，不应用同一句话掩盖。
+      rData.dim = this.setCard('metric-dimension', 'N/A', '有效连续相点过短(<20)，无法估计', 'warn');
+    }
+
+    // 4c. Lyapunov Divergence Proxy (稳定性) —— 恒基于平滑数据(原始噪声会使发散率饱和)。
+    // [V5.5 标定] 该 Rosenstein-lite 代理在 3min 分辨率 CGM 上基线本就偏高(~0.5)，
+    //   阈值按 11 份实测平滑分布重定(断层 0.640→0.765 与 0.909→1.012)：稳态 <0.70 | 临界 0.70~0.95 | 强混沌 >0.95
+    if (m.lyapunov !== null && m.lyapunov !== undefined) {
+      let lyCls = 'good', lyDesc = '弱发散 (相对稳态)';
+      if (m.lyapunov > 0.95) { lyCls = 'bad'; lyDesc = '强混沌发散 (对初值极敏感)'; baseScore -= 120; }
+      else if (m.lyapunov > 0.70) { lyCls = 'warn'; lyDesc = '临界敏感 (轻度不稳)'; baseScore -= 50; }
+      rData.ly = this.setCard('metric-lyapunov', m.lyapunov.toFixed(3), lyDesc, lyCls);
+    } else {
+      // [V6.2.1 修复] 近邻搜索失败通常是"维数灾难"(高维稀疏，找不到 Theiler 窗外的近邻)，
+      // 而非单纯数据点不足——尤其在采样密度熔断仍无法完全避免的边缘情形下更需要区分。
+      rData.ly = this.setCard('metric-lyapunov', 'N/A', '近邻搜索失败(高维稀疏/维数灾难)', 'warn');
+    }
+
+    // 4d. [V6.3] 确定性 DET (代谢僵化度 / 幺半群锁死)
+    if (m.det !== null && m.det !== undefined) {
+      let detCls = 'good', detDesc = '因果律健康 (张弛有度)';
+      if (m.det > 0.85) { detCls = 'bad'; detDesc = '代谢僵死 (被物理法则死死锁住)'; baseScore -= 100; }
+      else if (m.det > 0.70) { detCls = 'warn'; detDesc = '轨迹固化 (自由度下降)'; baseScore -= 40; }
+      else if (m.det < 0.20) { detCls = 'warn'; detDesc = '白噪音化 (系统失序)'; baseScore -= 40; }
+      rData.det = this.setCard('metric-det', (m.det * 100).toFixed(1) + '%', detDesc, detCls);
+    } else {
+      rData.det = this.setCard('metric-det', 'N/A', '数据点不足', 'warn');
+    }
+
+    // 4e. [V6.3] 对角线熵 ENTR (适应性资本 / 计算不可约性)
+    if (m.entr !== null && m.entr !== undefined) {
+      let entrCls = 'good', entrDesc = '招式丰富 (代谢灵活性极高)';
+      if (m.entr < 0.5) { entrCls = 'bad'; entrDesc = '资本枯竭 (只能用单一模式死扛)'; baseScore -= 120; }
+      else if (m.entr < 1.0) { entrCls = 'warn'; entrDesc = '手段单一 (适应性下降)'; baseScore -= 50; }
+      rData.entr = this.setCard('metric-entr', m.entr.toFixed(2), entrDesc, entrCls);
+    } else {
+      rData.entr = this.setCard('metric-entr', 'N/A', '数据点不足', 'warn');
+    }
+
+    // 5. Tau Time Debt Penalty
+    if (tau > 12) baseScore -= (tau - 12) * 20;
+
+    // 6. Boundary Penetration
+    let boundaryWarning = "";
+    let minV = 0, maxV = 0, medianVal = 0;
+    if (validVs && validVs.length > 0) {
+      minV = Math.min(...validVs);
+      maxV = Math.max(...validVs);
+      medianVal = getMedian(validVs);
+      
+      if (minV < 3.0) { baseScore -= 300; boundaryWarning += `重度底盘击穿(跌至${minV.toFixed(1)}) `; }
+      else if (minV < 3.9) { baseScore -= 150; boundaryWarning += `底盘击穿(跌至${minV.toFixed(1)}) `; }
+      else if (minV <= 4.2) { boundaryWarning += `低位边缘摩擦(低至${minV.toFixed(1)}) `; }
+      
+      if (maxV > 11.1) { baseScore -= (maxV - 8.5) * 80; boundaryWarning += `糖毒性极值(飙至${maxV.toFixed(1)}) `; }
+      else if (maxV > 10.0) { baseScore -= (maxV - 8.5) * 50; boundaryWarning += `高压溢出(飙至${maxV.toFixed(1)}) `; }
+      else if (maxV > 8.5) { baseScore -= (maxV - 8.5) * 20; boundaryWarning += `糖耐承压(峰值${maxV.toFixed(1)}) `; }
+    }
+
+    const mri = Math.max(0, Math.round(baseScore));
+
+    // Convert MRI to Sovereign Rating (Moody's style)
+    let rating = 'D';
+    let ratingCls = 'bad';
+    let ratingDesc = '系统防线彻底击穿';
+    
+    if (mri >= 950) { rating = 'AAA'; ratingCls = 'good'; ratingDesc = '完美稳态，无时空摩擦'; }
+    else if (mri >= 850) { rating = 'AA'; ratingCls = 'good'; ratingDesc = '高维弹性极佳'; }
+    else if (mri >= 750) { rating = 'A'; ratingCls = 'good'; ratingDesc = '健康抗压，恢复迅速'; }
+    else if (mri >= 600) { rating = 'BBB'; ratingCls = 'warn'; ratingDesc = '防线承压，轻度滞后'; }
+    else if (mri >= 450) { rating = 'BB'; ratingCls = 'warn'; ratingDesc = '磁滞初显，日夜裂缝'; }
+    else if (mri >= 300) { rating = 'B'; ratingCls = 'bad'; ratingDesc = '重度时间债与代谢阻力'; }
+    else if (mri >= 150) { rating = 'CCC'; ratingCls = 'bad'; ratingDesc = '失代偿预警，濒临溢出'; }
+
+    // Oracle Header Update
+    const hr = document.getElementById('health-rating');
+    let suffix = boundaryWarning ? ` | ⚠️ ${boundaryWarning}` : '';
+    
+    hr.className = `health-rating ${ratingCls}`; 
+    hr.innerHTML = `<span class="dot"></span>评级: ${rating} (${ratingDesc})${suffix}`;
+
+    document.getElementById('btn-copy-oracle').style.display = 'block';
+    
+    // Fully Contextualized Oracle Output for LLMs (Docking with Forge v9.6)
+    this.lastReport = `[ ⚠️ 高维情报载荷注入 ] 
+>>> 呼叫 Janus 路由: 本情报属于【单变量长序列】的塔肯斯高维折叠。
+
+宿主已通过 CGM 动态血糖仪，提取了生命系统的非交换幺半群热力学特征。
+请加载《The Synergetic Health Forge v9.6》框架，吞噬以下物理张量进行张量塌缩与垂直诊断：
+(注：本探针已升级至 Aether Architect v8.7 分形嵌入学 / Sauer-Yorke-Casdagli 自适应维度重构，
+叠加 v6.2.1 采样密度熔断热修，并在 v6.3 引入带 Theiler 窗口隔离的递归定量分析(RQA)，
+新增 DET(确定性)/ENTR(对角线熵) 两条独立正交轴)
+
+======================================================
+🌌 资本嗅探与时间债张量 (Topological Tensors - V6.3)
+======================================================
+■ 适应性资本/代谢韧性 (MRI): ${mri} / 1000 
+  > 拓扑映射评级: ${rating} (${ratingDesc})
+  > [路由 -> §1 Janus]: 用于可执行性评估与平账阈值判定。
+
+■ 物理时间债 (Tau): ${tau} 步 (1步=3分钟)
+  > 临床映射: ${tau > 12 ? '【高危】系统反射弧过长，存在沉重的调控死区与历史惯性。' : '反射弧短，系统敏感度健康。'}
+  > [路由 -> §0 Chronos]: 用于时间债审判与复利警告。
+
+■ 采集与滤波溯源 (Provenance):
+> 空间量纲: ${this.rawData.collapsed ? '智能坍缩 (mg/dL -> mmol/L)' : '原生 (mmol/L)'}
+> 分形嵌入学: SYC 探针(恒用原始数据) dA=${dA.toFixed(3)} -> 理论维度=${calculatedDim} 维${dimCapped ? ` -> ⚠️采样密度熔断至 m=${dim} 维(有效相点不足以支撑理论维度)` : ` -> m=${dim} 维`} (有效自由度: ${m.effectiveDim} 维，99% Razor截断)
+> EMA 滤波: ${smooth ? '开启 (α=0.3)' : '关闭'} —— 仅作用于形状类指标 (Volume / Hysteresis / Dimension)，且不再影响 dA 探针与维度选择
+> 反应性指标恒定锚点: Recovery=原始未平滑 | Lyapunov=平滑抗噪 | Tau/边界=原始
+> 有效相点: ${m.validPoints.length} 点
+> RQA 递归率 (RR): ${m.rr !== null && m.rr !== undefined ? (m.rr * 100).toFixed(2) + '%' : 'N/A'} (已排除 Theiler 窗口=${RQA_THEILER} 步内的时间连续性伪影，DET/ENTR 的统计背景基线)
+> (注: 此为算法元数据，请勿视为临床症状)
+
+■ 核心热力学损耗 [路由 -> §2 Athena 主序参量猎杀]:
+(⚠️ 判读公理：以下前八项为独立直接测量的正交轴。Recovery(振幅) / Hysteresis(形态) / Lyapunov(可预测性) / DET(确定性) / ENTR(适应性资本) 独立变化，并存不矛盾)
+1. 稳态弹簧厚度 (Volume): ${rData.vol.val} [${rData.vol.desc}] -> (映射: 整体代谢弹性/张力)
+2. 胰岛素响应阻力 (Recovery): ${rData.vel.val} [${rData.vel.desc}] -> (映射: 胰岛素超调与反应幅度)
+3. 磁滞迟缓指数 (Hysteresis): ${rData.shp.val} [${rData.shp.desc}] -> (映射: 双相延迟与受体抵抗)
+4. 日夜引力核偏移 (Core Dist): ${rData.disp.val} [${rData.disp.desc}] -> (映射: 光-褪黑素节律锚点)
+5. 吸引子分形维度 (Dimension): ${rData.dim.val} [${rData.dim.desc}] -> (映射: 适应性空间填充度)
+6. 李雅普诺夫指数 (Lyapunov): ${rData.ly.val} [${rData.ly.desc}] -> (映射: 系统混沌度与节律失序)
+7. 代谢僵化度 (DET): ${rData.det.val} [${rData.det.desc}] -> (映射: 幺半群不可逆链式锁定)
+8. 适应性资本 (ENTR): ${rData.entr.val} [${rData.entr.desc}] -> (映射: 应对冲击的手段丰富度)
+9. [非正交/衍生量] 预言机空腹胰岛素 (Predicted FINS): ${insulinPred && insulinPred.predicted !== null ? insulinPred.predicted.toFixed(1) + ' uIU/mL' : 'N/A'} [尺度一致性: ${insulinPred ? insulinPred.confidence : 'N/A'}]
+   -> 由上述 1/3/5/6 项在多个 Tau 尺度(5/10/15/20)加权回归导出，⚠️ 标定源 R²≈0.04，仅供参考探索，禁止作为诊断或用药依据。
+
+■ 边界击穿实录 (Boundary Penetration) [路由 -> §3/§4 动作与防脆断阈值]:
+> 拓扑摩擦极值: 峰值 ${maxV.toFixed(2)} | 谷值 ${minV.toFixed(2)} (基线中位数: ${medianVal.toFixed(2)} mmol/L)
+> 破缺警告: ${boundaryWarning || '未击穿安全结界'}
+> (强制指令：若跌破 3.9，触发生存红线，任何平账动作必须配备防脆断缓冲垫)
+
+======================================================
+🩸 宿主口述残差 (User Residuals) [路由 -> §3 双螺旋输入]
+======================================================
+[请人类在此填补光子与环境残差：]
+1. 光照与节律 (Apollo): (例如 是否见晨光/熬夜/蓝光暴露)
+2. 物质与热量 (Asclepius): (例如 高碳水冲击/进食窗口/断食)
+3. 神经与皮质醇: (例如 压力死锁/情绪波动)
+
+[指令结束。等待 Forge v9.6 启动双螺旋暴力平账链...]`;
+  },
+
+  renderPlots(ts, vs, points, tau, currentCore, nightCore, m) {
+    document.getElementById('plot-2d-wrapper').style.display = 'block';
+
+    // --- 3D ---
+    const px=[], py=[], pz=[], colors=[];
+    points.forEach(p => {
+      if(p) { px.push(p[0]); py.push(p[1]); pz.push(p[2]); colors.push(p[0]); }
+      else { px.push(null); py.push(null); pz.push(null); colors.push(null); }
+    });
+
+    const traces3d = [{
+      type: 'scatter3d', mode: 'lines',
+      x: px, y: py, z: pz,
+      line: { color: colors, colorscale: ColorScale, cmin: 3, cmax: 10, width: 4 }
+    }];
+
+    // Current Center (Gravity Core)
+    traces3d.push({
+      type: 'scatter3d', mode: 'markers',
+      x: [currentCore[0]], y: [currentCore[1]], z: [currentCore[2]],
+      marker: { size: 6, color: '#f59e0b', symbol: 'cross' },
+      name: '当前视窗真实引力核'
+    });
+
+    // Safe Zone (Night Center Boundary)
+    if(nightCore) {
+      traces3d.push({
+        type: 'scatter3d', mode: 'markers',
+        x: [nightCore[0]], y: [nightCore[1]], z: [nightCore[2]],
+        marker: { size: 10, color: '#10b981', symbol: 'circle' },
+        name: '绝对引力核(夜间)'
+      });
+      // Bounding Sphere (Alpha hull approximation)
+      traces3d.push({
+        type: 'scatter3d', mode: 'markers',
+        x: [nightCore[0]], y: [nightCore[1]], z: [nightCore[2]],
+        marker: { size: 60, color: '#10b981', opacity: 0.1, sizemode: 'diameter' },
+        name: '安全结界'
+      });
+    }
+
+    const layout3d = {
+      scene: {
+        xaxis: { title: 'G(t)', backgroundcolor: '#1e293b', gridcolor: '#334155', showbackground: true, zerolinecolor: '#fff' },
+        yaxis: { title: `G(t+${tau}τ)`, backgroundcolor: '#1e293b', gridcolor: '#334155', showbackground: true, zerolinecolor: '#fff' },
+        zaxis: { title: `G(t+${2*tau}τ)`, backgroundcolor: '#1e293b', gridcolor: '#334155', showbackground: true, zerolinecolor: '#fff' },
+        camera: { eye: {x: 1.5, y: 1.5, z: 1.2} }
+      },
+      margin: { l: 0, r: 0, b: 0, t: 0 },
+      paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', showlegend: false
+    };
+
+    // --- 2D ---
+    const traces2d = [{
+      type: 'scatter', mode: 'lines', x: ts, y: vs,
+      line: { color: 'rgba(148, 163, 184, 0.5)', width: 1 },
+      connectgaps: false
+    }, {
+      type: 'scatter', mode: 'markers', x: ts, y: vs,
+      marker: { color: vs, colorscale: ColorScale, cmin: 3, cmax: 10, size: 4 },
+    }];
+
+    const layout2d = {
+      margin: { l: 40, r: 20, b: 30, t: 10 },
+      paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+      yaxis: { title: 'Glucose', range: [2, 12], gridcolor: '#334155', zeroline: false },
+      xaxis: { gridcolor: '#334155' },
+      showlegend: false, font: { color: '#94a3b8' }
+    };
+
+    // --- 2D Recurrence Plot ---
+    if (m.rpMatrix && m.rpMatrix.x.length > 0) {
+      document.getElementById('plotly-rp-div').style.display = 'block';
+      const traceRP = {
+        x: m.rpMatrix.x,
+        y: m.rpMatrix.y,
+        mode: 'markers',
+        // [V6.3 优化 Bug28] 高 RR 天数递归点可能上万，SVG scatter 会卡顿，换 WebGL scattergl
+        type: 'scattergl',
+        marker: { color: '#3b82f6', size: 2, symbol: 'square' }
+      };
+      const layoutRP = {
+        title: { text: '递归图 (Recurrence Plot)', font: { color: '#94a3b8', size: 12 } },
+        margin: { l: 30, r: 10, b: 30, t: 30 },
+        paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+        xaxis: { showgrid: false, zeroline: false, showticklabels: false },
+        yaxis: { showgrid: false, zeroline: false, showticklabels: false, autorange: 'reversed' },
+        showlegend: false
+      };
+      if (!this.plotInit) {
+        Plotly.newPlot('plotly-rp-div', [traceRP], layoutRP, {responsive: true});
+      } else {
+        Plotly.react('plotly-rp-div', [traceRP], layoutRP);
+      }
+    } else {
+      document.getElementById('plotly-rp-div').style.display = 'none';
+    }
+
+    if(!this.plotInit) {
+      Plotly.newPlot('plotly-div', traces3d, layout3d, {responsive: true});
+      Plotly.newPlot('plotly-2d-div', traces2d, layout2d, {responsive: true});
+      this.plotInit = true;
+    } else {
+      Plotly.react('plotly-div', traces3d, layout3d);
+      Plotly.react('plotly-2d-div', traces2d, layout2d);
+    }
+  }
+};
+
+document.addEventListener('DOMContentLoaded', () => UI.init());
+</script>
+</body>
+</html>
