@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CGM 塔肯斯相空间探针 v8.0</title>
+<title>CGM 塔肯斯相空间探针 v8.1</title>
 <!-- SheetJS for Excel parsing -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Plotly.js for 3D visualization -->
@@ -154,7 +154,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
   <header>
     <div class="header-title-box">
       <h1>CGM 塔肯斯相空间探针</h1>
-      <span class="subtitle">v8.0 / Takens Embedding Phase Space Reconstruction &amp; RQA + 校准筛查风险</span>
+      <span class="subtitle">v8.1 / Takens Embedding Phase Space Reconstruction &amp; RQA + 校准筛查风险</span>
     </div>
     <div class="health-rating" id="health-rating">
       <span class="dot" style="background:var(--text-secondary); box-shadow:none;"></span>
@@ -301,6 +301,21 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
 //   已同步修复。同时修正启发式 MRI 方向缺陷: Lyap 阈值(0.40/0.60 从不触发→0.15/0.20)、
 //   DET 方向(数据为 T2DM 更低)、ENTR 阈值(<1.0 几乎不触发→1.5/1.8)。
 //
+// v8.1: 计算性能 + MRI 阈值重校准 (全部阈值基于现行管线在 Colas n=208 的实测分布,
+//   由 output/js_cohort.mjs 重跑验证, 指标与 v8.0 逐位一致):
+//   - RQA epsilon 标定: O(n² log n) 全量排序 → Float64Array + quickselect 单分位
+//     (2M 距离: 排序 ~750ms → ~20ms); 超长序列(>4M 对)改用等距抽样标定 epsilon,
+//     DET/ENTR 对角线统计保持全分辨率, 内存由 O(n²) 降为 O(1)。
+//   - tau 滑条 180ms 防抖; 胰岛素预估/夜间均糖移出 analyze() 每文件只算一次;
+//     resampleData WeakMap 缓存; points3D/nightCore3D 从既有结果派生;
+//     盒计数/近邻网格整数键; 协方差预居中; VOLUME_COEFF 补 d=1,2 精确值。
+//   - MRI 阈值: volume 改 log 阈值(-1/0/2/3, Python 验证参考; 旧 raw 阈值对 35.6%
+//     人群误报 bad); DET/ENTR/Dimension/Recovery 高端旧阈值在当前管线永不触发
+//     (实测 det 0.981-0.999、entr 2.04-3.90、dim 1.24-1.83、rec 0.050-0.199,
+//     v8.0 注释引用的 det 0.860/0.909、entr 1.73/1.97 不可复现) → 按实测分布重校准。
+//   - FINS 预测器 REF_MEDIANS 保持原训练值(外部 53 人拟合, 训练公式与现行管线不同,
+//     重定心会脱拟合), 仅补充说明注释。
+//
 // Pipeline:
 //   S1. Data Ingestion  →  CSV/XLSX parsing, unit conversion
 //   S2. Preprocessing    →  resample to 3min grid, EMA filter, ACF → τ (capped ≤20)
@@ -325,7 +340,11 @@ const ColorScale = [
 ];
 
 // Pre-computed hypersphere volume coefficients: V_d = π^(d/2) / Γ(d/2 + 1)
+// OPTIMIZED v8.1: d=1,2 added — the 99%-variance razor frequently yields effectiveDim 1-2,
+// and the Stirling fallback carried 4-6% error there (Γ(1.5)/Γ(2) are not tabulated).
 const VOLUME_COEFF = {
+  1: 2,
+  2: Math.PI,
   3: (4/3) * Math.PI,
   4: Math.PI * Math.PI / 2,
   5: 8 * Math.PI * Math.PI / 15,
@@ -335,11 +354,22 @@ const VOLUME_COEFF = {
 // RQA: Theiler window (excludes temporally-adjacent pseudo-recurrences)
 const RQA_THEILER = 5;
 // RQA: target recurrence rate for epsilon auto-calibration (Marwan et al. 1%-10%)
-// RQA: target recurrence rate for epsilon auto-calibration
 // OPTIMIZED v7.1: lowered to 2% (was 5%) — DET was saturated at 95%+ on 208-patient Colas cohort
 const RQA_TARGET_RR = 0.02;
+// RQA pair budget: 4M pairs ≈ 32MB Float64Array (≈2830 points at 3-min grid ≈ 6 days).
+// Beyond it, epsilon is calibrated from a deterministic stride sample (DET/ENTR diagonal
+// statistics ALWAYS stay full-resolution — the v8.0 no-downsampling constraint only applies
+// to the line statistics, not to the calibration sample); the diagonal scan then recomputes
+// distances on the fly, keeping memory O(1) instead of O(n²).
+const RQA_MAX_PAIRS = 4_000_000;
+const RQA_SAMPLE_PAIRS = 1_000_000;
 
 // Insulin predictor constants (experimental, Ridge regression on 53 subjects, R²≈0.04)
+// v8.1: intentionally NOT re-centered. These REF_MEDIANS are internally consistent with the
+// original training pipeline (e.g. volume median 393093 vs 2.2 on the current pipeline — the
+// training formula differed, not just the unit), and re-centering without re-fitting the
+// coefficients would shift every prediction by ~3-4 uIU/mL (de-fit). Known artifact: the
+// volume feature contributes a near-constant term, absorbed by the intercept at fit time.
 const INSULIN_MEAN = 7.75;
 const INSULIN_STD  = 4.40;
 const REF_MEDIANS = { volume: 393093, shapeRatio: 4.04, avgRecovery: 0.345, dimension: 1.934, lyapunov: 0.416 };
@@ -439,9 +469,20 @@ function parseCGMFromXLSX(arrayBuffer) {
 // S2. PREPROCESSING — Resample, Filter, ACF, Tau Estimation
 // ============================================================================
 
+// OPTIMIZED v8.1: resample output is deterministic per (data, smooth) — cache it.
+// analyze() previously ran the same resample up to 4x per UI tick (view path, raw probe,
+// raw/smooth pathways) plus once more inside predictInsulinBaseline.
+const resampleCache = new WeakMap();
+function resampleData(data, smooth = false) {
+  let entry = resampleCache.get(data);
+  if (!entry) { entry = {}; resampleCache.set(data, entry); }
+  if (entry[smooth] === undefined) entry[smooth] = resampleDataImpl(data, smooth);
+  return entry[smooth];
+}
+
 // Resample to 3-minute grid. Gaps 4-15 min → linear interpolation; >15 min → null break.
 // smooth=true applies EMA (α=0.3) low-pass filter.
-function resampleData(data, smooth = false) {
+function resampleDataImpl(data, smooth = false) {
   const ts = data.timestamps, vs = data.values;
   const newTs = [ts[0]], newVs = [vs[0]];
   for (let i = 1; i < ts.length; i++) {
@@ -610,10 +651,15 @@ function boxCountingDimension(points) {
   for (const g of divs) {
     const eps = range / g;
     const occ = new Set();
+    // OPTIMIZED v8.1: packed integer cell key instead of per-point string join.
+    // Base is g+1 (NOT g): a boundary point at max[d] yields cell index exactly g, and
+    // base-g packing would collide ([1,0,16] ≡ [1,1,0]). With base g+1 the digits
+    // c ∈ [0,g] are injective; dim ≤ 6, g ≤ 16 → key < 17⁶ ≈ 2.4e7, lossless in double.
+    // Semantics identical to the old string keys (same cell partition).
     for (const p of valid) {
-      const parts = [];
-      for (let d = 0; d < dim; d++) parts.push(Math.floor((p[d] - min[d]) / eps));
-      occ.add(parts.join('_'));
+      let key = 0;
+      for (let d = 0; d < dim; d++) key = key * (g + 1) + Math.floor((p[d] - min[d]) / eps);
+      occ.add(key);
     }
     logN.push(Math.log(occ.size));
     logInvEps.push(Math.log(g / range));
@@ -653,9 +699,11 @@ function lyapunovProxy(points) {
   const G = 16, cell = range / G;
 
   const keyOf = (p) => {
-    const parts = [];
-    for (let d = 0; d < dim; d++) parts.push(Math.floor((p[d] - min[d]) / cell));
-    return parts.join('_');
+    // OPTIMIZED v8.1: packed integer key. Base G+1, not G — a point exactly at the max
+    // boundary indexes cell G, which would collide with a base-G carry (see box-counting).
+    let key = 0;
+    for (let d = 0; d < dim; d++) key = key * (G + 1) + Math.floor((p[d] - min[d]) / cell);
+    return key;
   };
 
   const grid = new Map();
@@ -685,6 +733,29 @@ function lyapunovProxy(points) {
   return divs.reduce((a, b) => a + b, 0) / divs.length;
 }
 
+// Quickselect: k-th smallest (0-indexed) of a Float64Array, in place. Average O(n).
+// OPTIMIZED v8.1: replaces the O(n² log n) full comparator sort in RQA epsilon calibration
+// (2M pairs: ~750ms sort → ~20ms quickselect on the same machine).
+function quickselect(arr, k) {
+  let lo = 0, hi = arr.length - 1;
+  while (lo < hi) {
+    const mid = lo + ((hi - lo) >> 1);
+    // Median-of-three pivot — guards against sorted/near-sorted inputs
+    if (arr[mid] < arr[lo]) { const t = arr[lo]; arr[lo] = arr[mid]; arr[mid] = t; }
+    if (arr[hi] < arr[lo]) { const t = arr[lo]; arr[lo] = arr[hi]; arr[hi] = t; }
+    if (arr[hi] < arr[mid]) { const t = arr[mid]; arr[mid] = arr[hi]; arr[hi] = t; }
+    const pivot = arr[mid];
+    let i = lo, j = hi;
+    while (i <= j) {
+      while (arr[i] < pivot) i++;
+      while (arr[j] > pivot) j--;
+      if (i <= j) { const t = arr[i]; arr[i] = arr[j]; arr[j] = t; i++; j--; }
+    }
+    if (k <= j) hi = j; else lo = i;
+  }
+  return arr[k];
+}
+
 // Recurrence Quantification Analysis (RQA)
 // Epsilon auto-calibrated from distance distribution at target RR.
 // Theiler window excludes temporally-adjacent pseudo-recurrences.
@@ -693,36 +764,52 @@ function computeRQA(validPoints, targetRR = RQA_TARGET_RR, skipRPMatrix = false)
   const n = validPoints.length;
   if (n < 10) return { rr: null, det: null, entr: null, rpMatrix: null };
 
-  // Collect all Theiler-window-excluded pair distances
-  const distances = [];
-  for (let k = RQA_THEILER + 1; k < n; k++) {
-    for (let i = 0; i < n - k; i++) {
-      distances.push(calcDistance(validPoints[i], validPoints[i + k]));
+  // Total Theiler-excluded pair count: Σ_{k=T+1}^{n-1} (n-k) = gap(gap+1)/2
+  const gap = n - RQA_THEILER - 1;
+  const totalPairs = gap > 0 ? gap * (gap + 1) / 2 : 0;
+  if (totalPairs === 0) return { rr: null, det: null, entr: null, rpMatrix: null };
+
+  // Auto-calibrate epsilon = target-RR percentile of the pair-distance distribution.
+  // Full-resolution up to RQA_MAX_PAIRS (bounded memory); beyond that, calibrate from a
+  // deterministic stride sample. DET/ENTR below ALWAYS use all pairs, full resolution —
+  // the v8.0 no-downsampling constraint applies to line statistics, not the calibration.
+  const sampled = totalPairs > RQA_MAX_PAIRS;
+  const sampleLen = sampled ? Math.min(totalPairs, RQA_SAMPLE_PAIRS) : totalPairs;
+  const stride = sampled ? Math.max(1, Math.ceil(totalPairs / RQA_SAMPLE_PAIRS)) : 1;
+  const dists = new Float64Array(sampleLen);
+  let ptr = 0;
+  for (let k = RQA_THEILER + 1; k < n && ptr < sampleLen; k++) {
+    for (let i = 0; i < n - k && ptr < sampleLen; i += stride) {
+      dists[ptr++] = calcDistance(validPoints[i], validPoints[i + k]);
     }
   }
-  if (distances.length === 0) return { rr: null, det: null, entr: null, rpMatrix: null };
+  const epsIdx = Math.min(sampleLen - 1, Math.max(0, Math.floor(targetRR * sampleLen)));
+  // Full mode: the scan below reuses dists in collection order, but quickselect partitions
+  // in place — so it runs on a copy. Sampled mode: the scan recomputes, in-place is fine.
+  const epsArr = sampled ? dists : Float64Array.from(dists);
+  const epsilon = quickselect(epsArr, epsIdx);
 
-  // Auto-calibrate epsilon from distance distribution
-  const sortedDist = [...distances].sort((a, b) => a - b);
-  const epsIdx = Math.min(sortedDist.length - 1, Math.max(0, Math.floor(targetRR * sortedDist.length)));
-  const epsilon = sortedDist[epsIdx];
-
-  // Scan diagonals for recurrence structures (reuse distance array, same k/i order)
+  // Scan diagonals for recurrence structures. Full mode reuses the collected distances
+  // (same k/i order); sampled mode recomputes on the fly → O(1) extra memory for long series.
   let totalRecurrences = 0;
   let diagPointsCount = 0;
   const lineLengths = [];
   const l_min = 2;
   const rpMatrix = skipRPMatrix ? null : { x: [], y: [] };
+  // Visual thinning for very long series (rpMatrix drives the plot only, never statistics)
+  const rpStride = sampled ? Math.max(1, Math.floor(totalPairs * targetRR / 40000)) : 1;
 
-  let distPtr = 0;
+  let distPtr = 0, rpCount = 0;
   for (let k = RQA_THEILER + 1; k < n; k++) {
     let currentLen = 0;
     for (let i = 0; i < n - k; i++) {
-      const dist = distances[distPtr++];
+      const dist = sampled ? calcDistance(validPoints[i], validPoints[i + k]) : dists[distPtr++];
       if (dist < epsilon) {
         currentLen++;
         totalRecurrences++;
-        if (rpMatrix) { rpMatrix.x.push(i); rpMatrix.y.push(i + k); rpMatrix.x.push(i + k); rpMatrix.y.push(i); }
+        if (rpMatrix && ++rpCount % rpStride === 0) {
+          rpMatrix.x.push(i); rpMatrix.y.push(i + k); rpMatrix.x.push(i + k); rpMatrix.y.push(i);
+        }
       } else {
         if (currentLen >= l_min) {
           lineLengths.push(currentLen);
@@ -737,8 +824,7 @@ function computeRQA(validPoints, targetRR = RQA_TARGET_RR, skipRPMatrix = false)
     }
   }
 
-  // RR: recurrence rate (Theiler-corrected denominator)
-  const gap = n - RQA_THEILER - 1;
+  // RR: recurrence rate (Theiler-corrected denominator); gap computed above
   const maxPossible = gap > 0 ? gap * (gap + 1) / 2 : 0;
   const rr = maxPossible > 0 ? totalRecurrences / maxPossible : 0;
 
@@ -820,8 +906,11 @@ function computeNormalizedRecovery(points) {
   const valid = points.filter(p => p !== null);
   const n = valid.length; if (n < 4) return 0;
   const dim = valid[0].length;
-  const gc = [];
-  for (let d = 0; d < dim; d++) gc.push(getMedian(valid.map(p => p[d])));
+  // OPTIMIZED v8.1: single-pass column extraction (was: map per dimension)
+  const cols = Array.from({ length: dim }, () => new Array(n));
+  for (let i = 0; i < n; i++) { const p = valid[i]; for (let d = 0; d < dim; d++) cols[d][i] = p[d]; }
+  const gc = new Array(dim);
+  for (let d = 0; d < dim; d++) gc[d] = getMedian(cols[d]);
 
   const mean0 = valid.reduce((s, p) => s + p[0], 0) / n;
   let var0 = 0; for (const p of valid) var0 += (p[0] - mean0) * (p[0] - mean0);
@@ -856,19 +945,27 @@ function computeAttractorMetrics(shapePoints, rawPoints, smoothPoints, skipRQA =
   for (const p of valid) for (let d = 0; d < dim; d++) arithMean[d] += p[d];
   for (let d = 0; d < dim; d++) arithMean[d] /= n;
 
-  // Gravity core (coordinate-wise median)
-  const gravityCore = [];
-  for (let d = 0; d < dim; d++) gravityCore.push(getMedian(valid.map(p => p[d])));
+  // Gravity core (coordinate-wise median) — single-pass column extraction
+  const cols = Array.from({ length: dim }, () => new Array(n));
+  for (let i = 0; i < n; i++) { const p = valid[i]; for (let d = 0; d < dim; d++) cols[d][i] = p[d]; }
+  const gravityCore = new Array(dim);
+  for (let d = 0; d < dim; d++) gravityCore[d] = getMedian(cols[d]);
 
-  // Covariance matrix
+  // Covariance matrix — OPTIMIZED v8.1: pre-center each point once, accumulate the
+  // upper triangle only, then mirror (was: re-centering per (i,j) in the inner loop).
   const cov = Array.from({ length: dim }, () => new Float64Array(dim));
+  const centered = new Array(dim);
   for (const p of valid) {
+    for (let d = 0; d < dim; d++) centered[d] = p[d] - arithMean[d];
     for (let i = 0; i < dim; i++) {
-      const di = p[i] - arithMean[i];
-      for (let j = 0; j < dim; j++) cov[i][j] += di * (p[j] - arithMean[j]);
+      const ci = centered[i];
+      for (let j = i; j < dim; j++) cov[i][j] += ci * centered[j];
     }
   }
-  for (let i = 0; i < dim; i++) for (let j = 0; j < dim; j++) cov[i][j] /= (n - 1);
+  for (let i = 0; i < dim; i++) {
+    for (let j = i + 1; j < dim; j++) cov[j][i] = cov[i][j];
+    for (let j = 0; j < dim; j++) cov[i][j] /= (n - 1);
+  }
 
   const eigvals = jacobiEigenvalues(cov).map(v => Math.max(v, 1e-10));
 
@@ -981,7 +1078,7 @@ const UI = {
     document.getElementById('btn-load-sample').onclick = () => {
       fetch('1.csv').then(r => r.text()).then(t => {
         this.rawData = parseCGMFromCSV(t);
-        if (this.rawData) this.analyze();
+        if (this.rawData) this.onDataReady();
       }).catch(e => alert("无本地演示文件，请上传数据"));
     };
 
@@ -1017,9 +1114,11 @@ const UI = {
 
     // Control bindings
     document.getElementById('sel-period').onchange = () => this.analyze();
+    // v8.1: tau slider debounced — dragging fires analyze() per input event, and each run
+    // is an O(n²) RQA + 3 Plotly redraws. Value display updates instantly, pipeline waits.
     document.getElementById('tau-slider').oninput = e => {
       document.getElementById('tau-display').textContent = e.target.value;
-      this.analyze();
+      this.scheduleAnalyze();
     };
     document.getElementById('chk-smooth').onchange = () => this.analyze();
 
@@ -1069,27 +1168,50 @@ const UI = {
       }
 
       if (this.rawData) {
-        // Reset plot state for new data
-        this.plotInit = false; this._rpInit = false;
-        // Estimate tau from raw (unsmoothed) resampled data — objective, not influenced by UI filter toggle
-        const { values } = resampleData(this.rawData, false);
-        const acf = computeACF(values, 60);
-        const recTau = recommendTau(acf);
-
-        const slider = document.getElementById('tau-slider');
-        if (recTau > parseInt(slider.max)) {
-          slider.max = Math.min(60, recTau + 10);
-        }
-        slider.value = recTau;
-        document.getElementById('tau-display').textContent = slider.value;
-
-        this.analyze();
+        this.onDataReady();
       } else {
         alert("解析失败: 无法提取 '时间' 和 '血糖' 列");
       }
     };
 
     r.readAsArrayBuffer(f);
+  },
+
+  // v8.1: shared post-ingestion preparation — tau estimation (raw resampled data, objective,
+  // not influenced by UI toggles) plus the two results that are invariant across ALL UI
+  // controls: night baseline mean and the insulin predictor (dim fixed at 4). Computing them
+  // once per file instead of per analyze() tick removes 4 attractor-metric passes per tick.
+  onDataReady() {
+    // Reset plot state for new data
+    this.plotInit = false; this._rpInit = false;
+
+    const { timestamps, values: rawValues } = resampleData(this.rawData, false);
+    const acf = computeACF(rawValues, 60);
+    const recTau = recommendTau(acf);
+
+    const slider = document.getElementById('tau-slider');
+    if (recTau > parseInt(slider.max)) {
+      slider.max = Math.min(60, recTau + 10);
+    }
+    slider.value = recTau;
+    document.getElementById('tau-display').textContent = slider.value;
+
+    const nightRaw = sliceByPeriod(timestamps, rawValues, 'night').values.filter(v => v !== null);
+    this._nightMean = nightRaw.length >= 6
+      ? nightRaw.reduce((a, b) => a + b, 0) / nightRaw.length
+      : null;
+    this._insulinPred = predictInsulinBaseline(rawValues, 4);
+
+    this.analyze();
+  },
+
+  // Debounce the full pipeline for high-frequency controls (tau slider drag)
+  scheduleAnalyze() {
+    if (this._analyzeTimer) clearTimeout(this._analyzeTimer);
+    this._analyzeTimer = setTimeout(() => {
+      this._analyzeTimer = null;
+      this.analyze();
+    }, 180);
   },
 
   // ---- Main analysis pipeline ----
@@ -1142,11 +1264,9 @@ const UI = {
     const pointsRaw = takensEmbedding(sliceByPeriod(timestamps, rawValues, period).values, tau, dim);
     const pointsSmooth = takensEmbedding(sliceByPeriod(timestamps, smoothValues, period).values, tau, dim);
 
-    // Night baseline glucose (0:00-6:00, raw grid) — calibrated screening feature (v8.0)
-    const nightRawValues = sliceByPeriod(timestamps, rawValues, 'night').values.filter(v => v !== null);
-    const nightMean = nightRawValues.length >= 6
-      ? nightRawValues.reduce((a, b) => a + b, 0) / nightRawValues.length
-      : null;
+    // Night baseline glucose (0:00-6:00, raw grid) — calibrated screening feature (v8.0).
+    // v8.1: invariant across all UI controls → computed once in onDataReady().
+    const nightMean = this._nightMean;
 
     // ---- Pipeline Stage 5: Compute attractor metrics ----
     const metrics = computeAttractorMetrics(points, pointsRaw, pointsSmooth);
@@ -1159,16 +1279,18 @@ const UI = {
     }
 
     // ---- Pipeline Stage 6: Clinical scores ----
-    const insulinPred = predictInsulinBaseline(rawValues, 4);
+    // v8.1: insulin predictor depends only on raw data (dim fixed at 4) → computed once in
+    // onDataReady(), not on every UI tick (was: 4 full attractor-metric passes per analyze).
+    const insulinPred = this._insulinPred;
 
     // Boundary penetration (always on raw unsmoothed data)
     const validVs = sliceByPeriod(timestamps, rawValues, period).values.filter(v => v !== null);
 
-    // 3D coordinates for visualization (always 3D)
-    const points3D = takensEmbedding(sliced.values, tau, 3);
-    const nightCore3D = nightPoints.length > 0
-      ? [getMedian(nightPoints.map(p => p[0])), getMedian(nightPoints.map(p => p[1])), getMedian(nightPoints.map(p => p[2]))]
-      : null;
+    // 3D coordinates for visualization — derived from the dim-D embedding (first 3 coords
+    // are exactly the 3D delay coordinates), skipping a redundant third embedding pass.
+    // (The (dim-3)·τ tail points that a standalone 3D embedding would add are visual-only.)
+    const points3D = points.map(p => p ? [p[0], p[1], p[2]] : null);
+    const nightCore3D = nightCore ? nightCore.slice(0, 3) : null;
     const gravityCore3D = metrics.gravityCore.slice(0, 3);
 
     // ---- Pipeline Stage 7: Render ----
@@ -1222,18 +1344,27 @@ const UI = {
       }
     }
 
-    // 1. Volume
+    // 1. Volume — v8.1: log-volume thresholds, ported from the validated Python MRI reference
+    //    (validate_takens_v3 mri_score: -1.0/0.0/2.0/3.0). The old raw thresholds 0.5/1.0/3.0/4.0
+    //    were never calibrated: on the Colas cohort (n=208) they flagged 35.6% of ALL subjects
+    //    as 'bad' (>4.0) and had no operating range. Actual cohort: volume median 2.23,
+    //    T2DM 1.62 < healthy 2.26; exp thresholds → 0.37 (bad-lo, 8.7%), 1.0 (warn-lo, 31%),
+    //    7.4 (warn-hi, 17%), 20.1 (bad-hi, 6.7%).
+    const logVolume = Math.log(Math.max(m.volume, 1e-6));
     let vCls = 'good', vDesc = '弹性极佳';
-    if (m.volume < 0.5) { vCls = 'bad'; vDesc = '极度僵死/抵抗锁死'; baseScore -= 150; }
-    else if (m.volume < 1.0) { vCls = 'warn'; vDesc = '系统紧绷/缓冲下降'; baseScore -= 50; }
-    else if (m.volume > 4.0) { vCls = 'bad'; vDesc = '系统发散/屏障脆弱'; baseScore -= 180; }
-    else if (m.volume > 3.0) { vCls = 'warn'; vDesc = '控制力减弱'; baseScore -= 80; }
+    if (logVolume < -1.0) { vCls = 'bad'; vDesc = '极度僵死/抵抗锁死'; baseScore -= 150; }
+    else if (logVolume < 0.0) { vCls = 'warn'; vDesc = '系统紧绷/缓冲下降'; baseScore -= 50; }
+    else if (logVolume > 3.0) { vCls = 'bad'; vDesc = '系统发散/屏障脆弱'; baseScore -= 180; }
+    else if (logVolume > 2.0) { vCls = 'warn'; vDesc = '控制力减弱'; baseScore -= 80; }
     rData.vol = this.setCard('metric-volume', m.volume.toFixed(2), vDesc, vCls);
 
-    // 2. Recovery velocity (OPTIMIZED v7.1: thresholds lowered based on Colas 208-patient calibration)
+    // 2. Recovery velocity — v8.1: high side recalibrated. The v7.1 high thresholds 0.20/0.30
+    //    NEVER fired on the current pipeline (cohort range 0.050-0.199, median 0.111).
+    //    Low side kept as v7.1; high side set at cohort p90/p97: 0.145 (warn, 12%) / 0.170
+    //    (bad, 1% healthy). T2DM med 0.116 vs healthy 0.110 (no separation — heuristic only).
     let velCls = 'good', velDesc = '收敛平稳';
-    if (m.avgRecovery > 0.30) { velCls = 'bad'; velDesc = '剧烈超调/低血糖风险'; baseScore -= 200; }
-    else if (m.avgRecovery > 0.20) { velCls = 'warn'; velDesc = '响应激进/承压'; baseScore -= 90; }
+    if (m.avgRecovery > 0.170) { velCls = 'bad'; velDesc = '剧烈超调/低血糖风险'; baseScore -= 200; }
+    else if (m.avgRecovery > 0.145) { velCls = 'warn'; velDesc = '响应激进/承压'; baseScore -= 90; }
     else if (m.avgRecovery < 0.05) { velCls = 'bad'; velDesc = '重度抵抗/代谢僵化'; baseScore -= 150; }
     else if (m.avgRecovery < 0.08) { velCls = 'warn'; velDesc = '响应轻度迟缓'; baseScore -= 60; }
     rData.vel = this.setCard('metric-velocity', m.avgRecovery.toFixed(3), velDesc, velCls);
@@ -1251,12 +1382,14 @@ const UI = {
     else if (disp > 0.5) { dCls = 'warn'; dDesc = '基线轻微浮动'; baseScore -= 80; }
     rData.disp = this.setCard('metric-core', disp > 0 ? disp.toFixed(2) + ' mm' : 'N/A', dDesc, dCls);
 
-    // 5. Fractal dimension
+    // 5. Fractal dimension — v8.1: recalibrated. Old thresholds (>2.3/>2.7, <1.2) NEVER fired:
+    //    cohort range is 1.236-1.831 (no T2DM/healthy separation). Both-tail percentile flags
+    //    per the card concept (≈1 stiff limit cycle, ≈m noise): warn <1.42/>1.66 (p10/p90),
+    //    bad <1.38/>1.70 (p5/p95).
     if (m.dimension !== null && m.dimension !== undefined) {
       let dimCls = 'good', dimDesc = '适度复杂(调控灵活)';
-      if (m.dimension > 2.7) { dimCls = 'bad'; dimDesc = '噪声化混沌(调控失序)'; baseScore -= 100; }
-      else if (m.dimension > 2.3) { dimCls = 'warn'; dimDesc = '复杂度偏高(轨迹发散)'; baseScore -= 40; }
-      else if (m.dimension < 1.2) { dimCls = 'warn'; dimDesc = '僵硬极限环(适应性下降)'; baseScore -= 40; }
+      if (m.dimension < 1.38 || m.dimension > 1.70) { dimCls = 'bad'; dimDesc = '相空间充盈度极端(僵死或失稳)'; baseScore -= 100; }
+      else if (m.dimension < 1.42 || m.dimension > 1.66) { dimCls = 'warn'; dimDesc = '复杂度偏离队列典型'; baseScore -= 40; }
       rData.dim = this.setCard('metric-dimension', m.dimension.toFixed(2), dimDesc, dimCls);
     } else {
       rData.dim = this.setCard('metric-dimension', 'N/A', '有效连续相点过短(<20)', 'warn');
@@ -1273,23 +1406,28 @@ const UI = {
       rData.ly = this.setCard('metric-lyapunov', 'N/A', '近邻搜索失败(高维稀疏)', 'warn');
     }
 
-    // 7. DET — determinism (v8.0: direction INVERTED per Colas data — T2DM mean 0.860 < normal 0.909;
-    //    v7.1 penalized high DET, i.e. penalized the healthy group)
+    // 7. DET — determinism. v8.0 inverted the direction (T2DM lower) citing cohort means
+    //    0.860/0.909, but those values are NOT reproducible on the deployed full-resolution
+    //    pipeline — actual cohort range is 0.981-0.999 (T2DM med 0.993 < healthy 0.995), so the
+    //    v8.0 thresholds <0.85/<0.90 never fired. v8.1 recalibrated inside the real range:
+    //    warn <0.994 (T2DM 65% / healthy 44%), bad <0.990 (T2DM 29% / healthy 15%).
     if (m.det !== null && m.det !== undefined) {
       let detCls = 'good', detDesc = '因果律健康(张弛有度)';
-      if (m.det < 0.85) { detCls = 'bad'; detDesc = '轨迹失序(自由度散失)'; baseScore -= 100; }
-      else if (m.det < 0.90) { detCls = 'warn'; detDesc = '确定性下降'; baseScore -= 40; }
+      if (m.det < 0.990) { detCls = 'bad'; detDesc = '轨迹失序(自由度散失)'; baseScore -= 100; }
+      else if (m.det < 0.994) { detCls = 'warn'; detDesc = '确定性下降'; baseScore -= 40; }
       rData.det = this.setCard('metric-det', (m.det * 100).toFixed(1) + '%', detDesc, detCls);
     } else {
       rData.det = this.setCard('metric-det', 'N/A', '数据点不足', 'warn');
     }
 
-    // 8. ENTR — diagonal line entropy (v8.0: thresholds raised to cohort range —
-    //    T2DM mean 1.73 < normal 1.97; v7.1 penalized <1.0 which almost never fires)
+    // 8. ENTR — diagonal line entropy. Same story as DET: the v8.0 thresholds 1.5/1.8 were
+    //    calibrated on unreproducible cohort numbers (claimed T2DM 1.73 < normal 1.97; actual
+    //    range 2.04-3.90, T2DM med 2.74 < healthy 2.95) and never fired. v8.1: warn <2.9
+    //    (T2DM 76% / healthy 42%), bad <2.6 (T2DM 35% / healthy 12%).
     if (m.entr !== null && m.entr !== undefined) {
       let entrCls = 'good', entrDesc = '招式丰富(代谢灵活)';
-      if (m.entr < 1.5) { entrCls = 'bad'; entrDesc = '资本枯竭(单一模式死扛)'; baseScore -= 120; }
-      else if (m.entr < 1.8) { entrCls = 'warn'; entrDesc = '手段单一(适应性下降)'; baseScore -= 50; }
+      if (m.entr < 2.6) { entrCls = 'bad'; entrDesc = '资本枯竭(单一模式死扛)'; baseScore -= 120; }
+      else if (m.entr < 2.9) { entrCls = 'warn'; entrDesc = '手段单一(适应性下降)'; baseScore -= 50; }
       rData.entr = this.setCard('metric-entr', m.entr.toFixed(2), entrDesc, entrCls);
     } else {
       rData.entr = this.setCard('metric-entr', 'N/A', '数据点不足', 'warn');
@@ -1302,8 +1440,10 @@ const UI = {
     let boundaryWarning = "";
     let minV = 0, maxV = 0, medianVal = 0;
     if (validVs && validVs.length > 0) {
-      minV = Math.min(...validVs);
-      maxV = Math.max(...validVs);
+      // v8.1: loop instead of Math.min/max spread — spread breaks on very long series
+      // (call-stack limit ~100k args); CGM months at 3-min grid are in range but fragile.
+      minV = Infinity; maxV = -Infinity;
+      for (const v of validVs) { if (v < minV) minV = v; if (v > maxV) maxV = v; }
       medianVal = getMedian(validVs);
 
       if (minV < 3.0) { baseScore -= 300; boundaryWarning += `重度底盘击穿(跌至${minV.toFixed(1)}) `; }
