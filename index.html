@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CGM 塔肯斯相空间探针 v7.1</title>
+<title>CGM 塔肯斯相空间探针 v8.0</title>
 <!-- SheetJS for Excel parsing -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Plotly.js for 3D visualization -->
@@ -154,7 +154,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
   <header>
     <div class="header-title-box">
       <h1>CGM 塔肯斯相空间探针</h1>
-      <span class="subtitle">v7.0 / Takens Embedding Phase Space Reconstruction &amp; RQA</span>
+      <span class="subtitle">v8.0 / Takens Embedding Phase Space Reconstruction &amp; RQA + 校准筛查风险</span>
     </div>
     <div class="health-rating" id="health-rating">
       <span class="dot" style="background:var(--text-secondary); box-shadow:none;"></span>
@@ -292,7 +292,14 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
 
 <script>
 // ============================================================
-// CGM Takens Phase Space Reconstruction Analyzer v7.1
+// CGM Takens Phase Space Reconstruction Analyzer v8.0
+//
+// v8.0: 校准筛查风险 — logistic regression on {Lyapunov, ENTR, 夜间均糖}
+//   Colas 队列 (n=208, 17 T2DM) 诚实 10x5 OOF: AUC=0.670 (permutation p=0.030),
+//   vs v7.1 启发式 MRI OOF 0.520。系数: 0.7798*lyap - 1.6137*entr + 0.5133*nightMean + 1.6820
+//   RQA 必须用全分辨率点集(无降采样)——旧 Python 校验的 n>600 降采样使 DET/ENTR 失真,
+//   已同步修复。同时修正启发式 MRI 方向缺陷: Lyap 阈值(0.40/0.60 从不触发→0.15/0.20)、
+//   DET 方向(数据为 T2DM 更低)、ENTR 阈值(<1.0 几乎不触发→1.5/1.8)。
 //
 // Pipeline:
 //   S1. Data Ingestion  →  CSV/XLSX parsing, unit conversion
@@ -1135,6 +1142,12 @@ const UI = {
     const pointsRaw = takensEmbedding(sliceByPeriod(timestamps, rawValues, period).values, tau, dim);
     const pointsSmooth = takensEmbedding(sliceByPeriod(timestamps, smoothValues, period).values, tau, dim);
 
+    // Night baseline glucose (0:00-6:00, raw grid) — calibrated screening feature (v8.0)
+    const nightRawValues = sliceByPeriod(timestamps, rawValues, 'night').values.filter(v => v !== null);
+    const nightMean = nightRawValues.length >= 6
+      ? nightRawValues.reduce((a, b) => a + b, 0) / nightRawValues.length
+      : null;
+
     // ---- Pipeline Stage 5: Compute attractor metrics ----
     const metrics = computeAttractorMetrics(points, pointsRaw, pointsSmooth);
     if (!metrics) return;
@@ -1159,7 +1172,7 @@ const UI = {
     const gravityCore3D = metrics.gravityCore.slice(0, 3);
 
     // ---- Pipeline Stage 7: Render ----
-    this.renderMetrics(metrics, displacement, tau, validVs, smooth, insulinPred, dA, dim, dimCapped, calculatedDim);
+    this.renderMetrics(metrics, displacement, tau, validVs, smooth, insulinPred, dA, dim, dimCapped, calculatedDim, nightMean);
     this.renderPlots(sliced.timestamps, sliced.values, points3D, tau, gravityCore3D, nightCore3D, metrics);
 
     // Update dimension display
@@ -1177,9 +1190,21 @@ const UI = {
     return { val, desc };
   },
 
-  renderMetrics(m, disp, tau, validVs, smooth, insulinPred, dA, dim, dimCapped, calculatedDim) {
+  renderMetrics(m, disp, tau, validVs, smooth, insulinPred, dA, dim, dimCapped, calculatedDim, nightMean) {
     let baseScore = 1000;
     let rData = {};
+
+    // ---- v8.0 Calibrated screening risk (Colas cohort, honest 10x5 OOF: AUC=0.67) ----
+    // LR: lyapunov + entr + night_mean → P(abnormal metabolism); RQA features must
+    // be full-resolution (no downsampling) to match the calibration pipeline.
+    let screenRisk = null, riskTier = null, riskCls = 'warn', riskDesc = '数据不足';
+    if (m.lyapunov !== null && m.lyapunov !== undefined && m.entr !== null && m.entr !== undefined && nightMean !== null) {
+      const z = 0.7798 * m.lyapunov - 1.6137 * m.entr + 0.5133 * nightMean + 1.6820;
+      screenRisk = 1 / (1 + Math.exp(-z));
+      if (screenRisk >= 0.50) { riskTier = '高风险'; riskCls = 'bad'; riskDesc = '校准模型阳性带 (Sens 0.77 / Spec 0.62)'; }
+      else if (screenRisk >= 0.30) { riskTier = '中风险'; riskCls = 'warn'; riskDesc = '灰色带 (Sens 0.88 / Spec 0.21 若纳入)'; }
+      else { riskTier = '低风险'; riskCls = 'good'; riskDesc = '校准模型阴性带'; }
+    }
 
     // Insulin prediction card
     const predEl = document.getElementById('metric-insulin-pred');
@@ -1237,32 +1262,34 @@ const UI = {
       rData.dim = this.setCard('metric-dimension', 'N/A', '有效连续相点过短(<20)', 'warn');
     }
 
-    // 6. Lyapunov exponent (OPTIMIZED v7.1: thresholds lowered — Colas cohort Lyap range 0.01-0.35)
+    // 6. Lyapunov exponent (v8.0: thresholds recalibrated to Colas cohort range 0.01-0.35;
+    //    v7.1 used 0.40/0.60 which NEVER fired — T2DM mean 0.161 vs normal 0.120)
     if (m.lyapunov !== null && m.lyapunov !== undefined) {
       let lyCls = 'good', lyDesc = '弱发散(相对稳态)';
-      if (m.lyapunov > 0.60) { lyCls = 'bad'; lyDesc = '强混沌发散(对初值敏感)'; baseScore -= 120; }
-      else if (m.lyapunov > 0.40) { lyCls = 'warn'; lyDesc = '临界敏感(轻度不稳)'; baseScore -= 50; }
+      if (m.lyapunov > 0.20) { lyCls = 'bad'; lyDesc = '强发散(轨迹敏感)'; baseScore -= 120; }
+      else if (m.lyapunov > 0.15) { lyCls = 'warn'; lyDesc = '临界敏感(轻度不稳)'; baseScore -= 50; }
       rData.ly = this.setCard('metric-lyapunov', m.lyapunov.toFixed(3), lyDesc, lyCls);
     } else {
       rData.ly = this.setCard('metric-lyapunov', 'N/A', '近邻搜索失败(高维稀疏)', 'warn');
     }
 
-    // 7. DET — determinism
+    // 7. DET — determinism (v8.0: direction INVERTED per Colas data — T2DM mean 0.860 < normal 0.909;
+    //    v7.1 penalized high DET, i.e. penalized the healthy group)
     if (m.det !== null && m.det !== undefined) {
       let detCls = 'good', detDesc = '因果律健康(张弛有度)';
-      if (m.det > 0.85) { detCls = 'bad'; detDesc = '代谢僵死(被确定性锁死)'; baseScore -= 100; }
-      else if (m.det > 0.70) { detCls = 'warn'; detDesc = '轨迹固化(自由度下降)'; baseScore -= 40; }
-      else if (m.det < 0.20) { detCls = 'warn'; detDesc = '白噪音化(系统失序)'; baseScore -= 40; }
+      if (m.det < 0.85) { detCls = 'bad'; detDesc = '轨迹失序(自由度散失)'; baseScore -= 100; }
+      else if (m.det < 0.90) { detCls = 'warn'; detDesc = '确定性下降'; baseScore -= 40; }
       rData.det = this.setCard('metric-det', (m.det * 100).toFixed(1) + '%', detDesc, detCls);
     } else {
       rData.det = this.setCard('metric-det', 'N/A', '数据点不足', 'warn');
     }
 
-    // 8. ENTR — diagonal line entropy
+    // 8. ENTR — diagonal line entropy (v8.0: thresholds raised to cohort range —
+    //    T2DM mean 1.73 < normal 1.97; v7.1 penalized <1.0 which almost never fires)
     if (m.entr !== null && m.entr !== undefined) {
       let entrCls = 'good', entrDesc = '招式丰富(代谢灵活)';
-      if (m.entr < 0.5) { entrCls = 'bad'; entrDesc = '资本枯竭(单一模式死扛)'; baseScore -= 120; }
-      else if (m.entr < 1.0) { entrCls = 'warn'; entrDesc = '手段单一(适应性下降)'; baseScore -= 50; }
+      if (m.entr < 1.5) { entrCls = 'bad'; entrDesc = '资本枯竭(单一模式死扛)'; baseScore -= 120; }
+      else if (m.entr < 1.8) { entrCls = 'warn'; entrDesc = '手段单一(适应性下降)'; baseScore -= 50; }
       rData.entr = this.setCard('metric-entr', m.entr.toFixed(2), entrDesc, entrCls);
     } else {
       rData.entr = this.setCard('metric-entr', 'N/A', '数据点不足', 'warn');
@@ -1290,21 +1317,17 @@ const UI = {
 
     const mri = Math.max(0, Math.round(baseScore));
 
-    // MRI → Sovereign Rating
-    let rating = 'D', ratingCls = 'bad', ratingDesc = '系统防线彻底击穿';
-    if (mri >= 950) { rating = 'AAA'; ratingCls = 'good'; ratingDesc = '完美稳态'; }
-    else if (mri >= 850) { rating = 'AA'; ratingCls = 'good'; ratingDesc = '高维弹性极佳'; }
-    else if (mri >= 750) { rating = 'A'; ratingCls = 'good'; ratingDesc = '健康抗压，恢复迅速'; }
-    else if (mri >= 600) { rating = 'BBB'; ratingCls = 'warn'; ratingDesc = '防线承压，轻度滞后'; }
-    else if (mri >= 450) { rating = 'BB'; ratingCls = 'warn'; ratingDesc = '磁滞初显，日夜裂缝'; }
-    else if (mri >= 300) { rating = 'B'; ratingCls = 'bad'; ratingDesc = '重度时间债与代谢阻力'; }
-    else if (mri >= 150) { rating = 'CCC'; ratingCls = 'bad'; ratingDesc = '失代偿预警，濒临溢出'; }
-
-    // Header update
+    // v8.0: header rating driven by the calibrated screening model, not the heuristic MRI
     const hr = document.getElementById('health-rating');
     const suffix = boundaryWarning ? ` | ⚠️ ${boundaryWarning}` : '';
-    hr.className = `health-rating ${ratingCls}`;
-    hr.innerHTML = `<span class="dot"></span>评级: ${rating} (${ratingDesc})${suffix}`;
+    if (riskTier) {
+      hr.className = `health-rating ${riskCls}`;
+      hr.innerHTML = `<span class="dot"></span>筛查风险: ${riskTier} (P=${(screenRisk * 100).toFixed(1)}%)${suffix}`;
+      hr.title = riskDesc + '；校准于 GlucoBench Colas 队列 (n=208, 17 T2DM)，10x5 OOF AUC=0.67，非诊断依据';
+    } else {
+      hr.className = 'health-rating warn';
+      hr.innerHTML = `<span class="dot"></span>风险不可估 (夜间数据不足)<span>${suffix}</span>`;
+    }
 
     document.getElementById('btn-copy-oracle').style.display = 'block';
 
@@ -1317,10 +1340,14 @@ const UI = {
 (本探针基于 Takens 嵌入相空间重构 / SYC 自适应维度 / 递归定量分析 RQA)
 
 ======================================================
-🌌 拓扑张量 (Topological Tensors - V7.0)
+🌌 拓扑张量 (Topological Tensors - V8.0)
 ======================================================
-■ 代谢韧性指数 (MRI): ${mri} / 1000 
-  > 评级: ${rating} (${ratingDesc})
+■ 校准筛查风险 (v8.0 逻辑回归, Colas 队列 10x5 OOF AUC=0.670):
+  > ${riskTier || 'N/A'} — P=${screenRisk !== null ? (screenRisk * 100).toFixed(1) + '%' : '数据不足'}
+  > 输入特征: Lyapunov=${rData.ly ? rData.ly.val : 'N/A'} | ENTR=${rData.entr ? rData.entr.val : 'N/A'} | 夜间均糖=${nightMean !== null ? nightMean.toFixed(2) + ' mmol/L' : 'N/A'}
+  > 阈值: ≥50% 高风险 (Sens 0.77/Spec 0.62) | 30-50% 中风险 | <30% 低风险
+
+■ 启发式代谢韧性指数 (MRI, 供参考): ${mri} / 1000
 
 ■ 物理时间债 (Tau): ${tau} 步 (1步=3分钟)
   > ${tau > 12 ? '【高危】系统反射弧过长，存在沉重的调控死区。' : '反射弧短，系统敏感度健康。'}

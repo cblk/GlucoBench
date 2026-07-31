@@ -212,18 +212,11 @@ def compute_rqa(valid_points, target_rr=RQA_TARGET_RR):
     n = len(valid_points)
     if n < 10: return None, None, None
     pts = np.array(valid_points)
-    # Vectorized distance computation
-    max_pairs = 150000
-    if n > 600:
-        step = max(1, int(n / np.sqrt(max_pairs / 2)))
-        pts_sampled = pts[::step]
-        n_samp = len(pts_sampled)
-    else:
-        pts_sampled, n_samp = pts, n
-
+    # Vectorized distance computation (full point set — MUST match JS computeRQA,
+    # which uses all points; the old n>600 downsampling biased DET/ENTR)
     distances = []
-    for k in range(RQA_THEILER + 1, n_samp):
-        diff = pts_sampled[:n_samp - k] - pts_sampled[k:]
+    for k in range(RQA_THEILER + 1, n):
+        diff = pts[:n - k] - pts[k:]
         distances.extend(np.sqrt(np.sum(diff ** 2, axis=1)).tolist())
     if len(distances) == 0: return None, None, None
 
@@ -232,7 +225,7 @@ def compute_rqa(valid_points, target_rr=RQA_TARGET_RR):
     eps_idx = min(len(sorted_d) - 1, max(0, int(target_rr * len(sorted_d))))
     epsilon = sorted_d[eps_idx]
 
-    pts_use, n_use = (pts, n) if n <= 600 else (pts_sampled, n_samp)
+    pts_use, n_use = pts, n
     total_rec, diag_points, line_lengths = 0, 0, []
     l_min = 2
     for k in range(RQA_THEILER + 1, n_use):
