@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CGM 塔肯斯相空间探针 v8.1</title>
+<title>CGM 塔肯斯相空间探针 v8.2</title>
 <!-- SheetJS for Excel parsing -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Plotly.js for 3D visualization -->
@@ -154,7 +154,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
   <header>
     <div class="header-title-box">
       <h1>CGM 塔肯斯相空间探针</h1>
-      <span class="subtitle">v8.1 / Takens Embedding Phase Space Reconstruction &amp; RQA + 校准筛查风险</span>
+      <span class="subtitle">v8.2 / Takens Embedding Phase Space Reconstruction &amp; RQA + 校准筛查风险</span>
     </div>
     <div class="health-rating" id="health-rating">
       <span class="dot" style="background:var(--text-secondary); box-shadow:none;"></span>
@@ -283,7 +283,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
         <div class="metric-card" id="metric-insulin-pred">
           <div class="metric-title">空腹胰岛素预估 (FINS)</div>
           <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">多尺度相空间特征回归推断 (实验性, R²≈0.04)。</div>
+          <div class="metric-desc">多尺度相空间特征回归推断 (实验性, R²≈0.01)。</div>
         </div>
       </div>
     </div>
@@ -315,6 +315,12 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
 //     v8.0 注释引用的 det 0.860/0.909、entr 1.73/1.97 不可复现) → 按实测分布重校准。
 //   - FINS 预测器 REF_MEDIANS 保持原训练值(外部 53 人拟合, 训练公式与现行管线不同,
 //     重定心会脱拟合), 仅补充说明注释。
+//
+// v8.2: FINS 预测器重拟合 — 原 53 人训练集已定位 (data1/, PLOS Biol pbio.2005143,
+//   空腹胰岛素金标准在 clinical 表)。用现行管线重算特征 (output/js_fins_features.mjs)
+//   并重拟合 Ridge: 样本内 R²=0.013, LOO R²=-0.09 — 现行管线吸引子特征对空腹胰岛素
+//   无可检测信号 (旧 R²≈0.04 同为噪声; 旧常量套现行特征得 R²=-1.39, 证实训练公式
+//   确已变更)。REF_MEDIANS/FEATURE_SCALES 已替换为现行尺度, 卡片保留实验性标签。
 //
 // Pipeline:
 //   S1. Data Ingestion  →  CSV/XLSX parsing, unit conversion
@@ -364,16 +370,22 @@ const RQA_TARGET_RR = 0.02;
 const RQA_MAX_PAIRS = 4_000_000;
 const RQA_SAMPLE_PAIRS = 1_000_000;
 
-// Insulin predictor constants (experimental, Ridge regression on 53 subjects, R²≈0.04)
-// v8.1: intentionally NOT re-centered. These REF_MEDIANS are internally consistent with the
-// original training pipeline (e.g. volume median 393093 vs 2.2 on the current pipeline — the
-// training formula differed, not just the unit), and re-centering without re-fitting the
-// coefficients would shift every prediction by ~3-4 uIU/mL (de-fit). Known artifact: the
-// volume feature contributes a near-constant term, absorbed by the intercept at fit time.
+// Insulin predictor constants — v8.2 re-fit on the ORIGINAL 53-subject training set
+// (data1/, PLOS Biol pbio.2005143: CGM + fasting-insulin labels in clinical table).
+// Features recomputed with the CURRENT pipeline (output/js_fins_features.mjs, mirrors
+// predictInsulinBaseline internals: dim=4, τ∈{5,10,15,20}, TAU_WEIGHTS_V2 aggregation)
+// then Ridge(alpha=1) on raw aggregated features, same procedure as the original fit.
+// Result: in-sample R²=0.013, LOO R²=-0.09, LOO RMSE 4.59 ≈ label SD 4.44 — the
+// current-pipeline attractor features carry NO detectable fasting-insulin signal
+// (the original R²≈0.04 claim was itself noise). Old constants scored R²=-1.39 on these
+// features, confirming the legacy training formula differed. Sign audit of the new fit:
+// lyapunov/shapeRatio/avgRecovery/dimension directions match the old fit; volume's sign
+// was meaningless on the legacy scale (REF 393093 vs actual median 3.54). The card stays
+// explicitly experimental and non-diagnostic; predictions hover at the cohort mean.
 const INSULIN_MEAN = 7.75;
 const INSULIN_STD  = 4.40;
-const REF_MEDIANS = { volume: 393093, shapeRatio: 4.04, avgRecovery: 0.345, dimension: 1.934, lyapunov: 0.416 };
-const FEATURE_SCALES = { volume: -0.0000005, shapeRatio: -0.98, avgRecovery: -9.49, dimension: +7.43, lyapunov: -6.98 };
+const REF_MEDIANS = { volume: 3.537, shapeRatio: 2.207, avgRecovery: 0.166, dimension: 1.934, lyapunov: 0.207 };
+const FEATURE_SCALES = { volume: 0.000171, shapeRatio: -0.847, avgRecovery: -1.047, dimension: +0.106, lyapunov: -1.712 };
 const TAU_WEIGHTS_V2 = { 5: 0.15, 10: 0.20, 15: 0.50, 20: 0.15 };
 const DEFAULT_TAUS = [5, 10, 15, 20];
 
@@ -1010,7 +1022,7 @@ function computeAttractorMetrics(shapePoints, rawPoints, smoothPoints, skipRQA =
 // S6. CLINICAL TRANSLATION — MRI Score & Insulin Prediction
 // ============================================================================
 
-// Multi-scale insulin baseline predictor (experimental, R²≈0.04)
+// Multi-scale insulin baseline predictor (experimental, v8.2 re-fit: R²≈0.01)
 // Always operates on raw (unsmoothed) values; internally derives smoothed pathway.
 // Anchored at dim=4 (the dimension the Ridge model was trained on).
 function predictInsulinBaseline(rawValues, dim = 4) {
@@ -1051,7 +1063,7 @@ function predictInsulinBaseline(rawValues, dim = 4) {
   if (nScales >= 4 && Math.abs(totalDelta) < 2.5 * INSULIN_STD) confidence = 'high';
   else if (nScales >= 2) confidence = 'medium';
 
-  return { predicted: +predicted.toFixed(1), contributions, confidence, nScales, experimental: true, r2: 0.04 };
+  return { predicted: +predicted.toFixed(1), contributions, confidence, nScales, experimental: true, r2: 0.013 };
 }
 
 // ============================================================================
@@ -1338,7 +1350,7 @@ const UI = {
         else confHtml = '<span style="color:#ef4444;font-size:12px;">(一致性 Low)</span>';
         predEl.innerHTML = `
           <div class="metric-value" style="color:var(--primary-light)">${insulinPred.predicted.toFixed(1)} uIU/mL ${confHtml}</div>
-          <div class="metric-desc">⚠️ 实验性回归 (R²≈0.04)，非诊断依据 (${insulinPred.nScales} Taus)</div>`;
+          <div class="metric-desc">⚠️ 实验性回归 (R²≈0.01, v8.2 重拟合)，非诊断依据 (${insulinPred.nScales} Taus)</div>`;
       } else {
         predEl.innerHTML = '<div class="metric-value">N/A</div><div class="metric-desc">数据不足</div>';
       }
@@ -1508,7 +1520,7 @@ const UI = {
 6. 李雅普诺夫指数 (Lyapunov): ${rData.ly.val} [${rData.ly.desc}]
 7. 代谢僵化度 (DET): ${rData.det.val} [${rData.det.desc}]
 8. 适应性熵 (ENTR): ${rData.entr.val} [${rData.entr.desc}]
-9. [实验性] 空腹胰岛素预估 (FINS): ${insulinPred && insulinPred.predicted !== null ? insulinPred.predicted.toFixed(1) + ' uIU/mL' : 'N/A'} [一致性: ${insulinPred ? insulinPred.confidence : 'N/A'}, R²≈0.04]
+9. [实验性] 空腹胰岛素预估 (FINS): ${insulinPred && insulinPred.predicted !== null ? insulinPred.predicted.toFixed(1) + ' uIU/mL' : 'N/A'} [一致性: ${insulinPred ? insulinPred.confidence : 'N/A'}, R²≈0.01]
 
 ■ 边界击穿实录:
 > 极值: 峰值 ${maxV.toFixed(2)} | 谷值 ${minV.toFixed(2)} (中位数: ${medianVal.toFixed(2)} mmol/L)

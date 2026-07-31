@@ -8,6 +8,8 @@ track_*
 output/tensorboard_*/*
 paper_results
 output
+data1
+1.csv
 
 # ignore folder raw_data
 raw_data/
