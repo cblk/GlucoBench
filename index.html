@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CGM 塔肯斯相空间探针 v8.3</title>
+<title>CGM 塔肯斯相空间探针 v8.4</title>
 <!-- SheetJS for Excel parsing -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Plotly.js for 3D visualization -->
@@ -154,7 +154,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
   <header>
     <div class="header-title-box">
       <h1>CGM 塔肯斯相空间探针</h1>
-      <span class="subtitle">v8.3 / Takens Embedding Phase Space Reconstruction &amp; RQA + 校准筛查风险</span>
+      <span class="subtitle">v8.4 / 夜间均糖 + 治疗分层动力学共识筛查</span>
     </div>
     <div class="health-rating" id="health-rating">
       <span class="dot" style="background:var(--text-secondary); box-shadow:none;"></span>
@@ -178,6 +178,20 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
         </div>
         <div style="display:flex;gap:8px;margin-top:12px">
           <button class="btn btn-highlight" id="btn-load-sample" style="flex:1">加载演示数据</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>筛查人群</h2>
+        <div class="control-group">
+          <select id="sel-treatment" aria-label="降糖药治疗状态">
+            <option value="unknown">治疗状态未知（安全回退）</option>
+            <option value="untreated">未使用降糖药</option>
+            <option value="treated">正在使用降糖药</option>
+          </select>
+        </div>
+        <div id="treatment-note" style="font-size:11px; color:var(--text-secondary); margin-top:8px; line-height:1.5;">
+          未知状态仅使用夜间均糖；请勿猜测治疗状态。
         </div>
       </section>
 
@@ -341,6 +355,14 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
 //     (DET<0.990 命中 95% 正常, ENTR<2.6 命中 39% 正常)。
 //   - FINS 卡片不变 (R²≈0.01, 均值参照)。
 //
+// v8.4: 按用户明确授权部署冻结候选“夜间均糖 + Lyapunov/DET/ENTR 动力学共识”:
+//   - Hall 未治疗方向: Lyapunov低、DET高、ENTR高；20x5 OOF AUC 0.731→0.778。
+//   - Colas 已治疗方向: Lyapunov高、DET低、ENTR低；20x5 OOF AUC 0.600→0.642。
+//   - 每项以分层健康中位数/MAD转为0-3方向证据，三项中位数为DynamicScore；
+//     夜间均糖和DynamicScore进入非负Logistic。治疗未知或动力学不可计算时严格回退v8.3。
+//   - 该候选未通过原预设统计部署门槛（两层ΔAUC CI均跨0），本版本按用户覆盖授权启用；
+//     UI持续显示“严格内部验证、非独立外部确认、非诊断依据”。
+//
 // Pipeline:
 //   S1. Data Ingestion  →  CSV/XLSX parsing, unit conversion
 //   S2. Preprocessing    →  resample to 3min grid, EMA filter, ACF → τ (capped ≤20)
@@ -389,6 +411,46 @@ const RQA_TARGET_RR = 0.02;
 const RQA_MAX_PAIRS = 4_000_000;
 const RQA_SAMPLE_PAIRS = 1_000_000;
 
+// v8.4 frozen deployment parameters. Healthy references are full-cohort control
+// medians and robust scales (1.4826*MAD with the validation fallback hierarchy).
+// The Logistic coefficients are expressed on the raw nightMean/DynamicScore scale.
+const SCREENING_MODELS_V84 = Object.freeze({
+  untreated: Object.freeze({
+    label: '未治疗动力学共识',
+    cohort: 'Hall 未治疗队列 (n=57/阳性19)',
+    reference: Object.freeze({
+      lyapunov: Object.freeze({ median: 0.21747328684772121, scale: 0.057793058951874796, direction: -1 }),
+      det: Object.freeze({ median: 0.9852847787383687, scale: 0.004363252363392722, direction: 1 }),
+      entr: Object.freeze({ median: 2.627792329573473, scale: 0.17161741119383928, direction: 1 }),
+    }),
+    intercept: -6.35073552463002,
+    nightMeanCoef: 0.8540537261383968,
+    dynamicCoef: 1.1654672610322259,
+    screeningThreshold: 0.25543623609424837,
+    validation: Object.freeze({ auc: 0.778, sensitivity: 0.775, specificity: 0.597 }),
+  }),
+  treated: Object.freeze({
+    label: '已治疗动力学共识',
+    cohort: 'Colas 已治疗队列 (n=208/阳性17)',
+    reference: Object.freeze({
+      lyapunov: Object.freeze({ median: 0.11202436496475647, scale: 0.06878779009527695, direction: 1 }),
+      det: Object.freeze({ median: 0.994703680029221, scale: 0.003070961008111728, direction: -1 }),
+      entr: Object.freeze({ median: 2.9540503194717904, scale: 0.30832322428692244, direction: -1 }),
+    }),
+    intercept: -4.86963550442103,
+    nightMeanCoef: 0.3739500251268923,
+    dynamicCoef: 0.6603108250710589,
+    screeningThreshold: 0.0644700969917715,
+    validation: Object.freeze({ auc: 0.642, sensitivity: 0.798, specificity: 0.467 }),
+  }),
+});
+
+const TREATMENT_NOTES_V84 = Object.freeze({
+  unknown: '未知状态仅使用夜间均糖；请勿猜测治疗状态。',
+  untreated: '未使用降糖药：低 Lyapunov + 高 DET/ENTR 为异常方向。',
+  treated: '正在使用降糖药：高 Lyapunov + 低 DET/ENTR 为异常方向。',
+});
+
 // Insulin predictor constants — v8.2 re-fit on the ORIGINAL 53-subject training set
 // (data1/, PLOS Biol pbio.2005143: CGM + fasting-insulin labels in clinical table).
 // Features recomputed with the CURRENT pipeline (output/js_fins_features.mjs, mirrors
@@ -420,6 +482,59 @@ function getMedian(arr) {
   const s = [...arr].sort((a, b) => a - b);
   const mid = Math.floor(s.length / 2);
   return s.length % 2 !== 0 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+
+// Frozen white-box v8.4 screening rule. Unknown treatment or missing dynamics
+// returns the v8.3 nightMean risk exactly, so the safe fallback is testable.
+function directionalEvidenceV84(value, metric, treatmentStatus) {
+  const model = SCREENING_MODELS_V84[treatmentStatus];
+  const ref = model && model.reference[metric];
+  if (!ref || !Number.isFinite(value)) return null;
+  const robustZ = Math.max(-3, Math.min(3, (value - ref.median) / ref.scale));
+  return Math.max(0, Math.min(3, ref.direction * robustZ));
+}
+
+function computeScreeningRiskV84(nightMean, dynamics, treatmentStatus = 'unknown') {
+  if (!Number.isFinite(nightMean)) {
+    return { risk: null, mode: 'unavailable', usedConsensus: false, reason: '夜间数据不足' };
+  }
+
+  const fallbackZ = 1.064314 * nightMean - 6.746364;
+  const fallback = {
+    risk: 1 / (1 + Math.exp(-fallbackZ)),
+    mode: 'night-only',
+    usedConsensus: false,
+    screeningThreshold: 0.30,
+    highThreshold: 0.50,
+    dynamicScore: null,
+    evidence: null,
+    model: null,
+    reason: treatmentStatus === 'unknown' ? '治疗状态未知' : '动力学指标不可计算',
+  };
+
+  const model = SCREENING_MODELS_V84[treatmentStatus];
+  if (!model) return fallback;
+  if (!dynamics || !['lyapunov', 'det', 'entr'].every(key => Number.isFinite(dynamics[key]))) {
+    return { ...fallback, mode: 'night-only-fallback' };
+  }
+
+  const evidence = {};
+  for (const key of ['lyapunov', 'det', 'entr']) {
+    evidence[key] = directionalEvidenceV84(dynamics[key], key, treatmentStatus);
+  }
+  const dynamicScore = getMedian([evidence.lyapunov, evidence.det, evidence.entr]);
+  const z = model.intercept + model.nightMeanCoef * nightMean + model.dynamicCoef * dynamicScore;
+  return {
+    risk: 1 / (1 + Math.exp(-z)),
+    mode: treatmentStatus,
+    usedConsensus: true,
+    screeningThreshold: model.screeningThreshold,
+    highThreshold: 0.50,
+    dynamicScore,
+    evidence,
+    model,
+    reason: null,
+  };
 }
 
 // Auto-detect mg/dL and convert to mmol/L (÷18.0182)
@@ -1152,6 +1267,10 @@ const UI = {
 
     // Control bindings
     document.getElementById('sel-period').onchange = () => this.analyze();
+    document.getElementById('sel-treatment').onchange = e => {
+      document.getElementById('treatment-note').textContent = TREATMENT_NOTES_V84[e.target.value];
+      this.analyze();
+    };
     // v8.1: tau slider debounced — dragging fires analyze() per input event, and each run
     // is an O(n²) RQA + 3 Plotly redraws. Value display updates instantly, pipeline waits.
     document.getElementById('tau-slider').oninput = e => {
@@ -1222,6 +1341,7 @@ const UI = {
   onDataReady() {
     // Reset plot state for new data
     this.plotInit = false; this._rpInit = false;
+    this._screenDynamics = null;
 
     const { timestamps, values: rawValues } = resampleData(this.rawData, false);
     const acf = computeACF(rawValues, 60);
@@ -1233,6 +1353,13 @@ const UI = {
     }
     slider.value = recTau;
     document.getElementById('tau-display').textContent = slider.value;
+    this._screenTau = recTau;
+
+    // A new file starts from the exact validation path. Later visualization controls may
+    // change freely; the screening dynamics cached from this first full/smoothed pass stay
+    // invariant and cannot be altered by period, tau, or smoothing UI controls.
+    document.getElementById('sel-period').value = 'all';
+    document.getElementById('chk-smooth').checked = true;
 
     const nightRaw = sliceByPeriod(timestamps, rawValues, 'night').values.filter(v => v !== null);
     this._nightMean = nightRaw.length >= 6
@@ -1310,6 +1437,14 @@ const UI = {
     const metrics = computeAttractorMetrics(points, pointsRaw, pointsSmooth);
     if (!metrics) return;
 
+    if (!this._screenDynamics && period === 'all' && smooth && tau === this._screenTau) {
+      this._screenDynamics = {
+        lyapunov: metrics.lyapunov,
+        det: metrics.det,
+        entr: metrics.entr,
+      };
+    }
+
     // Core displacement: distance between current gravity core and night baseline
     let displacement = 0;
     if (nightCore && period !== 'night') {
@@ -1354,23 +1489,32 @@ const UI = {
     let baseScore = 1000;
     let rData = {};
 
-    // ---- v8.3 Calibrated screening risk (Hall cohort, honest 10x5 OOF: AUC=0.727) ----
-    // v8.0/v8.1 used a Colas-trained LR (lyapunov+entr+night_mean, OOF AUC 0.670), but
-    // external validation on the PLOS Biol Hall cohort (n=57, UNTREATED pre/diabetic —
-    // the actual screening target) showed that model INVERTS: AUC 0.414 (below chance),
-    // risk correlates NEGATIVELY with A1C/FBG/insulin. Cause: Colas T2DM are TREATED;
-    // medication flattens the attractor, reversing the direction of lyapunov/entr/volume
-    // vs untreated dysglycemia (Hall: diabetic has HIGHER entr 2.98 vs 2.66, LOWER lyap
-    // 0.156 vs 0.217). Only nightMean direction is stable across both cohorts
-    // (Hall→Colas AUC 0.625, Colas→Hall AUC 0.751). v8.3 deploys the Hall-calibrated
-    // nightMean-only LR: OOF AUC 0.727±0.009 (10x5), permutation p=0.010.
-    let screenRisk = null, riskTier = null, riskCls = 'warn', riskDesc = '数据不足';
-    if (nightMean !== null) {
-      const z = 1.064314 * nightMean - 6.746364;
-      screenRisk = 1 / (1 + Math.exp(-z));
-      if (screenRisk >= 0.50) { riskTier = '高风险'; riskCls = 'bad'; riskDesc = '校准模型阳性带 (Hall OOF Sens 0.26 / Spec 0.82)'; }
-      else if (screenRisk >= 0.30) { riskTier = '中风险'; riskCls = 'warn'; riskDesc = '灰色带 (Hall OOF Sens 0.74 / Spec 0.63 若纳入)'; }
-      else { riskTier = '低风险'; riskCls = 'good'; riskDesc = '校准模型阴性带'; }
+    // ---- v8.4 treatment-context dynamic consensus screening risk ----
+    // The screening features are cached on initial full/smoothed/recommended-tau analysis,
+    // so visualization controls cannot alter risk. The user explicitly authorized deployment
+    // despite the pre-specified statistical gate not passing; keep that limitation visible.
+    const treatmentStatus = document.getElementById('sel-treatment').value;
+    const screening = computeScreeningRiskV84(nightMean, this._screenDynamics, treatmentStatus);
+    const screenRisk = screening.risk;
+    let riskTier = null, riskCls = 'warn', riskDesc = screening.reason || '数据不足';
+    if (screenRisk !== null) {
+      if (screening.usedConsensus) {
+        const validation = screening.model.validation;
+        if (screenRisk >= screening.highThreshold) {
+          riskTier = '高风险'; riskCls = 'bad';
+        } else if (screenRisk >= screening.screeningThreshold) {
+          riskTier = '筛查阳性'; riskCls = 'warn';
+        } else {
+          riskTier = '筛查阴性'; riskCls = 'good';
+        }
+        riskDesc = `${screening.model.label}（内部20x5 OOF AUC=${validation.auc.toFixed(3)}, `
+          + `阈值Sens=${validation.sensitivity.toFixed(3)}/Spec=${validation.specificity.toFixed(3)}）`;
+      } else {
+        if (screenRisk >= 0.50) { riskTier = '高风险'; riskCls = 'bad'; }
+        else if (screenRisk >= 0.30) { riskTier = '中风险'; riskCls = 'warn'; }
+        else { riskTier = '低风险'; riskCls = 'good'; }
+        riskDesc = `v8.3夜间均糖安全回退（${screening.reason}）`;
+      }
     }
 
     // Insulin prediction card
@@ -1443,7 +1587,13 @@ const UI = {
     //    bad <0.11: 3% / 7% / 20% (n=5 diabetic — noisy but monotone group means).
     if (m.lyapunov !== null && m.lyapunov !== undefined) {
       let lyCls = 'good', lyDesc = '适度发散(轨迹灵活)';
-      if (m.lyapunov < 0.11) { lyCls = 'bad'; lyDesc = '强收敛(轨迹僵硬)'; baseScore -= 120; }
+      const lyEvidence = directionalEvidenceV84(m.lyapunov, 'lyapunov', treatmentStatus);
+      if (lyEvidence !== null) {
+        const direction = treatmentStatus === 'treated' ? '高值' : '低值';
+        if (lyEvidence >= 2) { lyCls = 'bad'; lyDesc = `${direction}异常证据强 (${lyEvidence.toFixed(1)}/3)`; baseScore -= 120; }
+        else if (lyEvidence >= 1) { lyCls = 'warn'; lyDesc = `${direction}异常证据中等 (${lyEvidence.toFixed(1)}/3)`; baseScore -= 50; }
+        else { lyDesc = `分层参考内 (${lyEvidence.toFixed(1)}/3)`; }
+      } else if (m.lyapunov < 0.11) { lyCls = 'bad'; lyDesc = '强收敛(轨迹僵硬)'; baseScore -= 120; }
       else if (m.lyapunov < 0.15) { lyCls = 'warn'; lyDesc = '低敏感(灵活性不足)'; baseScore -= 50; }
       rData.ly = this.setCard('metric-lyapunov', m.lyapunov.toFixed(3), lyDesc, lyCls);
     } else {
@@ -1456,7 +1606,13 @@ const UI = {
     //    0.993 vs 0.995). warn >0.990: non 5% / pre 36% / diab 60%; bad >0.992: 5% / 29% / 60%.
     if (m.det !== null && m.det !== undefined) {
       let detCls = 'good', detDesc = '因果律健康(张弛有度)';
-      if (m.det > 0.992) { detCls = 'bad'; detDesc = '轨迹过度确定(僵化锁死)'; baseScore -= 100; }
+      const detEvidence = directionalEvidenceV84(m.det, 'det', treatmentStatus);
+      if (detEvidence !== null) {
+        const direction = treatmentStatus === 'treated' ? '低值' : '高值';
+        if (detEvidence >= 2) { detCls = 'bad'; detDesc = `${direction}异常证据强 (${detEvidence.toFixed(1)}/3)`; baseScore -= 100; }
+        else if (detEvidence >= 1) { detCls = 'warn'; detDesc = `${direction}异常证据中等 (${detEvidence.toFixed(1)}/3)`; baseScore -= 40; }
+        else { detDesc = `分层参考内 (${detEvidence.toFixed(1)}/3)`; }
+      } else if (m.det > 0.992) { detCls = 'bad'; detDesc = '轨迹过度确定(僵化锁死)'; baseScore -= 100; }
       else if (m.det > 0.990) { detCls = 'warn'; detDesc = '确定性偏高'; baseScore -= 40; }
       rData.det = this.setCard('metric-det', (m.det * 100).toFixed(1) + '%', detDesc, detCls);
     } else {
@@ -1470,7 +1626,13 @@ const UI = {
     //    2.786 vs 2.964). warn >2.85: non 13% / pre 36% / diab 60%; bad >3.0: 5% / 29% / 60%.
     if (m.entr !== null && m.entr !== undefined) {
       let entrCls = 'good', entrDesc = '招式高效(代谢从容)';
-      if (m.entr > 3.0) { entrCls = 'bad'; entrDesc = '策略耗散(波动失控)'; baseScore -= 120; }
+      const entrEvidence = directionalEvidenceV84(m.entr, 'entr', treatmentStatus);
+      if (entrEvidence !== null) {
+        const direction = treatmentStatus === 'treated' ? '低值' : '高值';
+        if (entrEvidence >= 2) { entrCls = 'bad'; entrDesc = `${direction}异常证据强 (${entrEvidence.toFixed(1)}/3)`; baseScore -= 120; }
+        else if (entrEvidence >= 1) { entrCls = 'warn'; entrDesc = `${direction}异常证据中等 (${entrEvidence.toFixed(1)}/3)`; baseScore -= 50; }
+        else { entrDesc = `分层参考内 (${entrEvidence.toFixed(1)}/3)`; }
+      } else if (m.entr > 3.0) { entrCls = 'bad'; entrDesc = '策略耗散(波动失控)'; baseScore -= 120; }
       else if (m.entr > 2.85) { entrCls = 'warn'; entrDesc = '手段冗杂(适应性下降)'; baseScore -= 50; }
       rData.entr = this.setCard('metric-entr', m.entr.toFixed(2), entrDesc, entrCls);
     } else {
@@ -1507,13 +1669,24 @@ const UI = {
     if (riskTier) {
       hr.className = `health-rating ${riskCls}`;
       hr.innerHTML = `<span class="dot"></span>筛查风险: ${riskTier} (P=${(screenRisk * 100).toFixed(1)}%)${suffix}`;
-      hr.title = riskDesc + '；校准于 PLOS Biol Hall 队列 (n=57, 未治疗前期/糖尿病)，10x5 OOF AUC=0.73，非诊断依据';
+      hr.title = riskDesc + '；严格内部验证，未通过原预设部署门槛，按用户授权启用；非诊断依据';
     } else {
       hr.className = 'health-rating warn';
       hr.innerHTML = `<span class="dot"></span>风险不可估 (夜间数据不足)<span>${suffix}</span>`;
     }
 
     document.getElementById('btn-copy-oracle').style.display = 'block';
+
+    const treatmentLabel = {
+      unknown: '治疗状态未知', untreated: '未使用降糖药', treated: '正在使用降糖药',
+    }[treatmentStatus];
+    const dynamicDetail = screening.usedConsensus
+      ? `DynamicScore=${screening.dynamicScore.toFixed(3)} `
+        + `(Lyap=${screening.evidence.lyapunov.toFixed(3)}, DET=${screening.evidence.det.toFixed(3)}, ENTR=${screening.evidence.entr.toFixed(3)})`
+      : `未启用动力学共识（${screening.reason}）`;
+    const thresholdDetail = screening.usedConsensus
+      ? `≥${(screening.screeningThreshold * 100).toFixed(1)}% 筛查阳性，≥50% 高风险`
+      : '≥50% 高风险，30-50% 中风险，<30% 低风险';
 
     // ---- Oracle log ----
     this.lastReport = `[ ⚠️ 高维情报载荷注入 ] 
@@ -1524,12 +1697,14 @@ const UI = {
 (本探针基于 Takens 嵌入相空间重构 / SYC 自适应维度 / 递归定量分析 RQA)
 
 ======================================================
-🌌 拓扑张量 (Topological Tensors - V8.0)
+🌌 拓扑张量 (Topological Tensors - V8.4)
 ======================================================
-■ 校准筛查风险 (v8.3 逻辑回归, Hall 队列 10x5 OOF AUC=0.727):
+■ 校准筛查风险 (v8.4 夜间均糖 + 治疗分层动力学共识):
   > ${riskTier || 'N/A'} — P=${screenRisk !== null ? (screenRisk * 100).toFixed(1) + '%' : '数据不足'}
-  > 输入特征: 夜间均糖=${nightMean !== null ? nightMean.toFixed(2) + ' mmol/L' : 'N/A'}
-  > 阈值: ≥50% 高风险 (Hall OOF Sens 0.26/Spec 0.82) | 30-50% 中风险 (Sens 0.74/Spec 0.63 若纳入) | <30% 低风险
+  > 人群路径: ${treatmentLabel} → ${screening.usedConsensus ? screening.model.label : 'v8.3夜间均糖安全回退'}
+  > 输入特征: 夜间均糖=${nightMean !== null ? nightMean.toFixed(2) + ' mmol/L' : 'N/A'}；${dynamicDetail}
+  > 阈值: ${thresholdDetail}
+  > 证据等级: 严格内部验证，非独立外部确认；原部署门槛未全部通过，按用户明确授权启用；非诊断依据
 
 ■ 启发式代谢韧性指数 (MRI, 供参考): ${mri} / 1000
 
