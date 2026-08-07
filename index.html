@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CGM 塔肯斯相空间探针 v8.4.2</title>
+<title>CGM 塔肯斯相空间探针 v8.4.3</title>
 <!-- SheetJS for Excel parsing -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Plotly.js for 3D visualization -->
@@ -206,7 +206,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
   <header>
     <div class="header-title-box">
       <h1>CGM 塔肯斯相空间探针</h1>
-      <span class="subtitle">v8.4.2 / 筛查逻辑 v8.4 · 可审计输出日志</span>
+      <span class="subtitle">v8.4.3 / 筛查逻辑 v8.4 · 动力学意义校准</span>
     </div>
     <div class="health-rating" id="health-rating">
       <span class="dot" style="background:var(--text-secondary); box-shadow:none;"></span>
@@ -308,7 +308,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
       <!-- Metrics Panel -->
       <div class="metrics-panel" id="metrics-panel">
         <div class="metrics-guide">
-          <strong>读卡规则：</strong>蓝=参考/描述，黄=偏离内部参考带，紫=显著偏离；仅描述当前数据窗口，不等同诊断或单项风险，卡片颜色不直接改变顶部筛查概率。
+          <strong>读卡规则：</strong>蓝=参考/描述，黄=偏离，紫=显著偏离。Lyapunov/DET/ENTR 在治疗状态明确时表示相对分层健康参考的共识证据；单项、当前窗口卡色均不独立决定顶部筛查分值。
         </div>
         <div class="metric-card" id="metric-volume">
           <div class="metric-title">相空间展开体积 (Volume)</div>
@@ -338,17 +338,17 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
         <div class="metric-card" id="metric-lyapunov">
           <div class="metric-title">一步近邻发散代理 (Lyapunov)</div>
           <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">近邻下一步距离的对数变化代理；正/负表示扩张/收缩，不是严格连续时间指数。</div>
+          <div class="metric-desc">局部轨迹下一步扩张/收缩的稳定性代理；内部数据中具有治疗分层方向，可作为动力学共识的一项健康参考偏离证据。</div>
         </div>
         <div class="metric-card" id="metric-det">
           <div class="metric-title">RQA 确定性率 (DET)</div>
           <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">递归点落在长度≥2对角线中的比例；高表示重复片段多，不能直接推断生理僵化。</div>
+          <div class="metric-desc">轨迹重复片段的确定性比例；相对治疗分层健康参考的方向性偏离可提供共识证据，但不等同生理僵化。</div>
         </div>
         <div class="metric-card" id="metric-entr">
           <div class="metric-title">RQA 线长熵 (ENTR)</div>
           <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">递归对角线长度分布的香农熵；高表示持续时间更多样，无普适好坏方向。</div>
+          <div class="metric-desc">轨迹重复持续时间多样性的熵；在治疗分层语境中有内部风险关联方向，但不存在跨人群通用的越高越好。</div>
         </div>
         <div class="metric-card" id="metric-insulin-pred">
           <div class="metric-title">实验性 FINS 回归（低效度）</div>
@@ -443,6 +443,10 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
 // v8.4.2: 将旧提示词式“输出日志”替换为可预览审计日志，提供稳健文本复制与结构化JSON
 //   下载。日志区分固定筛查输入和可变指标窗口，记录数据质量、模型路径、证据边界与隐私范围；
 //   不导出原始血糖序列、文件名或本地路径，筛查算法保持v8.4不变。
+//
+// v8.4.3: 校准动力学共识语义。Lyapunov/DET/ENTR在治疗状态明确时作为相对分层健康
+//   参考的方向性偏离证据，并通过三项中位数共识参与筛查；治疗未知时不赋予健康方向。
+//   同时区分该绝对分层共识与未通过可靠性/增量门槛的昼夜相对结构储备共识。
 //
 // Pipeline:
 //   S1. Data Ingestion  →  CSV/XLSX parsing, unit conversion
@@ -1430,7 +1434,9 @@ const UI = {
 |---|---:|---|---|
 ${metrics}
 
-> 上表用于描述当前窗口。最新储备研究未证明这些结构指标是稳定个体特征，也未证明其具有超出常规血糖指标的筛查增益。
+> Lyapunov/DET/ENTR 在治疗状态明确时具有内部队列支持的风险关联方向，可作为三指标动力学共识的健康参考偏离证据；表内仍是当前窗口值，顶部筛查使用载入时冻结的全天/推荐Tau路径。
+>
+> 另行研究的“昼夜相对结构储备共识”未证明重测稳定性或常规血糖指标之外的增量价值；该失败不等于三项绝对动力学指标毫无信息，但限制了把它们解释成稳定体质或普适健康尺度。
 
 ## 4. 当前窗口血糖范围
 
@@ -1835,48 +1841,56 @@ ${refs}`;
       rData.dim = this.setCard('metric-dimension', 'N/A', '有效连续相点过短，盒计数估计不可用。', 'unavailable');
     }
 
-    const contextLabel = treatmentStatus === 'treated' ? '治疗中内部参考' : (treatmentStatus === 'untreated' ? '未治疗内部参考' : '未分层旧参考');
+    const contextLabel = treatmentStatus === 'treated'
+      ? '治疗中内部健康参考'
+      : (treatmentStatus === 'untreated' ? '未治疗内部健康参考' : '未分层旧参考');
 
-    // 6. One-step Lyapunov proxy; direction depends on treatment context and is not causal.
+    // 6. One-step Lyapunov proxy; treatment-stratified deviation is a consensus input,
+    // not a direct measure of health and not a causal physiological claim.
     if (m.lyapunov !== null && m.lyapunov !== undefined) {
-      let lyCls = 'reference', lyDesc = `${contextLabel}带内｜一步近邻发散代理；不可单项定性。`;
+      let lyCls = 'reference', lyDesc = `${contextLabel}带内｜治疗未知时不判断健康方向，也不进入动力学共识。`;
       const lyEvidence = directionalEvidenceV84(m.lyapunov, 'lyapunov', treatmentStatus);
       if (lyEvidence !== null) {
         const direction = treatmentStatus === 'treated' ? '高值' : '低值';
-        if (lyEvidence >= 2) { lyCls = 'extreme'; lyDesc = `${direction}显著偏离${contextLabel}（${lyEvidence.toFixed(1)}/3）｜非严格指数，不单项判病。`; baseScore -= 120; }
-        else if (lyEvidence >= 1) { lyCls = 'shifted'; lyDesc = `${direction}偏离${contextLabel}（${lyEvidence.toFixed(1)}/3）｜需结合夜间均糖与治疗状态。`; baseScore -= 50; }
-      } else if (m.lyapunov < 0.11) { lyCls = 'extreme'; lyDesc = '低值显著偏离未分层旧参考（<0.11）｜可能表示一步距离收缩，也可能受窗口影响。'; baseScore -= 120; }
-      else if (m.lyapunov < 0.15) { lyCls = 'shifted'; lyDesc = '低值偏离未分层旧参考（0.11–0.15）｜不能直接推断调控僵化。'; baseScore -= 50; }
+        if (lyEvidence >= 2) { lyCls = 'extreme'; lyDesc = `${direction}显著偏离${contextLabel}（${lyEvidence.toFixed(1)}/3）｜内部队列中与异常标签同向，是较强共识证据；非单项诊断。`; baseScore -= 120; }
+        else if (lyEvidence >= 1) { lyCls = 'shifted'; lyDesc = `${direction}偏离${contextLabel}（${lyEvidence.toFixed(1)}/3）｜内部队列中与异常标签同向，是一项共识证据。`; baseScore -= 50; }
+        else { lyDesc = `未沿${direction}风险关联方向偏离${contextLabel}（${lyEvidence.toFixed(1)}/3）｜当前窗口未形成明显共识证据。`; }
+      } else if (m.lyapunov < 0.11) { lyCls = 'extreme'; lyDesc = '低值显著偏离未分层旧参考（<0.11）｜治疗未知，不作健康方向判断，也不进入共识。'; baseScore -= 120; }
+      else if (m.lyapunov < 0.15) { lyCls = 'shifted'; lyDesc = '低值偏离未分层旧参考（0.11–0.15）｜治疗未知，不作健康方向判断，也不进入共识。'; baseScore -= 50; }
       rData.ly = this.setCard('metric-lyapunov', m.lyapunov.toFixed(3), lyDesc, lyCls);
     } else {
       rData.ly = this.setCard('metric-lyapunov', 'N/A', '连续相点或可比较近邻不足，代理值不可用。', 'unavailable');
     }
 
-    // 7. DET — RQA diagonal-line proportion, not a direct stiffness measurement.
+    // 7. DET — RQA diagonal-line proportion; stratified association is meaningful only
+    // inside the consensus and does not make DET a direct stiffness measurement.
     if (m.det !== null && m.det !== undefined) {
-      let detCls = 'reference', detDesc = `${contextLabel}带内｜重复片段占比；高低不等同健康/失序。`;
+      let detCls = 'reference', detDesc = `${contextLabel}带内｜治疗未知时不判断健康方向，也不进入动力学共识。`;
       const detEvidence = directionalEvidenceV84(m.det, 'det', treatmentStatus);
       if (detEvidence !== null) {
         const direction = treatmentStatus === 'treated' ? '低值' : '高值';
-        if (detEvidence >= 2) { detCls = 'extreme'; detDesc = `${direction}显著偏离${contextLabel}（${detEvidence.toFixed(1)}/3）｜不能直接推断生理僵化。`; baseScore -= 100; }
-        else if (detEvidence >= 1) { detCls = 'shifted'; detDesc = `${direction}偏离${contextLabel}（${detEvidence.toFixed(1)}/3）｜仅作RQA描述。`; baseScore -= 40; }
-      } else if (m.det > 0.992) { detCls = 'extreme'; detDesc = '高值显著偏离未分层旧参考（>99.2%）｜重复片段多，不能直接推断生理僵化。'; baseScore -= 100; }
-      else if (m.det > 0.990) { detCls = 'shifted'; detDesc = '高值偏离未分层旧参考（99.0%–99.2%）｜解释依赖窗口与治疗语境。'; baseScore -= 40; }
+        if (detEvidence >= 2) { detCls = 'extreme'; detDesc = `${direction}显著偏离${contextLabel}（${detEvidence.toFixed(1)}/3）｜内部队列中与异常标签同向，是较强共识证据；不等同生理僵化。`; baseScore -= 100; }
+        else if (detEvidence >= 1) { detCls = 'shifted'; detDesc = `${direction}偏离${contextLabel}（${detEvidence.toFixed(1)}/3）｜内部队列中与异常标签同向，是一项共识证据。`; baseScore -= 40; }
+        else { detDesc = `未沿${direction}风险关联方向偏离${contextLabel}（${detEvidence.toFixed(1)}/3）｜当前窗口未形成明显共识证据。`; }
+      } else if (m.det > 0.992) { detCls = 'extreme'; detDesc = '高值显著偏离未分层旧参考（>99.2%）｜治疗未知，不作健康方向判断，也不进入共识。'; baseScore -= 100; }
+      else if (m.det > 0.990) { detCls = 'shifted'; detDesc = '高值偏离未分层旧参考（99.0%–99.2%）｜治疗未知，不作健康方向判断，也不进入共识。'; baseScore -= 40; }
       rData.det = this.setCard('metric-det', (m.det * 100).toFixed(1) + '%', detDesc, detCls);
     } else {
       rData.det = this.setCard('metric-det', 'N/A', '递归点或连续相点不足，DET 不可用。', 'unavailable');
     }
 
-    // 8. ENTR — entropy of diagonal line lengths, not direct biological adaptability.
+    // 8. ENTR — diagonal-line entropy; it carries treatment-stratified association inside
+    // the consensus but is not a universal measure of biological adaptability.
     if (m.entr !== null && m.entr !== undefined) {
-      let entrCls = 'reference', entrDesc = `${contextLabel}带内｜递归持续时间多样性；无普适好坏方向。`;
+      let entrCls = 'reference', entrDesc = `${contextLabel}带内｜治疗未知时不判断健康方向，也不进入动力学共识。`;
       const entrEvidence = directionalEvidenceV84(m.entr, 'entr', treatmentStatus);
       if (entrEvidence !== null) {
         const direction = treatmentStatus === 'treated' ? '低值' : '高值';
-        if (entrEvidence >= 2) { entrCls = 'extreme'; entrDesc = `${direction}显著偏离${contextLabel}（${entrEvidence.toFixed(1)}/3）｜不等同适应性下降。`; baseScore -= 120; }
-        else if (entrEvidence >= 1) { entrCls = 'shifted'; entrDesc = `${direction}偏离${contextLabel}（${entrEvidence.toFixed(1)}/3）｜仅作线长分布描述。`; baseScore -= 50; }
-      } else if (m.entr > 3.0) { entrCls = 'extreme'; entrDesc = '高值显著偏离未分层旧参考（>3.00）｜线长更多样，不能直接推断调控失常。'; baseScore -= 120; }
-      else if (m.entr > 2.85) { entrCls = 'shifted'; entrDesc = '高值偏离未分层旧参考（2.85–3.00）｜解释依赖窗口与治疗语境。'; baseScore -= 50; }
+        if (entrEvidence >= 2) { entrCls = 'extreme'; entrDesc = `${direction}显著偏离${contextLabel}（${entrEvidence.toFixed(1)}/3）｜内部队列中与异常标签同向，是较强共识证据；非普适适应性结论。`; baseScore -= 120; }
+        else if (entrEvidence >= 1) { entrCls = 'shifted'; entrDesc = `${direction}偏离${contextLabel}（${entrEvidence.toFixed(1)}/3）｜内部队列中与异常标签同向，是一项共识证据。`; baseScore -= 50; }
+        else { entrDesc = `未沿${direction}风险关联方向偏离${contextLabel}（${entrEvidence.toFixed(1)}/3）｜当前窗口未形成明显共识证据。`; }
+      } else if (m.entr > 3.0) { entrCls = 'extreme'; entrDesc = '高值显著偏离未分层旧参考（>3.00）｜治疗未知，不作健康方向判断，也不进入共识。'; baseScore -= 120; }
+      else if (m.entr > 2.85) { entrCls = 'shifted'; entrDesc = '高值偏离未分层旧参考（2.85–3.00）｜治疗未知，不作健康方向判断，也不进入共识。'; baseScore -= 50; }
       rData.entr = this.setCard('metric-entr', m.entr.toFixed(2), entrDesc, entrCls);
     } else {
       rData.entr = this.setCard('metric-entr', 'N/A', '有效对角线不足，线长熵不可用。', 'unavailable');
@@ -1972,7 +1986,7 @@ ${refs}`;
     this.lastReportJSON = {
       schema_version: 'glucobench.audit-log.v1',
       generated_at: new Date().toISOString(),
-      app_version: '8.4.2',
+      app_version: '8.4.3',
       screening_version: '8.4',
       screening: {
         classification: riskTier,
@@ -2029,9 +2043,10 @@ ${refs}`;
       },
       evidence_limits: [
         'ADA 2026 指南认为目前证据不足以支持使用 CGM 筛查或诊断糖尿病前期/糖尿病。',
-        'v8.4 为内部研究模型，未获得独立外部确认，且原预设部署门槛未全部通过。',
-        '最新结构储备研究的分半可靠性较低（4日 Hall ρ=0.298、Weinstock ρ=0.170；6日分别为0.445、0.125）。',
-        '结构共识未改善 Hall 诊断 AUC（0.763→0.763），也未改善 OGTT 预测误差；结构卡片应视为窗口描述。',
+        'v8.4 治疗分层动力学共识显示内部方向性关联：Hall 未治疗 AUC 0.731→0.778，Colas 已治疗 AUC 0.600→0.642。',
+        '上述增量的 Bootstrap 置信区间均跨 0，模型未获得独立外部确认，原预设部署门槛未全部通过。',
+        '另行研究的昼夜相对结构储备共识分半可靠性较低（4日 Hall ρ=0.298、Weinstock ρ=0.170；6日分别为0.445、0.125）。',
+        '昼夜结构储备共识未改善 Hall 诊断 AUC（0.763→0.763），也未改善 OGTT 预测误差；不能把当前窗口卡片解释为稳定体质。',
         '实验性 FINS 回归 R²≈0.01，不具有实用的个体预测能力。',
       ],
       clinical_boundary: {

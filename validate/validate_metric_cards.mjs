@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Regression-test v8.4.1 metric-card wording and value bands without a browser. */
+/** Regression-test v8.4.3 metric-card wording, value bands, and stratified meaning. */
 
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
@@ -117,6 +117,14 @@ const untreated = renderCase("untreated-context", {
   volume: 5, recovery: 0.16, shape: 2.1, displacement: 0.3,
   dimension: 1.90, lyapunov: 0.17, det: 0.98, entr: 2.5,
 }, "untreated");
+const treatedRiskDirection = renderCase("treated-risk-direction", {
+  volume: 5, recovery: 0.16, shape: 2.1, displacement: 0.3,
+  dimension: 1.90, lyapunov: 0.25, det: 0.988, entr: 2.5,
+}, "treated");
+const untreatedRiskDirection = renderCase("untreated-risk-direction", {
+  volume: 5, recovery: 0.16, shape: 2.1, displacement: 0.3,
+  dimension: 1.90, lyapunov: 0.10, det: 0.995, entr: 3.0,
+}, "untreated");
 
 const bandCards = ["metric-volume", "metric-velocity", "metric-core", "metric-dimension", "metric-lyapunov", "metric-det", "metric-entr"];
 for (const id of bandCards) {
@@ -135,12 +143,20 @@ assert.match(reference.cards["metric-insulin-pred"].html, /R²≈0\.01/);
 assert.match(reference.cards["metric-insulin-pred"].html, /几乎无个体预测力/);
 
 for (const id of ["metric-lyapunov", "metric-det", "metric-entr"]) {
-  assert.match(treated.cards[id].description, /治疗中内部参考/);
-  assert.match(untreated.cards[id].description, /未治疗内部参考/);
+  assert.match(treated.cards[id].description, /治疗中内部健康参考/);
+  assert.match(treated.cards[id].description, /风险关联方向/);
+  assert.match(untreated.cards[id].description, /未治疗内部健康参考/);
+  assert.match(untreated.cards[id].description, /风险关联方向/);
+  assert.match(treatedRiskDirection.cards[id].className, /shifted|extreme/);
+  assert.match(treatedRiskDirection.cards[id].description, /与异常标签同向/);
+  assert.match(untreatedRiskDirection.cards[id].className, /shifted|extreme/);
+  assert.match(untreatedRiskDirection.cards[id].description, /与异常标签同向/);
+  assert.match(reference.cards[id].description, /治疗未知，不作健康方向判断|治疗未知时不判断健康方向/);
+  assert.match(reference.cards[id].description, /不进入.*共识/);
 }
 
 const prohibitedClaims = /系统发散|屏障脆弱|重度抵抗|因果律健康|策略耗散|代谢从容|系统性透支/;
-for (const result of [reference, shifted, extreme, unavailableCore, treated, untreated]) {
+for (const result of [reference, shifted, extreme, unavailableCore, treated, untreated, treatedRiskDirection, untreatedRiskDirection]) {
   for (const card of Object.values(result.cards)) {
     const text = card.description || card.html || "";
     assert.doesNotMatch(text, prohibitedClaims, `${result.name} must not contain an overclaim`);
@@ -149,7 +165,7 @@ for (const result of [reference, shifted, extreme, unavailableCore, treated, unt
 
 console.log(JSON.stringify({
   status: "PASS",
-  cases: [reference, shifted, extreme, unavailableCore, treated, untreated].map(result => ({
+  cases: [reference, shifted, extreme, unavailableCore, treated, untreated, treatedRiskDirection, untreatedRiskDirection].map(result => ({
     name: result.name,
     bands: Object.fromEntries(Object.entries(result.cards).map(([id, card]) => [id, card.className])),
   })),

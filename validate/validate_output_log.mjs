@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Regression-test v8.4.2 auditable text/JSON output without a browser. */
+/** Regression-test v8.4.3 auditable text/JSON output without a browser. */
 
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
@@ -126,7 +126,7 @@ UI.renderMetrics(
 const treatedJson = structuredClone(UI.lastReportJSON);
 const treatedText = UI.lastReport;
 assert.equal(treatedJson.schema_version, "glucobench.audit-log.v1");
-assert.equal(treatedJson.app_version, "8.4.2");
+assert.equal(treatedJson.app_version, "8.4.3");
 assert.equal(treatedJson.screening_version, "8.4");
 assert.equal(treatedJson.screening.treatment_context, "正在使用降糖药");
 assert.notEqual(treatedJson.screening.inputs.dynamic_score, null);
@@ -147,8 +147,15 @@ assert.equal(treatedJson.privacy.local_file_path_included, false);
 assert.equal(treatedJson.privacy.local_file_name_included, false);
 assert.ok(treatedJson.evidence_limits.some(item => /0\.763→0\.763/.test(item)));
 assert.ok(treatedJson.evidence_limits.some(item => /Hall ρ=0\.298/.test(item)));
+assert.ok(treatedJson.evidence_limits.some(item => /0\.731→0\.778/.test(item)));
+assert.ok(treatedJson.evidence_limits.some(item => /置信区间均跨 0/.test(item)));
 assert.equal(treatedJson.references.length, 2);
 assert.ok(treatedJson.range_summary.flags.length >= 2);
+const dynamicMetricInterpretations = treatedJson.metrics
+  .filter(item => ["lyapunov_proxy", "rqa_det", "rqa_entr"].includes(item.id))
+  .map(item => item.interpretation).join("\n");
+assert.match(dynamicMetricInterpretations, /内部健康参考/);
+assert.match(dynamicMetricInterpretations, /异常标签同向|风险关联方向/);
 
 for (const section of [
   "## 1. 筛查输出", "## 2. 数据质量与分析语境", "## 3. 解释性结构指标",
@@ -157,6 +164,8 @@ for (const section of [
   assert.match(treatedText, new RegExp(section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 }
 assert.match(treatedText, /模型分值不是患病概率/);
+assert.match(treatedText, /具有内部队列支持的风险关联方向/);
+assert.match(treatedText, /昼夜相对结构储备共识/);
 assert.match(treatedText, /不含原始血糖序列，不含本地文件路径/);
 assert.doesNotMatch(treatedText, /Janus|宿主|吞噬|高维情报|暴力平账|安全结界|糖毒性极值/);
 
