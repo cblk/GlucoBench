@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CGM 塔肯斯相空间探针 v8.4</title>
+<title>CGM 塔肯斯相空间探针 v8.4.1</title>
 <!-- SheetJS for Excel parsing -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Plotly.js for 3D visualization -->
@@ -145,6 +145,16 @@ header .subtitle { font-size: 13px; color: var(--primary-light); font-family: mo
 .metric-card.good::before { background: var(--green); }
 .metric-card.warn::before { background: var(--yellow); }
 .metric-card.bad::before { background: var(--red); }
+.metric-card.reference::before { background: var(--primary-light); }
+.metric-card.shifted::before { background: var(--yellow); }
+.metric-card.extreme::before { background: var(--purple); }
+.metric-card.unavailable::before { background: var(--text-secondary); }
+.metrics-guide {
+  grid-column: 1 / -1; padding: 8px 12px; border-radius: 8px;
+  background: rgba(59,130,246,0.08); border: 1px solid rgba(96,165,250,0.18);
+  color: var(--text-secondary); font-size: 11px; line-height: 1.45;
+}
+.metrics-guide strong { color: var(--primary-light); }
 
 input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
 </style>
@@ -154,7 +164,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
   <header>
     <div class="header-title-box">
       <h1>CGM 塔肯斯相空间探针</h1>
-      <span class="subtitle">v8.4 / 夜间均糖 + 治疗分层动力学共识筛查</span>
+      <span class="subtitle">v8.4.1 / 筛查逻辑 v8.4 · 指标解释校准</span>
     </div>
     <div class="health-rating" id="health-rating">
       <span class="dot" style="background:var(--text-secondary); box-shadow:none;"></span>
@@ -254,50 +264,53 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
 
       <!-- Metrics Panel -->
       <div class="metrics-panel" id="metrics-panel">
+        <div class="metrics-guide">
+          <strong>读卡规则：</strong>蓝=参考/描述，黄=偏离内部参考带，紫=显著偏离；仅描述当前数据窗口，不等同诊断或单项风险，卡片颜色不直接改变顶部筛查概率。
+        </div>
         <div class="metric-card" id="metric-volume">
-          <div class="metric-title">相空间体积 (Volume)</div>
+          <div class="metric-title">相空间展开体积 (Volume)</div>
           <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">吸引子超椭球体积。越小表示调控刚性越强。</div>
+          <div class="metric-desc">当前窗口的多维离散尺度；受波动幅度、观察天数和所选时段影响，不是越小越健康。</div>
         </div>
         <div class="metric-card" id="metric-velocity">
-          <div class="metric-title">向心恢复速率 (Recovery)</div>
+          <div class="metric-title">归一化向心步长 (Recovery)</div>
           <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">轨迹向引力核收敛速度。快为超调，慢为胰岛素抵抗。</div>
+          <div class="metric-desc">轨迹接近自身中位核心时的平均步长÷血糖SD；低值不能单独推断胰岛素抵抗。</div>
         </div>
         <div class="metric-card" id="metric-shape">
-          <div class="metric-title">磁滞指数 (Hysteresis λ₁/λ₂)</div>
+          <div class="metric-title">主轴各向异性 (λ₁/λ₂)</div>
           <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">上升/下降轨迹重合度。≈1为严重滞后。</div>
+          <div class="metric-desc">协方差最大与第二特征值之比；≈1较球状，较高更拉伸，不是时间迟滞指标。</div>
         </div>
         <div class="metric-card" id="metric-core">
-          <div class="metric-title">日夜引力核偏移 (Core Dist)</div>
+          <div class="metric-title">当前–夜间核心距离 (Core Dist)</div>
           <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">白天偏离夜间稳态的距离。反映系统性透支。</div>
+          <div class="metric-desc">当前所选时段与夜间核心的m维欧氏距离；受均糖和嵌入维数影响，不代表“透支”。</div>
         </div>
         <div class="metric-card" id="metric-dimension">
-          <div class="metric-title">吸引子分形维度 (Dimension)</div>
+          <div class="metric-title">盒计数几何维度 (Dimension)</div>
           <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">相空间充盈度(盒计数)。趋1为僵硬极限环，趋m为噪声化失稳。</div>
+          <div class="metric-desc">四个网格尺度估计的有限样本充盈度；高低均无经验证的疾病方向。</div>
         </div>
         <div class="metric-card" id="metric-lyapunov">
-          <div class="metric-title">李雅普诺夫指数 (Lyapunov)</div>
+          <div class="metric-title">一步近邻发散代理 (Lyapunov)</div>
           <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">相邻轨迹发散率。>0混沌，≈0临界，<0收敛稳定。</div>
+          <div class="metric-desc">近邻下一步距离的对数变化代理；正/负表示扩张/收缩，不是严格连续时间指数。</div>
         </div>
         <div class="metric-card" id="metric-det">
-          <div class="metric-title">代谢僵化度 (DET)</div>
+          <div class="metric-title">RQA 确定性率 (DET)</div>
           <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">被确定性锁死的轨迹占比。极高为僵死，极低为失序。</div>
+          <div class="metric-desc">递归点落在长度≥2对角线中的比例；高表示重复片段多，不能直接推断生理僵化。</div>
         </div>
         <div class="metric-card" id="metric-entr">
-          <div class="metric-title">适应性熵 (ENTR)</div>
+          <div class="metric-title">RQA 线长熵 (ENTR)</div>
           <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">递归对角线长度香农熵。越高代表代谢手段越丰富。</div>
+          <div class="metric-desc">递归对角线长度分布的香农熵；高表示持续时间更多样，无普适好坏方向。</div>
         </div>
         <div class="metric-card" id="metric-insulin-pred">
-          <div class="metric-title">空腹胰岛素预估 (FINS)</div>
+          <div class="metric-title">实验性 FINS 回归（低效度）</div>
           <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">多尺度相空间特征回归推断 (实验性, R²≈0.01)。</div>
+          <div class="metric-desc">拟合 R²≈0.01，几乎无个体预测力；只作研究回放，不应用于判断。</div>
         </div>
       </div>
     </div>
@@ -1446,9 +1459,9 @@ const UI = {
     }
 
     // Core displacement: distance between current gravity core and night baseline
-    let displacement = 0;
-    if (nightCore && period !== 'night') {
-      displacement = calcDistance(metrics.gravityCore, nightCore);
+    let displacement = null;
+    if (nightCore) {
+      displacement = period === 'night' ? 0 : calcDistance(metrics.gravityCore, nightCore);
     }
 
     // ---- Pipeline Stage 6: Clinical scores ----
@@ -1480,7 +1493,11 @@ const UI = {
     const card = document.getElementById(id);
     card.className = `metric-card ${cls}`;
     card.querySelector('.metric-value').textContent = val;
-    card.querySelector('.metric-value').style.color = `var(--${cls === 'good' ? 'green' : (cls === 'warn' ? 'yellow' : 'red')})`;
+    const colorByClass = {
+      reference: 'primary-light', shifted: 'yellow', extreme: 'purple', unavailable: 'text-secondary',
+      good: 'green', warn: 'yellow', bad: 'red'
+    };
+    card.querySelector('.metric-value').style.color = `var(--${colorByClass[cls] || 'text'})`;
     card.querySelector('.metric-desc').textContent = desc;
     return { val, desc };
   },
@@ -1521,122 +1538,110 @@ const UI = {
     const predEl = document.getElementById('metric-insulin-pred');
     if (predEl) {
       if (insulinPred && insulinPred.predicted !== null) {
-        let confHtml = '';
-        if (insulinPred.confidence === 'high') confHtml = '<span style="color:#10b981;font-size:12px;">(一致性 High)</span>';
-        else if (insulinPred.confidence === 'medium') confHtml = '<span style="color:#f59e0b;font-size:12px;">(一致性 Med)</span>';
-        else confHtml = '<span style="color:#ef4444;font-size:12px;">(一致性 Low)</span>';
+        predEl.className = 'metric-card unavailable';
+        const consistency = insulinPred.confidence === 'high' ? 'High' : (insulinPred.confidence === 'medium' ? 'Med' : 'Low');
         predEl.innerHTML = `
-          <div class="metric-value" style="color:var(--primary-light)">${insulinPred.predicted.toFixed(1)} uIU/mL ${confHtml}</div>
-          <div class="metric-desc">⚠️ 实验性回归 (R²≈0.01, v8.2 重拟合)，非诊断依据 (${insulinPred.nScales} Taus)</div>`;
+          <div class="metric-title">实验性 FINS 回归（低效度）</div>
+          <div class="metric-value" style="color:var(--text-secondary)">${insulinPred.predicted.toFixed(1)} uIU/mL</div>
+          <div class="metric-desc">研究回放值｜R²≈0.01，几乎无个体预测力；多尺度一致性 ${consistency}（${insulinPred.nScales} Taus）也不能补偿低效度。</div>`;
       } else {
-        predEl.innerHTML = '<div class="metric-value">N/A</div><div class="metric-desc">数据不足</div>';
+        predEl.className = 'metric-card unavailable';
+        predEl.innerHTML = '<div class="metric-title">实验性 FINS 回归（低效度）</div><div class="metric-value" style="color:var(--text-secondary)">N/A</div><div class="metric-desc">数据不足；且该模型 R²≈0.01，不具实用个体预测力。</div>';
       }
     }
 
-    // 1. Volume — v8.3: recalibrated to the Hall cohort (n=57, UNTREATED — the screening
-    //    target). v8.1's low-side flags (log<-1/0) were Colas-TREATED-specific: on Hall the
-    //    low volume is the HEALTHY direction (diab mean 30.5 vs non 4.9), and the v8.1
-    //    thresholds fired on 13% of healthy, 0% of diabetic. High side kept and verified:
-    //    log>2 (7.4) → warn: non 21% / pre 43% / diab 80%; log>3 (20.1) → bad: 3% / 14% / 60%.
+    // v8.4.1 metric-card calibration: the bands below are descriptive internal reference
+    // bands, not diagnoses. The latest within-person reserve study found low split-half
+    // reliability and no incremental OGTT/diagnosis value. Card classes therefore encode
+    // reference / shifted / extreme, never healthy / diseased. Legacy baseScore deductions
+    // are retained only for backward-compatible MRI display and do not drive screenRisk.
+
+    // 1. Volume — current-window spread; high/low has no universal healthy direction.
     const logVolume = Math.log(Math.max(m.volume, 1e-6));
-    let vCls = 'good', vDesc = '弹性良好';
-    if (logVolume > 3.0) { vCls = 'bad'; vDesc = '系统发散/屏障脆弱'; baseScore -= 180; }
-    else if (logVolume > 2.0) { vCls = 'warn'; vDesc = '控制力减弱'; baseScore -= 80; }
+    let vCls = 'reference', vDesc = '较集中（logV≤2）｜当前窗离散尺度较小；不等同“调控更好”。';
+    if (logVolume > 3.0) { vCls = 'extreme'; vDesc = '高度展开（logV>3）｜离散尺度显著增大；对时段/天数敏感，不作单项风险。'; baseScore -= 180; }
+    else if (logVolume > 2.0) { vCls = 'shifted'; vDesc = '较展开（2<logV≤3）｜高于内部参考带；需结合观察窗和均糖。'; baseScore -= 80; }
     rData.vol = this.setCard('metric-volume', m.volume.toFixed(2), vDesc, vCls);
 
-    // 2. Recovery velocity — v8.3: LOW side is the abnormal direction on Hall (untreated):
-    //    diabetic mean 0.131 vs non 0.193 (slow recovery = insulin resistance). v8.1's
-    //    high-side flags (>0.145/0.170) fired on the HEALTHY on Hall (non mean 0.193) and
-    //    are dropped. warn <0.14: non 8% / pre 29% / diab 60%; bad <0.10: 0% / 0% / 40%.
-    let velCls = 'good', velDesc = '收敛平稳';
-    if (m.avgRecovery < 0.10) { velCls = 'bad'; velDesc = '重度抵抗/代谢僵化'; baseScore -= 150; }
-    else if (m.avgRecovery < 0.14) { velCls = 'warn'; velDesc = '响应轻度迟缓'; baseScore -= 60; }
+    // 2. Recovery — normalized step size only; not a measured physiological recovery time.
+    let velCls = 'reference', velDesc = '较高（≥0.14）｜接近核心时移动较快；不等同超调或健康。';
+    if (m.avgRecovery < 0.10) { velCls = 'extreme'; velDesc = '显著偏低（<0.10）｜轨迹移动较慢；不能单独推断胰岛素抵抗。'; baseScore -= 150; }
+    else if (m.avgRecovery < 0.14) { velCls = 'shifted'; velDesc = '偏低（0.10–0.14）｜低于内部参考带；先核对窗口长度与缺失。'; baseScore -= 60; }
     rData.vel = this.setCard('metric-velocity', m.avgRecovery.toFixed(3), velDesc, velCls);
 
-    // 3. Hysteresis (λ₁/λ₂)
-    let sCls = 'good', sDesc = '健康拉伸';
-    if (m.shapeRatio < 1.2) { sCls = 'bad'; sDesc = '球状磁滞(严重滞后)'; baseScore -= 200; }
-    else if (m.shapeRatio < 1.8) { sCls = 'warn'; sDesc = '回线臃肿(双相延迟)'; baseScore -= 80; }
-    else { sDesc = `极化拉伸 (${m.shapeRatio.toFixed(1)}x)`; }
+    // 3. Shape ratio — covariance anisotropy, not temporal hysteresis.
+    let sCls = 'reference', sDesc = `明显拉伸（≥1.8）｜第一主轴约为第二主轴的 ${m.shapeRatio.toFixed(1)} 倍；无验证风险方向。`;
+    if (m.shapeRatio < 1.2) { sDesc = '近各向同性（<1.2）｜前两主轴尺度接近；不代表严重滞后。'; baseScore -= 200; }
+    else if (m.shapeRatio < 1.8) { sDesc = '轻度拉伸（1.2–1.8）｜前两主轴差异有限；仅作几何描述。'; baseScore -= 80; }
     rData.shp = this.setCard('metric-shape', m.shapeRatio.toFixed(1) + 'x', sDesc, sCls);
 
-    // 4. Core displacement
-    let dCls = 'good', dDesc = '基线稳固';
-    if (disp > 1.5) { dCls = 'bad'; dDesc = '严重偏移(日间高压代偿)'; baseScore -= 250; }
-    else if (disp > 0.5) { dCls = 'warn'; dDesc = '基线轻微浮动'; baseScore -= 80; }
-    rData.disp = this.setCard('metric-core', disp > 0 ? disp.toFixed(2) + ' mm' : 'N/A', dDesc, dCls);
-
-    // 5. Fractal dimension — v8.3: recalibrated to Hall distribution (untreated target;
-    //    range 1.795-2.033, no group separation — reference flag only). v8.1 thresholds
-    //    (1.38-1.70) were Colas-range (1.236-1.831) and would fire on ~100% of Hall.
-    //    Both-tail percentiles per the card concept: warn <1.81/>2.01 (p10/p90),
-    //    bad <1.80/>2.02 (p5/p95).
-    if (m.dimension !== null && m.dimension !== undefined) {
-      let dimCls = 'good', dimDesc = '适度复杂(调控灵活)';
-      if (m.dimension < 1.80 || m.dimension > 2.02) { dimCls = 'bad'; dimDesc = '相空间充盈度极端(僵死或失稳)'; baseScore -= 100; }
-      else if (m.dimension < 1.81 || m.dimension > 2.01) { dimCls = 'warn'; dimDesc = '复杂度偏离队列典型'; baseScore -= 40; }
-      rData.dim = this.setCard('metric-dimension', m.dimension.toFixed(2), dimDesc, dimCls);
+    // 4. Current-period versus night core distance; units are mmol/L in m-D Euclidean space.
+    if (disp !== null && Number.isFinite(disp)) {
+      let dCls = 'reference', dDesc = disp === 0
+        ? '同一夜间基准｜当前选择为夜间，核心距离按定义为 0。'
+        : '距离较小（≤0.5）｜当前时段核心接近夜间核心；不等同“基线健康”。';
+      if (disp > 1.5) { dCls = 'extreme'; dDesc = '距离显著增大（>1.5）｜当前核心远离夜间核心；受均糖与嵌入维数影响。'; baseScore -= 250; }
+      else if (disp > 0.5) { dCls = 'shifted'; dDesc = '距离增大（0.5–1.5）｜当前核心相对夜间有位移；仅作状态差异描述。'; baseScore -= 80; }
+      rData.disp = this.setCard('metric-core', disp.toFixed(2) + ' mmol/L', dDesc, dCls);
     } else {
-      rData.dim = this.setCard('metric-dimension', 'N/A', '有效连续相点过短(<20)', 'warn');
+      rData.disp = this.setCard('metric-core', 'N/A', '缺少可用夜间核心，无法计算当前–夜间距离。', 'unavailable');
     }
 
-    // 6. Lyapunov exponent — v8.3: LOW side is the abnormal direction on Hall (untreated):
-    //    diabetic mean 0.156 vs non 0.217 (rigid, low-flexibility attractor). v8.0/v8.1
-    //    flagged HIGH lyap — correct only for Colas TREATED T2DM (medication-induced
-    //    instability, 0.161 vs 0.120). warn <0.15: non 8% / pre 36% / diab 20%;
-    //    bad <0.11: 3% / 7% / 20% (n=5 diabetic — noisy but monotone group means).
+    // 5. Finite-sample box-counting geometry; both-tail bands are descriptive only.
+    if (m.dimension !== null && m.dimension !== undefined) {
+      let dimCls = 'reference', dimDesc = '内部参考带（1.81–2.01）｜有限样本几何量；无已验证疾病方向。';
+      if (m.dimension < 1.80 || m.dimension > 2.02) { dimCls = 'extreme'; dimDesc = `${m.dimension < 1.80 ? '低端' : '高端'}显著偏离（<1.80或>2.02）｜可能受点数/尺度影响。`; baseScore -= 100; }
+      else if (m.dimension < 1.81 || m.dimension > 2.01) { dimCls = 'shifted'; dimDesc = '参考带边缘（1.80–1.81或2.01–2.02）｜不作病理解释。'; baseScore -= 40; }
+      rData.dim = this.setCard('metric-dimension', m.dimension.toFixed(2), dimDesc, dimCls);
+    } else {
+      rData.dim = this.setCard('metric-dimension', 'N/A', '有效连续相点过短，盒计数估计不可用。', 'unavailable');
+    }
+
+    const contextLabel = treatmentStatus === 'treated' ? '治疗中内部参考' : (treatmentStatus === 'untreated' ? '未治疗内部参考' : '未分层旧参考');
+
+    // 6. One-step Lyapunov proxy; direction depends on treatment context and is not causal.
     if (m.lyapunov !== null && m.lyapunov !== undefined) {
-      let lyCls = 'good', lyDesc = '适度发散(轨迹灵活)';
+      let lyCls = 'reference', lyDesc = `${contextLabel}带内｜一步近邻发散代理；不可单项定性。`;
       const lyEvidence = directionalEvidenceV84(m.lyapunov, 'lyapunov', treatmentStatus);
       if (lyEvidence !== null) {
         const direction = treatmentStatus === 'treated' ? '高值' : '低值';
-        if (lyEvidence >= 2) { lyCls = 'bad'; lyDesc = `${direction}异常证据强 (${lyEvidence.toFixed(1)}/3)`; baseScore -= 120; }
-        else if (lyEvidence >= 1) { lyCls = 'warn'; lyDesc = `${direction}异常证据中等 (${lyEvidence.toFixed(1)}/3)`; baseScore -= 50; }
-        else { lyDesc = `分层参考内 (${lyEvidence.toFixed(1)}/3)`; }
-      } else if (m.lyapunov < 0.11) { lyCls = 'bad'; lyDesc = '强收敛(轨迹僵硬)'; baseScore -= 120; }
-      else if (m.lyapunov < 0.15) { lyCls = 'warn'; lyDesc = '低敏感(灵活性不足)'; baseScore -= 50; }
+        if (lyEvidence >= 2) { lyCls = 'extreme'; lyDesc = `${direction}显著偏离${contextLabel}（${lyEvidence.toFixed(1)}/3）｜非严格指数，不单项判病。`; baseScore -= 120; }
+        else if (lyEvidence >= 1) { lyCls = 'shifted'; lyDesc = `${direction}偏离${contextLabel}（${lyEvidence.toFixed(1)}/3）｜需结合夜间均糖与治疗状态。`; baseScore -= 50; }
+      } else if (m.lyapunov < 0.11) { lyCls = 'extreme'; lyDesc = '低值显著偏离未分层旧参考（<0.11）｜可能表示一步距离收缩，也可能受窗口影响。'; baseScore -= 120; }
+      else if (m.lyapunov < 0.15) { lyCls = 'shifted'; lyDesc = '低值偏离未分层旧参考（0.11–0.15）｜不能直接推断调控僵化。'; baseScore -= 50; }
       rData.ly = this.setCard('metric-lyapunov', m.lyapunov.toFixed(3), lyDesc, lyCls);
     } else {
-      rData.ly = this.setCard('metric-lyapunov', 'N/A', '近邻搜索失败(高维稀疏)', 'warn');
+      rData.ly = this.setCard('metric-lyapunov', 'N/A', '连续相点或可比较近邻不足，代理值不可用。', 'unavailable');
     }
 
-    // 7. DET — determinism. v8.3: HIGH side is the abnormal direction on Hall (untreated):
-    //    diabetic mean 0.991 vs non 0.984 (over-determined, rigid trajectory). v8.1 flagged
-    //    LOW det — correct only for Colas TREATED T2DM (medication noise lowers determinism,
-    //    0.993 vs 0.995). warn >0.990: non 5% / pre 36% / diab 60%; bad >0.992: 5% / 29% / 60%.
+    // 7. DET — RQA diagonal-line proportion, not a direct stiffness measurement.
     if (m.det !== null && m.det !== undefined) {
-      let detCls = 'good', detDesc = '因果律健康(张弛有度)';
+      let detCls = 'reference', detDesc = `${contextLabel}带内｜重复片段占比；高低不等同健康/失序。`;
       const detEvidence = directionalEvidenceV84(m.det, 'det', treatmentStatus);
       if (detEvidence !== null) {
         const direction = treatmentStatus === 'treated' ? '低值' : '高值';
-        if (detEvidence >= 2) { detCls = 'bad'; detDesc = `${direction}异常证据强 (${detEvidence.toFixed(1)}/3)`; baseScore -= 100; }
-        else if (detEvidence >= 1) { detCls = 'warn'; detDesc = `${direction}异常证据中等 (${detEvidence.toFixed(1)}/3)`; baseScore -= 40; }
-        else { detDesc = `分层参考内 (${detEvidence.toFixed(1)}/3)`; }
-      } else if (m.det > 0.992) { detCls = 'bad'; detDesc = '轨迹过度确定(僵化锁死)'; baseScore -= 100; }
-      else if (m.det > 0.990) { detCls = 'warn'; detDesc = '确定性偏高'; baseScore -= 40; }
+        if (detEvidence >= 2) { detCls = 'extreme'; detDesc = `${direction}显著偏离${contextLabel}（${detEvidence.toFixed(1)}/3）｜不能直接推断生理僵化。`; baseScore -= 100; }
+        else if (detEvidence >= 1) { detCls = 'shifted'; detDesc = `${direction}偏离${contextLabel}（${detEvidence.toFixed(1)}/3）｜仅作RQA描述。`; baseScore -= 40; }
+      } else if (m.det > 0.992) { detCls = 'extreme'; detDesc = '高值显著偏离未分层旧参考（>99.2%）｜重复片段多，不能直接推断生理僵化。'; baseScore -= 100; }
+      else if (m.det > 0.990) { detCls = 'shifted'; detDesc = '高值偏离未分层旧参考（99.0%–99.2%）｜解释依赖窗口与治疗语境。'; baseScore -= 40; }
       rData.det = this.setCard('metric-det', (m.det * 100).toFixed(1) + '%', detDesc, detCls);
     } else {
-      rData.det = this.setCard('metric-det', 'N/A', '数据点不足', 'warn');
+      rData.det = this.setCard('metric-det', 'N/A', '递归点或连续相点不足，DET 不可用。', 'unavailable');
     }
 
-    // 8. ENTR — diagonal line entropy. v8.3: HIGH side is the abnormal direction on Hall
-    //    (untreated): diabetic mean 2.98 vs non 2.66 (larger, less efficient repertoire —
-    //    the attractor needs many line lengths to express uncontrolled swings). v8.1 flagged
-    //    LOW entr — correct only for Colas TREATED T2DM (medication flattens dynamics,
-    //    2.786 vs 2.964). warn >2.85: non 13% / pre 36% / diab 60%; bad >3.0: 5% / 29% / 60%.
+    // 8. ENTR — entropy of diagonal line lengths, not direct biological adaptability.
     if (m.entr !== null && m.entr !== undefined) {
-      let entrCls = 'good', entrDesc = '招式高效(代谢从容)';
+      let entrCls = 'reference', entrDesc = `${contextLabel}带内｜递归持续时间多样性；无普适好坏方向。`;
       const entrEvidence = directionalEvidenceV84(m.entr, 'entr', treatmentStatus);
       if (entrEvidence !== null) {
         const direction = treatmentStatus === 'treated' ? '低值' : '高值';
-        if (entrEvidence >= 2) { entrCls = 'bad'; entrDesc = `${direction}异常证据强 (${entrEvidence.toFixed(1)}/3)`; baseScore -= 120; }
-        else if (entrEvidence >= 1) { entrCls = 'warn'; entrDesc = `${direction}异常证据中等 (${entrEvidence.toFixed(1)}/3)`; baseScore -= 50; }
-        else { entrDesc = `分层参考内 (${entrEvidence.toFixed(1)}/3)`; }
-      } else if (m.entr > 3.0) { entrCls = 'bad'; entrDesc = '策略耗散(波动失控)'; baseScore -= 120; }
-      else if (m.entr > 2.85) { entrCls = 'warn'; entrDesc = '手段冗杂(适应性下降)'; baseScore -= 50; }
+        if (entrEvidence >= 2) { entrCls = 'extreme'; entrDesc = `${direction}显著偏离${contextLabel}（${entrEvidence.toFixed(1)}/3）｜不等同适应性下降。`; baseScore -= 120; }
+        else if (entrEvidence >= 1) { entrCls = 'shifted'; entrDesc = `${direction}偏离${contextLabel}（${entrEvidence.toFixed(1)}/3）｜仅作线长分布描述。`; baseScore -= 50; }
+      } else if (m.entr > 3.0) { entrCls = 'extreme'; entrDesc = '高值显著偏离未分层旧参考（>3.00）｜线长更多样，不能直接推断调控失常。'; baseScore -= 120; }
+      else if (m.entr > 2.85) { entrCls = 'shifted'; entrDesc = '高值偏离未分层旧参考（2.85–3.00）｜解释依赖窗口与治疗语境。'; baseScore -= 50; }
       rData.entr = this.setCard('metric-entr', m.entr.toFixed(2), entrDesc, entrCls);
     } else {
-      rData.entr = this.setCard('metric-entr', 'N/A', '数据点不足', 'warn');
+      rData.entr = this.setCard('metric-entr', 'N/A', '有效对角线不足，线长熵不可用。', 'unavailable');
     }
 
     // 9. Tau time-debt penalty (OPTIMIZED v7.1: capped at 20, penalty over 15)
@@ -1706,10 +1711,11 @@ const UI = {
   > 阈值: ${thresholdDetail}
   > 证据等级: 严格内部验证，非独立外部确认；原部署门槛未全部通过，按用户明确授权启用；非诊断依据
 
-■ 启发式代谢韧性指数 (MRI, 供参考): ${mri} / 1000
+■ 旧版界面累计分 (MRI, 仅兼容显示): ${mri} / 1000
+  > 由旧版卡片阈值累计，未通过独立临床验证，不参与顶部筛查概率，也不应解释为“代谢韧性”。
 
-■ 物理时间债 (Tau): ${tau} 步 (1步=3分钟)
-  > ${tau > 12 ? '【高危】系统反射弧过长，存在沉重的调控死区。' : '反射弧短，系统敏感度健康。'}
+■ 延迟嵌入间隔 (Tau): ${tau} 步 (约${tau * 3}分钟)
+  > ${tau > 12 ? '间隔较长；反映本窗口 ACF 衰减较慢，也可能受采样与缺失影响，不作高危判断。' : '间隔较短；仅表示本窗口用于相空间重构的时间尺度。'}
 
 ■ 采集与滤波溯源:
 > 量纲: ${this.rawData.collapsed ? '智能坍缩 (mg/dL → mmol/L)' : '原生 (mmol/L)'}
@@ -1718,16 +1724,16 @@ const UI = {
 > 有效相点: ${m.validPoints.length} 点
 > RQA 递归率: ${m.rr !== null && m.rr !== undefined ? (m.rr * 100).toFixed(2) + '%' : 'N/A'} (Theiler窗口=${RQA_THEILER}步)
 
-■ 核心相空间指标:
-1. 相空间体积 (Volume): ${rData.vol.val} [${rData.vol.desc}]
-2. 向心恢复速率 (Recovery): ${rData.vel.val} [${rData.vel.desc}]
-3. 磁滞指数 (Hysteresis λ₁/λ₂): ${rData.shp.val} [${rData.shp.desc}]
-4. 日夜引力核偏移 (Core Dist): ${rData.disp.val} [${rData.disp.desc}]
-5. 吸引子分形维度 (Dimension): ${rData.dim.val} [${rData.dim.desc}]
-6. 李雅普诺夫指数 (Lyapunov): ${rData.ly.val} [${rData.ly.desc}]
-7. 代谢僵化度 (DET): ${rData.det.val} [${rData.det.desc}]
-8. 适应性熵 (ENTR): ${rData.entr.val} [${rData.entr.desc}]
-9. [实验性] 空腹胰岛素预估 (FINS): ${insulinPred && insulinPred.predicted !== null ? insulinPred.predicted.toFixed(1) + ' uIU/mL' : 'N/A'} [一致性: ${insulinPred ? insulinPred.confidence : 'N/A'}, R²≈0.01]
+■ 核心相空间指标（卡片分层仅为内部参考带描述）:
+1. 相空间展开体积 (Volume): ${rData.vol.val} [${rData.vol.desc}]
+2. 归一化向心步长 (Recovery): ${rData.vel.val} [${rData.vel.desc}]
+3. 主轴各向异性 (λ₁/λ₂): ${rData.shp.val} [${rData.shp.desc}]
+4. 当前–夜间核心距离 (Core Dist): ${rData.disp.val} [${rData.disp.desc}]
+5. 盒计数几何维度 (Dimension): ${rData.dim.val} [${rData.dim.desc}]
+6. 一步近邻发散代理 (Lyapunov): ${rData.ly.val} [${rData.ly.desc}]
+7. RQA 确定性率 (DET): ${rData.det.val} [${rData.det.desc}]
+8. RQA 线长熵 (ENTR): ${rData.entr.val} [${rData.entr.desc}]
+9. [低效度] FINS 回归: ${insulinPred && insulinPred.predicted !== null ? insulinPred.predicted.toFixed(1) + ' uIU/mL' : 'N/A'} [多尺度一致性: ${insulinPred ? insulinPred.confidence : 'N/A'}, R²≈0.01；不用于判断]
 
 ■ 边界击穿实录:
 > 极值: 峰值 ${maxV.toFixed(2)} | 谷值 ${minV.toFixed(2)} (中位数: ${medianVal.toFixed(2)} mmol/L)
