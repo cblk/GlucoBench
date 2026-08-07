@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CGM 塔肯斯相空间探针 v8.4.1</title>
+<title>CGM 塔肯斯相空间探针 v8.4.2</title>
 <!-- SheetJS for Excel parsing -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Plotly.js for 3D visualization -->
@@ -109,13 +109,55 @@ header .subtitle { font-size: 13px; color: var(--primary-light); font-family: mo
 .advanced-content { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
 .advanced-content.open { display: block; }
 
-/* Oracle Log Button */
+/* Audit Log Button */
 #btn-copy-oracle {
   background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(59,130,246,0.15));
   border: 1px dashed var(--purple); cursor: pointer; text-align: center; padding: 16px; 
   transition: all 0.3s; border-radius: var(--radius);
 }
 #btn-copy-oracle:hover { background: linear-gradient(135deg, rgba(139,92,246,0.25), rgba(59,130,246,0.25)); }
+#btn-copy-oracle:focus-visible { outline: 2px solid var(--primary-light); outline-offset: 2px; }
+.audit-log-hint { margin-top: 4px; font-size: 10px; color: var(--text-secondary); line-height: 1.4; }
+
+/* Audit Log Preview */
+.report-modal {
+  position: fixed; inset: 0; z-index: 1000; display: none; align-items: center; justify-content: center;
+  padding: 24px; background: rgba(2, 6, 23, 0.82); backdrop-filter: blur(4px);
+}
+.report-modal.open { display: flex; }
+.report-dialog {
+  width: min(920px, 96vw); max-height: 92vh; display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.55); overflow: hidden;
+}
+.report-header { display: flex; justify-content: space-between; gap: 16px; padding: 18px 20px; border-bottom: 1px solid var(--border); }
+.report-header h2 { margin: 0 0 4px; font-size: 17px; color: var(--text); }
+.report-header p { margin: 0; font-size: 11px; line-height: 1.5; color: var(--text-secondary); }
+.report-close {
+  width: 34px; height: 34px; flex: 0 0 auto; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--text-secondary); cursor: pointer; font-size: 18px;
+}
+.report-preview {
+  margin: 0; padding: 18px 20px; overflow: auto; min-height: 260px; white-space: pre-wrap; word-break: break-word;
+  color: #dbeafe; background: #07101f; font: 12px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+.report-actions { display: flex; align-items: center; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); }
+.report-action {
+  padding: 9px 14px; border-radius: 7px; border: 1px solid var(--border); cursor: pointer;
+  background: var(--bg); color: var(--text); font-weight: 700; font-size: 12px;
+}
+.report-action.primary { background: var(--primary); border-color: var(--primary); color: white; }
+.report-action:hover { filter: brightness(1.12); }
+.report-status { margin-left: auto; font-size: 11px; color: var(--text-secondary); }
+.report-status.success { color: var(--green); }
+.report-status.error { color: var(--red); }
+body.report-open { overflow: hidden; }
+@media (max-width: 640px) {
+  .report-modal { padding: 8px; }
+  .report-dialog { width: 100%; max-height: 96vh; }
+  .report-actions { flex-wrap: wrap; }
+  .report-status { width: 100%; margin-left: 0; }
+}
 
 /* --- CONTENT AREA --- */
 .content-area { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
@@ -164,7 +206,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
   <header>
     <div class="header-title-box">
       <h1>CGM 塔肯斯相空间探针</h1>
-      <span class="subtitle">v8.4.1 / 筛查逻辑 v8.4 · 指标解释校准</span>
+      <span class="subtitle">v8.4.2 / 筛查逻辑 v8.4 · 可审计输出日志</span>
     </div>
     <div class="health-rating" id="health-rating">
       <span class="dot" style="background:var(--text-secondary); box-shadow:none;"></span>
@@ -239,9 +281,10 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
         </div>
       </section>
 
-      <section id="btn-copy-oracle" style="display:none;">
+      <section id="btn-copy-oracle" style="display:none;" role="button" tabindex="0" aria-haspopup="dialog" aria-controls="report-modal">
         <div style="font-size:24px; margin-bottom:4px;">📋</div>
-        <div style="font-size:14px; font-weight:bold; color:var(--purple);">输出日志</div>
+        <div style="font-size:14px; font-weight:bold; color:var(--purple);">查看输出日志</div>
+        <div class="audit-log-hint">预览审计摘要 · 复制文本 · 下载 JSON</div>
       </section>
     </aside>
 
@@ -317,6 +360,24 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
   </div>
 </div>
 
+<div class="report-modal" id="report-modal" aria-hidden="true">
+  <div class="report-dialog" role="dialog" aria-modal="true" aria-labelledby="report-title">
+    <div class="report-header">
+      <div>
+        <h2 id="report-title">CGM 研究筛查审计日志</h2>
+        <p>先呈现筛查路径与数据质量，再呈现探索性结构指标；不包含原始血糖序列或本地文件路径。</p>
+      </div>
+      <button class="report-close" id="btn-close-report" type="button" aria-label="关闭日志预览">×</button>
+    </div>
+    <pre class="report-preview" id="report-preview"></pre>
+    <div class="report-actions">
+      <button class="report-action primary" id="btn-copy-report" type="button">复制文本</button>
+      <button class="report-action" id="btn-download-report" type="button">下载 JSON</button>
+      <span class="report-status" id="report-status" role="status" aria-live="polite"></span>
+    </div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // CGM Takens Phase Space Reconstruction Analyzer v8.0
@@ -376,15 +437,22 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
 //   - 该候选未通过原预设统计部署门槛（两层ΔAUC CI均跨0），本版本按用户覆盖授权启用；
 //     UI持续显示“严格内部验证、非独立外部确认、非诊断依据”。
 //
+// v8.4.1: 校准结构指标的名称、单位与分档语义。指标卡只描述当前窗口，卡片颜色不代表
+//   疾病分类，也不直接改变筛查分值；FINS 回归固定标记为低效度。
+//
+// v8.4.2: 将旧提示词式“输出日志”替换为可预览审计日志，提供稳健文本复制与结构化JSON
+//   下载。日志区分固定筛查输入和可变指标窗口，记录数据质量、模型路径、证据边界与隐私范围；
+//   不导出原始血糖序列、文件名或本地路径，筛查算法保持v8.4不变。
+//
 // Pipeline:
 //   S1. Data Ingestion  →  CSV/XLSX parsing, unit conversion
 //   S2. Preprocessing    →  resample to 3min grid, EMA filter, ACF → τ (capped ≤20)
 //   S3. Takens Embedding →  delay-coordinate reconstruction, SYC dim estimation
 //   S4. Phase Analysis   →  box-counting dim, Lyapunov, RQA (DET/ENTR, RR=2%)
-//   S5. Attractor Metrics →  volume, hysteresis, recovery, core displacement
+//   S5. Attractor Metrics →  volume, anisotropy, recovery, core displacement
 //   S6. Clinical Score   →  MRI composite, insulin prediction
 //   S7. Visualization    →  3D phase plot, 2D timeline, recurrence plot
-//   S8. UI Controller    →  file upload, period/tau/smooth controls
+//   S8. UI Controller    →  file upload, controls, auditable text/JSON output
 // ============================================================
 
 // ============================================================================
@@ -1231,6 +1299,166 @@ function predictInsulinBaseline(rawValues, dim = 4) {
 const UI = {
   rawData: null,
   plotInit: false, _rpInit: false,
+  lastReport: null,
+  lastReportJSON: null,
+  _reportReturnFocus: null,
+
+  openReportModal() {
+    if (!this.lastReport || !this.lastReportJSON) {
+      alert('请先加载并分析数据！');
+      return;
+    }
+    const modal = document.getElementById('report-modal');
+    this._reportReturnFocus = document.activeElement;
+    document.getElementById('report-preview').textContent = this.lastReport;
+    this.setReportStatus('');
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('report-open');
+    document.getElementById('btn-close-report').focus();
+  },
+
+  closeReportModal() {
+    const modal = document.getElementById('report-modal');
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('report-open');
+    if (this._reportReturnFocus && typeof this._reportReturnFocus.focus === 'function') {
+      this._reportReturnFocus.focus();
+    }
+  },
+
+  setReportStatus(message, tone = '') {
+    const status = document.getElementById('report-status');
+    status.textContent = message;
+    status.className = `report-status${tone ? ` ${tone}` : ''}`;
+  },
+
+  async copyReportText() {
+    if (!this.lastReport) return;
+    let copied = false;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(this.lastReport);
+        copied = true;
+      }
+    } catch (_) {
+      copied = false;
+    }
+    if (!copied) {
+      const textarea = document.createElement('textarea');
+      textarea.value = this.lastReport;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try { copied = document.execCommand('copy'); } catch (_) { copied = false; }
+      textarea.remove();
+    }
+    this.setReportStatus(copied ? '文本已复制' : '复制失败，请从预览中手动选择', copied ? 'success' : 'error');
+  },
+
+  downloadReportJSON() {
+    if (!this.lastReportJSON) return;
+    try {
+      const body = JSON.stringify(this.lastReportJSON, null, 2);
+      const blob = new Blob([body], { type: 'application/json;charset=utf-8' });
+      const href = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      const stamp = this.lastReportJSON.generated_at.replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z').replace('T', '_');
+      anchor.href = href;
+      anchor.download = `glucobench_audit_${stamp}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(href);
+      this.setReportStatus('JSON 已下载', 'success');
+    } catch (_) {
+      this.setReportStatus('JSON 下载失败', 'error');
+    }
+  },
+
+  buildAuditText(log) {
+    const s = log.screening;
+    const d = log.data_quality;
+    const statusLabels = {
+      reference: '参考/描述', shifted: '偏离参考', extreme: '显著偏离',
+      unavailable: '不可用', low_validity: '低效度'
+    };
+    const scoreText = s.model_score_percent === null ? '不可估' : `${s.model_score_percent.toFixed(1)}%`;
+    const dynamicText = s.inputs.dynamic_score === null
+      ? `未启用（${s.inputs.dynamic_reason}）`
+      : `${s.inputs.dynamic_score.toFixed(3)}（Lyapunov=${s.inputs.dynamic_evidence.lyapunov.toFixed(3)}, DET=${s.inputs.dynamic_evidence.det.toFixed(3)}, ENTR=${s.inputs.dynamic_evidence.entr.toFixed(3)}）`;
+    const metrics = log.metrics.map(item =>
+      `| ${item.label} | ${item.value} | ${statusLabels[item.status] || item.status} | ${item.interpretation} |`
+    ).join('\n');
+    const flags = log.range_summary.flags.length
+      ? log.range_summary.flags.map(item => `- ${item}`).join('\n')
+      : '- 当前窗口未触发预设极值提示；这不等同于排除异常。';
+    const limits = log.evidence_limits.map(item => `- ${item}`).join('\n');
+    const refs = log.references.map((item, index) => `${index + 1}. ${item.title}: ${item.url}`).join('\n');
+
+    return `# GlucoBench CGM 研究筛查审计日志
+
+> 该输出是研究工具的可追溯记录，不是诊断书。模型分值不是患病概率，指标卡颜色也不是疾病标签。
+
+## 1. 筛查输出
+
+- 研究筛查分层：${s.classification || '不可估'}
+- 内部模型分值：${scoreText}
+- 实际模型路径：${s.model_path}
+- 治疗语境：${s.treatment_context}
+- 夜间均糖输入：${s.inputs.night_mean_mmol_l === null ? 'N/A' : s.inputs.night_mean_mmol_l.toFixed(2) + ' mmol/L'}
+- 动力学输入：${dynamicText}
+- 分层阈值：${s.thresholds}
+- 解释：${s.interpretation}
+
+## 2. 数据质量与分析语境
+
+- 观察范围：${d.observed_start || 'N/A'} 至 ${d.observed_end || 'N/A'}（${d.calendar_days} 个日历日）
+- 原始有效记录：${d.raw_records} 条；当前窗口有效血糖点：${d.selected_valid_values}；有效相点：${d.valid_phase_points}
+- 夜间有效点：${d.night_valid_values}；当前指标窗口：${d.metric_view}
+- 单位处理：${d.unit_handling}
+- 重构参数：3分钟重采样；Tau=${d.tau_steps}步（约${d.tau_minutes}分钟）；m=${d.embedding_dimension}${d.dimension_capped ? `（理论${d.calculated_dimension}维后密度熔断）` : ''}
+- 平滑：${d.smoothing ? 'EMA α=0.3（只影响指定形状指标）' : '关闭'}；RQA递归率：${d.rqa_recurrence_rate_percent === null ? 'N/A' : d.rqa_recurrence_rate_percent.toFixed(2) + '%'}
+- 筛查输入范围：${d.screening_scope}
+
+## 3. 解释性结构指标
+
+| 指标 | 数值 | 窗口状态 | 解释 |
+|---|---:|---|---|
+${metrics}
+
+> 上表用于描述当前窗口。最新储备研究未证明这些结构指标是稳定个体特征，也未证明其具有超出常规血糖指标的筛查增益。
+
+## 4. 当前窗口血糖范围
+
+- 最低值：${log.range_summary.minimum_mmol_l.toFixed(2)} mmol/L
+- 中位数：${log.range_summary.median_mmol_l.toFixed(2)} mmol/L
+- 最高值：${log.range_summary.maximum_mmol_l.toFixed(2)} mmol/L
+${flags}
+
+## 5. 证据边界
+
+${limits}
+- 旧版界面累计分：${log.legacy.compatibility_score}/1000，仅兼容显示，不参与顶部筛查分值。
+
+## 6. 后续核实
+
+- ${log.clinical_boundary.next_step}
+- 可用于筛查/诊断的标准实验室项目包括 A1C、空腹血浆葡萄糖和 75 g OGTT；无明确高血糖危象时需按专业指南确认异常结果。
+
+## 7. 可复现性与隐私
+
+- 日志格式：${log.schema_version}；工具版本：${log.app_version}；筛查逻辑：${log.screening_version}
+- 生成时间：${log.generated_at}
+- 隐私：不含原始血糖序列，不含本地文件路径；JSON 仅保存本页已显示的汇总量和参数。
+
+### 参考边界
+
+${refs}`;
+  },
 
   init() {
     // Advanced settings toggle
@@ -1292,22 +1520,26 @@ const UI = {
     };
     document.getElementById('chk-smooth').onchange = () => this.analyze();
 
-    // Copy oracle log
-    document.getElementById('btn-copy-oracle').onclick = () => {
-      if (!this.lastReport) { alert('请先加载并分析数据！'); return; }
-      navigator.clipboard.writeText(this.lastReport).then(() => {
-        const btn = document.getElementById('btn-copy-oracle');
-        const oldHtml = btn.innerHTML;
-        btn.style.background = 'rgba(16, 185, 129, 0.15)';
-        btn.style.borderColor = 'var(--green)';
-        btn.innerHTML = '<div style="font-size:24px;margin-bottom:4px;">✅</div><div style="font-size:14px;font-weight:bold;color:var(--green);">复制成功</div>';
-        setTimeout(() => {
-          btn.innerHTML = oldHtml;
-          btn.style.background = '';
-          btn.style.borderColor = '';
-        }, 2000);
-      });
+    // Auditable log preview, resilient clipboard copy, and structured JSON download.
+    const logButton = document.getElementById('btn-copy-oracle');
+    logButton.onclick = () => this.openReportModal();
+    logButton.onkeydown = e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        this.openReportModal();
+      }
     };
+    document.getElementById('btn-close-report').onclick = () => this.closeReportModal();
+    document.getElementById('btn-copy-report').onclick = () => this.copyReportText();
+    document.getElementById('btn-download-report').onclick = () => this.downloadReportJSON();
+    document.getElementById('report-modal').onclick = e => {
+      if (e.target.id === 'report-modal') this.closeReportModal();
+    };
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && document.getElementById('report-modal').classList.contains('open')) {
+        this.closeReportModal();
+      }
+    });
   },
 
   // Parse uploaded file (CSV with GBK fallback, or XLSX)
@@ -1375,6 +1607,7 @@ const UI = {
     document.getElementById('chk-smooth').checked = true;
 
     const nightRaw = sliceByPeriod(timestamps, rawValues, 'night').values.filter(v => v !== null);
+    this._nightPointCount = nightRaw.length;
     this._nightMean = nightRaw.length >= 6
       ? nightRaw.reduce((a, b) => a + b, 0) / nightRaw.length
       : null;
@@ -1470,7 +1703,8 @@ const UI = {
     const insulinPred = this._insulinPred;
 
     // Boundary penetration (always on raw unsmoothed data)
-    const validVs = sliceByPeriod(timestamps, rawValues, period).values.filter(v => v !== null);
+    const currentRawSlice = sliceByPeriod(timestamps, rawValues, period);
+    const validVs = currentRawSlice.values.filter(v => v !== null);
 
     // 3D coordinates for visualization — derived from the dim-D embedding (first 3 coords
     // are exactly the 3D delay coordinates), skipping a redundant third embedding pass.
@@ -1480,7 +1714,11 @@ const UI = {
     const gravityCore3D = metrics.gravityCore.slice(0, 3);
 
     // ---- Pipeline Stage 7: Render ----
-    this.renderMetrics(metrics, displacement, tau, validVs, smooth, insulinPred, dA, dim, dimCapped, calculatedDim, nightMean);
+    this.renderMetrics(
+      metrics, displacement, tau, validVs, smooth, insulinPred, dA, dim, dimCapped,
+      calculatedDim, nightMean,
+      { period, probeN, nightPointCount: this._nightPointCount || 0 }
+    );
     this.renderPlots(sliced.timestamps, sliced.values, points3D, tau, gravityCore3D, nightCore3D, metrics);
 
     // Update dimension display
@@ -1499,10 +1737,10 @@ const UI = {
     };
     card.querySelector('.metric-value').style.color = `var(--${colorByClass[cls] || 'text'})`;
     card.querySelector('.metric-desc').textContent = desc;
-    return { val, desc };
+    return { val, desc, band: cls };
   },
 
-  renderMetrics(m, disp, tau, validVs, smooth, insulinPred, dA, dim, dimCapped, calculatedDim, nightMean) {
+  renderMetrics(m, disp, tau, validVs, smooth, insulinPred, dA, dim, dimCapped, calculatedDim, nightMean, logContext = {}) {
     let baseScore = 1000;
     let rData = {};
 
@@ -1647,7 +1885,8 @@ const UI = {
     // 9. Tau time-debt penalty (OPTIMIZED v7.1: capped at 20, penalty over 15)
     if (tau > 15) baseScore -= (tau - 15) * 15;
 
-    // 10. Boundary penetration
+    // 10. Range flags — neutral observations; these are not diagnostic thresholds.
+    const rangeFlags = [];
     let boundaryWarning = "";
     let minV = 0, maxV = 0, medianVal = 0;
     if (validVs && validVs.length > 0) {
@@ -1657,13 +1896,14 @@ const UI = {
       for (const v of validVs) { if (v < minV) minV = v; if (v > maxV) maxV = v; }
       medianVal = getMedian(validVs);
 
-      if (minV < 3.0) { baseScore -= 300; boundaryWarning += `重度底盘击穿(跌至${minV.toFixed(1)}) `; }
-      else if (minV < 3.9) { baseScore -= 150; boundaryWarning += `底盘击穿(跌至${minV.toFixed(1)}) `; }
-      else if (minV <= 4.2) { boundaryWarning += `低位边缘摩擦(低至${minV.toFixed(1)}) `; }
+      if (minV < 3.0) { baseScore -= 300; rangeFlags.push(`检测到低于3.0 mmol/L的读数（最低${minV.toFixed(1)}）`); }
+      else if (minV < 3.9) { baseScore -= 150; rangeFlags.push(`检测到低于3.9 mmol/L的读数（最低${minV.toFixed(1)}）`); }
+      else if (minV <= 4.2) { rangeFlags.push(`最低值接近低范围（${minV.toFixed(1)} mmol/L）`); }
 
-      if (maxV > 11.1) { baseScore -= (maxV - 8.5) * 80; boundaryWarning += `糖毒性极值(飙至${maxV.toFixed(1)}) `; }
-      else if (maxV > 10.0) { baseScore -= (maxV - 8.5) * 50; boundaryWarning += `高压溢出(飙至${maxV.toFixed(1)}) `; }
-      else if (maxV > 8.5) { baseScore -= (maxV - 8.5) * 20; boundaryWarning += `糖耐承压(峰值${maxV.toFixed(1)}) `; }
+      if (maxV > 11.1) { baseScore -= (maxV - 8.5) * 80; rangeFlags.push(`检测到高于11.1 mmol/L的读数（最高${maxV.toFixed(1)}）`); }
+      else if (maxV > 10.0) { baseScore -= (maxV - 8.5) * 50; rangeFlags.push(`检测到高于10.0 mmol/L的读数（最高${maxV.toFixed(1)}）`); }
+      else if (maxV > 8.5) { baseScore -= (maxV - 8.5) * 20; rangeFlags.push(`最高值超过8.5 mmol/L（${maxV.toFixed(1)}）`); }
+      boundaryWarning = rangeFlags.join('；');
     }
 
     const mri = Math.max(0, Math.round(baseScore));
@@ -1685,68 +1925,142 @@ const UI = {
     const treatmentLabel = {
       unknown: '治疗状态未知', untreated: '未使用降糖药', treated: '正在使用降糖药',
     }[treatmentStatus];
-    const dynamicDetail = screening.usedConsensus
-      ? `DynamicScore=${screening.dynamicScore.toFixed(3)} `
-        + `(Lyap=${screening.evidence.lyapunov.toFixed(3)}, DET=${screening.evidence.det.toFixed(3)}, ENTR=${screening.evidence.entr.toFixed(3)})`
-      : `未启用动力学共识（${screening.reason}）`;
     const thresholdDetail = screening.usedConsensus
       ? `≥${(screening.screeningThreshold * 100).toFixed(1)}% 筛查阳性，≥50% 高风险`
       : '≥50% 高风险，30-50% 中风险，<30% 低风险';
 
-    // ---- Oracle log ----
-    this.lastReport = `[ ⚠️ 高维情报载荷注入 ] 
->>> 呼叫 Janus 路由: 本情报属于【单变量长序列】的塔肯斯高维折叠。
+    // ---- v8.4.2 auditable output log ----
+    const rawTimestamps = Array.isArray(this.rawData.timestamps)
+      ? this.rawData.timestamps.filter(value => value && typeof value.getTime === 'function' && !Number.isNaN(value.getTime()))
+      : [];
+    const formatLocal = value => {
+      if (!value) return null;
+      const pad = number => String(number).padStart(2, '0');
+      return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())} ${pad(value.getHours())}:${pad(value.getMinutes())}`;
+    };
+    const calendarDays = new Set(rawTimestamps.map(value =>
+      `${value.getFullYear()}-${value.getMonth() + 1}-${value.getDate()}`
+    )).size;
+    const periodLabel = { all: '全天', night: '夜间 00:00–06:00', daytime: '日间 06:00–18:00' }[logContext.period] || '当前选择';
+    const modelValidation = screening.usedConsensus ? {
+      auc: screening.model.validation.auc,
+      sensitivity: screening.model.validation.sensitivity,
+      specificity: screening.model.validation.specificity,
+    } : null;
+    const metricsForLog = [
+      { id: 'volume', label: '相空间展开体积', value: rData.vol.val, status: rData.vol.band, interpretation: rData.vol.desc },
+      { id: 'recovery', label: '归一化向心步长', value: rData.vel.val, status: rData.vel.band, interpretation: rData.vel.desc },
+      { id: 'shape_ratio', label: '主轴各向异性 λ₁/λ₂', value: rData.shp.val, status: rData.shp.band, interpretation: rData.shp.desc },
+      { id: 'core_distance', label: '当前–夜间核心距离', value: rData.disp.val, status: rData.disp.band, interpretation: rData.disp.desc },
+      { id: 'box_dimension', label: '盒计数几何维度', value: rData.dim.val, status: rData.dim.band, interpretation: rData.dim.desc },
+      { id: 'lyapunov_proxy', label: '一步近邻发散代理', value: rData.ly.val, status: rData.ly.band, interpretation: rData.ly.desc },
+      { id: 'rqa_det', label: 'RQA 确定性率 DET', value: rData.det.val, status: rData.det.band, interpretation: rData.det.desc },
+      { id: 'rqa_entr', label: 'RQA 线长熵 ENTR', value: rData.entr.val, status: rData.entr.band, interpretation: rData.entr.desc },
+      {
+        id: 'experimental_fins', label: '实验性 FINS 回归',
+        value: insulinPred && insulinPred.predicted !== null ? `${insulinPred.predicted.toFixed(1)} uIU/mL` : 'N/A',
+        status: 'low_validity',
+        interpretation: 'R²≈0.01，几乎无个体预测力；仅作研究回放，不用于判断。'
+      },
+    ];
+    const nextStep = screenRisk === null
+      ? '当前夜间数据不足以计算研究分值；补充有效夜间记录后再评估。'
+      : (riskTier === '高风险' || riskTier === '筛查阳性' || riskTier === '中风险')
+        ? '若希望核实该研究筛查信号，应由专业人员结合症状与标准实验室检测评估；不要仅凭本日志自行诊断或调整治疗。'
+        : '较低的研究模型分值不能排除糖代谢异常；如有症状、危险因素或临床疑问，仍应采用标准实验室检测。';
 
-宿主已通过 CGM 动态血糖仪，提取了生命系统的相空间热力学特征。
-请加载《The Synergetic Health Forge v9.6》框架，吞噬以下物理张量进行诊断：
-(本探针基于 Takens 嵌入相空间重构 / SYC 自适应维度 / 递归定量分析 RQA)
-
-======================================================
-🌌 拓扑张量 (Topological Tensors - V8.4)
-======================================================
-■ 校准筛查风险 (v8.4 夜间均糖 + 治疗分层动力学共识):
-  > ${riskTier || 'N/A'} — P=${screenRisk !== null ? (screenRisk * 100).toFixed(1) + '%' : '数据不足'}
-  > 人群路径: ${treatmentLabel} → ${screening.usedConsensus ? screening.model.label : 'v8.3夜间均糖安全回退'}
-  > 输入特征: 夜间均糖=${nightMean !== null ? nightMean.toFixed(2) + ' mmol/L' : 'N/A'}；${dynamicDetail}
-  > 阈值: ${thresholdDetail}
-  > 证据等级: 严格内部验证，非独立外部确认；原部署门槛未全部通过，按用户明确授权启用；非诊断依据
-
-■ 旧版界面累计分 (MRI, 仅兼容显示): ${mri} / 1000
-  > 由旧版卡片阈值累计，未通过独立临床验证，不参与顶部筛查概率，也不应解释为“代谢韧性”。
-
-■ 延迟嵌入间隔 (Tau): ${tau} 步 (约${tau * 3}分钟)
-  > ${tau > 12 ? '间隔较长；反映本窗口 ACF 衰减较慢，也可能受采样与缺失影响，不作高危判断。' : '间隔较短；仅表示本窗口用于相空间重构的时间尺度。'}
-
-■ 采集与滤波溯源:
-> 量纲: ${this.rawData.collapsed ? '智能坍缩 (mg/dL → mmol/L)' : '原生 (mmol/L)'}
-> 嵌入维度: SYC 探针 dA=${dA.toFixed(3)} → 理论=${calculatedDim}维${dimCapped ? ` → 密度熔断至 m=${dim}维` : ` → m=${dim}维`} (有效自由度: ${m.effectiveDim}维, 99% Razor)
-> EMA 滤波: ${smooth ? '开启 (α=0.3)' : '关闭'} (仅影响形状类指标; dA探针/恢复速率/边界击穿恒锚定原始数据)
-> 有效相点: ${m.validPoints.length} 点
-> RQA 递归率: ${m.rr !== null && m.rr !== undefined ? (m.rr * 100).toFixed(2) + '%' : 'N/A'} (Theiler窗口=${RQA_THEILER}步)
-
-■ 核心相空间指标（卡片分层仅为内部参考带描述）:
-1. 相空间展开体积 (Volume): ${rData.vol.val} [${rData.vol.desc}]
-2. 归一化向心步长 (Recovery): ${rData.vel.val} [${rData.vel.desc}]
-3. 主轴各向异性 (λ₁/λ₂): ${rData.shp.val} [${rData.shp.desc}]
-4. 当前–夜间核心距离 (Core Dist): ${rData.disp.val} [${rData.disp.desc}]
-5. 盒计数几何维度 (Dimension): ${rData.dim.val} [${rData.dim.desc}]
-6. 一步近邻发散代理 (Lyapunov): ${rData.ly.val} [${rData.ly.desc}]
-7. RQA 确定性率 (DET): ${rData.det.val} [${rData.det.desc}]
-8. RQA 线长熵 (ENTR): ${rData.entr.val} [${rData.entr.desc}]
-9. [低效度] FINS 回归: ${insulinPred && insulinPred.predicted !== null ? insulinPred.predicted.toFixed(1) + ' uIU/mL' : 'N/A'} [多尺度一致性: ${insulinPred ? insulinPred.confidence : 'N/A'}, R²≈0.01；不用于判断]
-
-■ 边界击穿实录:
-> 极值: 峰值 ${maxV.toFixed(2)} | 谷值 ${minV.toFixed(2)} (中位数: ${medianVal.toFixed(2)} mmol/L)
-> 破缺警告: ${boundaryWarning || '未击穿安全结界'}
-
-======================================================
-🩸 宿主口述残差 [请在此填补]:
-======================================================
-1. 光照与节律: 
-2. 物质与热量: 
-3. 神经与皮质醇: 
-
-[指令结束。等待 Forge v9.6 启动双螺旋暴力平账链...]`;
+    this.lastReportJSON = {
+      schema_version: 'glucobench.audit-log.v1',
+      generated_at: new Date().toISOString(),
+      app_version: '8.4.2',
+      screening_version: '8.4',
+      screening: {
+        classification: riskTier,
+        model_score_percent: screenRisk === null ? null : +(screenRisk * 100).toFixed(3),
+        score_semantics: '内部研究模型分值；不是患病概率或诊断概率',
+        model_path: screening.usedConsensus ? screening.model.label : 'v8.3 夜间均糖回退路径',
+        treatment_context: treatmentLabel,
+        thresholds: thresholdDetail,
+        model_validation: modelValidation,
+        inputs: {
+          night_mean_mmol_l: nightMean === null ? null : +nightMean.toFixed(4),
+          dynamic_score: screening.usedConsensus ? +screening.dynamicScore.toFixed(6) : null,
+          dynamic_evidence: screening.usedConsensus ? {
+            lyapunov: +screening.evidence.lyapunov.toFixed(6),
+            det: +screening.evidence.det.toFixed(6),
+            entr: +screening.evidence.entr.toFixed(6),
+          } : null,
+          dynamic_reason: screening.usedConsensus ? null : (screening.reason || '治疗状态或动力学输入不足'),
+        },
+        interpretation: riskDesc,
+      },
+      data_quality: {
+        observed_start: rawTimestamps.length ? formatLocal(rawTimestamps[0]) : null,
+        observed_end: rawTimestamps.length ? formatLocal(rawTimestamps[rawTimestamps.length - 1]) : null,
+        calendar_days: calendarDays,
+        raw_records: Array.isArray(this.rawData.values) ? this.rawData.values.length : validVs.length,
+        selected_valid_values: validVs.length,
+        night_valid_values: logContext.nightPointCount || 0,
+        valid_phase_points: m.validPoints.length,
+        dimension_probe_points: logContext.probeN || null,
+        metric_view: periodLabel,
+        unit_handling: this.rawData.collapsed ? '检测到 mg/dL 并转换为 mmol/L' : '原生 mmol/L',
+        smoothing: smooth,
+        tau_steps: tau,
+        tau_minutes: tau * 3,
+        embedding_dimension: dim,
+        attractor_dimension_estimate: +dA.toFixed(4),
+        calculated_dimension: calculatedDim,
+        dimension_capped: dimCapped,
+        effective_dimension: m.effectiveDim,
+        rqa_recurrence_rate_percent: m.rr === null || m.rr === undefined ? null : +(m.rr * 100).toFixed(4),
+        screening_scope: '固定为载入后的全天、EMA开启、推荐Tau路径；当前时段/Tau/平滑控件只改变图和解释卡，不改变顶部筛查分值。',
+      },
+      metrics: metricsForLog,
+      range_summary: {
+        minimum_mmol_l: +minV.toFixed(4),
+        median_mmol_l: +medianVal.toFixed(4),
+        maximum_mmol_l: +maxV.toFixed(4),
+        flags: rangeFlags,
+      },
+      legacy: {
+        compatibility_score: mri,
+        role: '旧版兼容显示；未独立验证，不参与顶部筛查分值',
+      },
+      evidence_limits: [
+        'ADA 2026 指南认为目前证据不足以支持使用 CGM 筛查或诊断糖尿病前期/糖尿病。',
+        'v8.4 为内部研究模型，未获得独立外部确认，且原预设部署门槛未全部通过。',
+        '最新结构储备研究的分半可靠性较低（4日 Hall ρ=0.298、Weinstock ρ=0.170；6日分别为0.445、0.125）。',
+        '结构共识未改善 Hall 诊断 AUC（0.763→0.763），也未改善 OGTT 预测误差；结构卡片应视为窗口描述。',
+        '实验性 FINS 回归 R²≈0.01，不具有实用的个体预测能力。',
+      ],
+      clinical_boundary: {
+        diagnostic_status: 'not_diagnostic',
+        next_step: nextStep,
+        standard_confirmation: ['A1C', '空腹血浆葡萄糖（FPG）', '75 g 口服葡萄糖耐量试验（OGTT）'],
+      },
+      privacy: {
+        raw_glucose_series_included: false,
+        local_file_name_included: false,
+        local_file_path_included: false,
+      },
+      references: [
+        {
+          title: 'ADA Standards of Care in Diabetes—2026, Diagnosis and Classification',
+          url: 'https://diabetesjournals.org/care/article/49/Supplement_1/S27/163926/2-Diagnosis-and-Classification-of-Diabetes'
+        },
+        {
+          title: 'NIDDK, Diabetes Tests & Diagnosis',
+          url: 'https://www.niddk.nih.gov/health-information/diabetes/overview/tests-diagnosis'
+        },
+      ],
+    };
+    this.lastReport = this.buildAuditText(this.lastReportJSON);
+    const previewModal = document.getElementById('report-modal');
+    if (previewModal && previewModal.classList.contains('open')) {
+      document.getElementById('report-preview').textContent = this.lastReport;
+      this.setReportStatus('已按当前参数刷新');
+    }
   },
 
   // ---- Plot rendering ----
