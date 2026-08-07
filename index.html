@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CGM 塔肯斯相空间探针 v8.2</title>
+<title>CGM 塔肯斯相空间探针 v8.3</title>
 <!-- SheetJS for Excel parsing -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Plotly.js for 3D visualization -->
@@ -154,7 +154,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
   <header>
     <div class="header-title-box">
       <h1>CGM 塔肯斯相空间探针</h1>
-      <span class="subtitle">v8.2 / Takens Embedding Phase Space Reconstruction &amp; RQA + 校准筛查风险</span>
+      <span class="subtitle">v8.3 / Takens Embedding Phase Space Reconstruction &amp; RQA + 校准筛查风险</span>
     </div>
     <div class="health-rating" id="health-rating">
       <span class="dot" style="background:var(--text-secondary); box-shadow:none;"></span>
@@ -321,6 +321,25 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
 //   并重拟合 Ridge: 样本内 R²=0.013, LOO R²=-0.09 — 现行管线吸引子特征对空腹胰岛素
 //   无可检测信号 (旧 R²≈0.04 同为噪声; 旧常量套现行特征得 R²=-1.39, 证实训练公式
 //   确已变更)。REF_MEDIANS/FEATURE_SCALES 已替换为现行尺度, 卡片保留实验性标签。
+//
+// v8.3: 外部验证 + 模型/阈值重定向 (output/js_hall_validation.mjs, Hall 队列
+//   = data1/ 同源, n=57: 38 正常/14 前期/5 糖尿病, 未治疗 — 筛查目标人群):
+//   - RQA 抽样标定 bugfix: 采样填满数 ptr < sampleLen 时, 尾端零填充使 quickselect
+//     命中零区 → epsilon=0 → rr=det=entr=0 (n≈2950-3900 及更长的长序列; Colas
+//     n≤1151 从未触发, v8.1 回归因此漏检)。改用 ptr 与 subarray 修正, Colas 全
+//     队列 208×11 字段逐位不变。
+//   - 部署筛查 LR 换用 Hall 校准的夜间均糖单特征模型 (z=1.064314*nightMean-6.746364,
+//     10x5 OOF AUC 0.727, 置换 p=0.010)。原 Colas 三特征模型 (lyap+entr+nightMean,
+//     OOF 0.670) 在 Hall 上方向性反转 (AUC 0.414 < 0.5, 与 A1C/FBG/insulin 负相关):
+//     Colas 阳性为已治疗 T2DM, 药物压低波动使 lyap/entr/volume 方向与未治疗
+//     人群相反 (Hall: 糖尿病 entr 更高 2.98 vs 2.66, lyap 更低 0.156 vs 0.217);
+//     夜间均糖是唯一跨队列方向稳定特征 (Hall→Colas 0.625 / Colas→Hall 0.751)。
+//   - MRI 卡片阈值按 Hall (未治疗) 分布重定向: volume 只保留高端 log>2/3 (低端
+//     为健康方向); Recovery 只保留低端 <0.14/0.10; Lyapunov 改为低端 <0.15/0.11;
+//     DET 改高端 >0.990/0.992; ENTR 改高端 >2.85/3.0; Dimension 改 Hall 分位
+//     (1.80-2.02 双尾)。Colas 定向阈值在目标人群上系统性误报健康人
+//     (DET<0.990 命中 95% 正常, ENTR<2.6 命中 39% 正常)。
+//   - FINS 卡片不变 (R²≈0.01, 均值参照)。
 //
 // Pipeline:
 //   S1. Data Ingestion  →  CSV/XLSX parsing, unit conversion
@@ -795,10 +814,17 @@ function computeRQA(validPoints, targetRR = RQA_TARGET_RR, skipRPMatrix = false)
       dists[ptr++] = calcDistance(validPoints[i], validPoints[i + k]);
     }
   }
-  const epsIdx = Math.min(sampleLen - 1, Math.max(0, Math.floor(targetRR * sampleLen)));
+  // BUGFIX v8.3: quickselect must run on the FILLED region only. Two compounding bugs in
+  // sampled mode (n > ~2830, totalPairs > RQA_MAX_PAIRS): (a) epsIdx was computed from
+  // sampleLen (1M) while only ~totalPairs/stride entries are filled, and (b) the unfilled
+  // Float64Array tail is zeros, which sort FIRST — so quickselect on the full array returned
+  // epsilon=0 whenever padding > epsIdx (n ≈ 2950-3900 and bands above) → rr=det=entr=0
+  // for long series. Fix: percentile index from actual fill count ptr, and quickselect on
+  // dists.subarray(0, ptr). Full mode: ptr === sampleLen, so both are identical.
+  const epsIdx = Math.min(ptr - 1, Math.max(0, Math.floor(targetRR * ptr)));
   // Full mode: the scan below reuses dists in collection order, but quickselect partitions
   // in place — so it runs on a copy. Sampled mode: the scan recomputes, in-place is fine.
-  const epsArr = sampled ? dists : Float64Array.from(dists);
+  const epsArr = sampled ? dists.subarray(0, ptr) : Float64Array.from(dists);
   const epsilon = quickselect(epsArr, epsIdx);
 
   // Scan diagonals for recurrence structures. Full mode reuses the collected distances
@@ -1328,15 +1354,22 @@ const UI = {
     let baseScore = 1000;
     let rData = {};
 
-    // ---- v8.0 Calibrated screening risk (Colas cohort, honest 10x5 OOF: AUC=0.67) ----
-    // LR: lyapunov + entr + night_mean → P(abnormal metabolism); RQA features must
-    // be full-resolution (no downsampling) to match the calibration pipeline.
+    // ---- v8.3 Calibrated screening risk (Hall cohort, honest 10x5 OOF: AUC=0.727) ----
+    // v8.0/v8.1 used a Colas-trained LR (lyapunov+entr+night_mean, OOF AUC 0.670), but
+    // external validation on the PLOS Biol Hall cohort (n=57, UNTREATED pre/diabetic —
+    // the actual screening target) showed that model INVERTS: AUC 0.414 (below chance),
+    // risk correlates NEGATIVELY with A1C/FBG/insulin. Cause: Colas T2DM are TREATED;
+    // medication flattens the attractor, reversing the direction of lyapunov/entr/volume
+    // vs untreated dysglycemia (Hall: diabetic has HIGHER entr 2.98 vs 2.66, LOWER lyap
+    // 0.156 vs 0.217). Only nightMean direction is stable across both cohorts
+    // (Hall→Colas AUC 0.625, Colas→Hall AUC 0.751). v8.3 deploys the Hall-calibrated
+    // nightMean-only LR: OOF AUC 0.727±0.009 (10x5), permutation p=0.010.
     let screenRisk = null, riskTier = null, riskCls = 'warn', riskDesc = '数据不足';
-    if (m.lyapunov !== null && m.lyapunov !== undefined && m.entr !== null && m.entr !== undefined && nightMean !== null) {
-      const z = 0.7798 * m.lyapunov - 1.6137 * m.entr + 0.5133 * nightMean + 1.6820;
+    if (nightMean !== null) {
+      const z = 1.064314 * nightMean - 6.746364;
       screenRisk = 1 / (1 + Math.exp(-z));
-      if (screenRisk >= 0.50) { riskTier = '高风险'; riskCls = 'bad'; riskDesc = '校准模型阳性带 (Sens 0.77 / Spec 0.62)'; }
-      else if (screenRisk >= 0.30) { riskTier = '中风险'; riskCls = 'warn'; riskDesc = '灰色带 (Sens 0.88 / Spec 0.21 若纳入)'; }
+      if (screenRisk >= 0.50) { riskTier = '高风险'; riskCls = 'bad'; riskDesc = '校准模型阳性带 (Hall OOF Sens 0.26 / Spec 0.82)'; }
+      else if (screenRisk >= 0.30) { riskTier = '中风险'; riskCls = 'warn'; riskDesc = '灰色带 (Hall OOF Sens 0.74 / Spec 0.63 若纳入)'; }
       else { riskTier = '低风险'; riskCls = 'good'; riskDesc = '校准模型阴性带'; }
     }
 
@@ -1356,29 +1389,24 @@ const UI = {
       }
     }
 
-    // 1. Volume — v8.1: log-volume thresholds, ported from the validated Python MRI reference
-    //    (validate_takens_v3 mri_score: -1.0/0.0/2.0/3.0). The old raw thresholds 0.5/1.0/3.0/4.0
-    //    were never calibrated: on the Colas cohort (n=208) they flagged 35.6% of ALL subjects
-    //    as 'bad' (>4.0) and had no operating range. Actual cohort: volume median 2.23,
-    //    T2DM 1.62 < healthy 2.26; exp thresholds → 0.37 (bad-lo, 8.7%), 1.0 (warn-lo, 31%),
-    //    7.4 (warn-hi, 17%), 20.1 (bad-hi, 6.7%).
+    // 1. Volume — v8.3: recalibrated to the Hall cohort (n=57, UNTREATED — the screening
+    //    target). v8.1's low-side flags (log<-1/0) were Colas-TREATED-specific: on Hall the
+    //    low volume is the HEALTHY direction (diab mean 30.5 vs non 4.9), and the v8.1
+    //    thresholds fired on 13% of healthy, 0% of diabetic. High side kept and verified:
+    //    log>2 (7.4) → warn: non 21% / pre 43% / diab 80%; log>3 (20.1) → bad: 3% / 14% / 60%.
     const logVolume = Math.log(Math.max(m.volume, 1e-6));
-    let vCls = 'good', vDesc = '弹性极佳';
-    if (logVolume < -1.0) { vCls = 'bad'; vDesc = '极度僵死/抵抗锁死'; baseScore -= 150; }
-    else if (logVolume < 0.0) { vCls = 'warn'; vDesc = '系统紧绷/缓冲下降'; baseScore -= 50; }
-    else if (logVolume > 3.0) { vCls = 'bad'; vDesc = '系统发散/屏障脆弱'; baseScore -= 180; }
+    let vCls = 'good', vDesc = '弹性良好';
+    if (logVolume > 3.0) { vCls = 'bad'; vDesc = '系统发散/屏障脆弱'; baseScore -= 180; }
     else if (logVolume > 2.0) { vCls = 'warn'; vDesc = '控制力减弱'; baseScore -= 80; }
     rData.vol = this.setCard('metric-volume', m.volume.toFixed(2), vDesc, vCls);
 
-    // 2. Recovery velocity — v8.1: high side recalibrated. The v7.1 high thresholds 0.20/0.30
-    //    NEVER fired on the current pipeline (cohort range 0.050-0.199, median 0.111).
-    //    Low side kept as v7.1; high side set at cohort p90/p97: 0.145 (warn, 12%) / 0.170
-    //    (bad, 1% healthy). T2DM med 0.116 vs healthy 0.110 (no separation — heuristic only).
+    // 2. Recovery velocity — v8.3: LOW side is the abnormal direction on Hall (untreated):
+    //    diabetic mean 0.131 vs non 0.193 (slow recovery = insulin resistance). v8.1's
+    //    high-side flags (>0.145/0.170) fired on the HEALTHY on Hall (non mean 0.193) and
+    //    are dropped. warn <0.14: non 8% / pre 29% / diab 60%; bad <0.10: 0% / 0% / 40%.
     let velCls = 'good', velDesc = '收敛平稳';
-    if (m.avgRecovery > 0.170) { velCls = 'bad'; velDesc = '剧烈超调/低血糖风险'; baseScore -= 200; }
-    else if (m.avgRecovery > 0.145) { velCls = 'warn'; velDesc = '响应激进/承压'; baseScore -= 90; }
-    else if (m.avgRecovery < 0.05) { velCls = 'bad'; velDesc = '重度抵抗/代谢僵化'; baseScore -= 150; }
-    else if (m.avgRecovery < 0.08) { velCls = 'warn'; velDesc = '响应轻度迟缓'; baseScore -= 60; }
+    if (m.avgRecovery < 0.10) { velCls = 'bad'; velDesc = '重度抵抗/代谢僵化'; baseScore -= 150; }
+    else if (m.avgRecovery < 0.14) { velCls = 'warn'; velDesc = '响应轻度迟缓'; baseScore -= 60; }
     rData.vel = this.setCard('metric-velocity', m.avgRecovery.toFixed(3), velDesc, velCls);
 
     // 3. Hysteresis (λ₁/λ₂)
@@ -1394,52 +1422,56 @@ const UI = {
     else if (disp > 0.5) { dCls = 'warn'; dDesc = '基线轻微浮动'; baseScore -= 80; }
     rData.disp = this.setCard('metric-core', disp > 0 ? disp.toFixed(2) + ' mm' : 'N/A', dDesc, dCls);
 
-    // 5. Fractal dimension — v8.1: recalibrated. Old thresholds (>2.3/>2.7, <1.2) NEVER fired:
-    //    cohort range is 1.236-1.831 (no T2DM/healthy separation). Both-tail percentile flags
-    //    per the card concept (≈1 stiff limit cycle, ≈m noise): warn <1.42/>1.66 (p10/p90),
-    //    bad <1.38/>1.70 (p5/p95).
+    // 5. Fractal dimension — v8.3: recalibrated to Hall distribution (untreated target;
+    //    range 1.795-2.033, no group separation — reference flag only). v8.1 thresholds
+    //    (1.38-1.70) were Colas-range (1.236-1.831) and would fire on ~100% of Hall.
+    //    Both-tail percentiles per the card concept: warn <1.81/>2.01 (p10/p90),
+    //    bad <1.80/>2.02 (p5/p95).
     if (m.dimension !== null && m.dimension !== undefined) {
       let dimCls = 'good', dimDesc = '适度复杂(调控灵活)';
-      if (m.dimension < 1.38 || m.dimension > 1.70) { dimCls = 'bad'; dimDesc = '相空间充盈度极端(僵死或失稳)'; baseScore -= 100; }
-      else if (m.dimension < 1.42 || m.dimension > 1.66) { dimCls = 'warn'; dimDesc = '复杂度偏离队列典型'; baseScore -= 40; }
+      if (m.dimension < 1.80 || m.dimension > 2.02) { dimCls = 'bad'; dimDesc = '相空间充盈度极端(僵死或失稳)'; baseScore -= 100; }
+      else if (m.dimension < 1.81 || m.dimension > 2.01) { dimCls = 'warn'; dimDesc = '复杂度偏离队列典型'; baseScore -= 40; }
       rData.dim = this.setCard('metric-dimension', m.dimension.toFixed(2), dimDesc, dimCls);
     } else {
       rData.dim = this.setCard('metric-dimension', 'N/A', '有效连续相点过短(<20)', 'warn');
     }
 
-    // 6. Lyapunov exponent (v8.0: thresholds recalibrated to Colas cohort range 0.01-0.35;
-    //    v7.1 used 0.40/0.60 which NEVER fired — T2DM mean 0.161 vs normal 0.120)
+    // 6. Lyapunov exponent — v8.3: LOW side is the abnormal direction on Hall (untreated):
+    //    diabetic mean 0.156 vs non 0.217 (rigid, low-flexibility attractor). v8.0/v8.1
+    //    flagged HIGH lyap — correct only for Colas TREATED T2DM (medication-induced
+    //    instability, 0.161 vs 0.120). warn <0.15: non 8% / pre 36% / diab 20%;
+    //    bad <0.11: 3% / 7% / 20% (n=5 diabetic — noisy but monotone group means).
     if (m.lyapunov !== null && m.lyapunov !== undefined) {
-      let lyCls = 'good', lyDesc = '弱发散(相对稳态)';
-      if (m.lyapunov > 0.20) { lyCls = 'bad'; lyDesc = '强发散(轨迹敏感)'; baseScore -= 120; }
-      else if (m.lyapunov > 0.15) { lyCls = 'warn'; lyDesc = '临界敏感(轻度不稳)'; baseScore -= 50; }
+      let lyCls = 'good', lyDesc = '适度发散(轨迹灵活)';
+      if (m.lyapunov < 0.11) { lyCls = 'bad'; lyDesc = '强收敛(轨迹僵硬)'; baseScore -= 120; }
+      else if (m.lyapunov < 0.15) { lyCls = 'warn'; lyDesc = '低敏感(灵活性不足)'; baseScore -= 50; }
       rData.ly = this.setCard('metric-lyapunov', m.lyapunov.toFixed(3), lyDesc, lyCls);
     } else {
       rData.ly = this.setCard('metric-lyapunov', 'N/A', '近邻搜索失败(高维稀疏)', 'warn');
     }
 
-    // 7. DET — determinism. v8.0 inverted the direction (T2DM lower) citing cohort means
-    //    0.860/0.909, but those values are NOT reproducible on the deployed full-resolution
-    //    pipeline — actual cohort range is 0.981-0.999 (T2DM med 0.993 < healthy 0.995), so the
-    //    v8.0 thresholds <0.85/<0.90 never fired. v8.1 recalibrated inside the real range:
-    //    warn <0.994 (T2DM 65% / healthy 44%), bad <0.990 (T2DM 29% / healthy 15%).
+    // 7. DET — determinism. v8.3: HIGH side is the abnormal direction on Hall (untreated):
+    //    diabetic mean 0.991 vs non 0.984 (over-determined, rigid trajectory). v8.1 flagged
+    //    LOW det — correct only for Colas TREATED T2DM (medication noise lowers determinism,
+    //    0.993 vs 0.995). warn >0.990: non 5% / pre 36% / diab 60%; bad >0.992: 5% / 29% / 60%.
     if (m.det !== null && m.det !== undefined) {
       let detCls = 'good', detDesc = '因果律健康(张弛有度)';
-      if (m.det < 0.990) { detCls = 'bad'; detDesc = '轨迹失序(自由度散失)'; baseScore -= 100; }
-      else if (m.det < 0.994) { detCls = 'warn'; detDesc = '确定性下降'; baseScore -= 40; }
+      if (m.det > 0.992) { detCls = 'bad'; detDesc = '轨迹过度确定(僵化锁死)'; baseScore -= 100; }
+      else if (m.det > 0.990) { detCls = 'warn'; detDesc = '确定性偏高'; baseScore -= 40; }
       rData.det = this.setCard('metric-det', (m.det * 100).toFixed(1) + '%', detDesc, detCls);
     } else {
       rData.det = this.setCard('metric-det', 'N/A', '数据点不足', 'warn');
     }
 
-    // 8. ENTR — diagonal line entropy. Same story as DET: the v8.0 thresholds 1.5/1.8 were
-    //    calibrated on unreproducible cohort numbers (claimed T2DM 1.73 < normal 1.97; actual
-    //    range 2.04-3.90, T2DM med 2.74 < healthy 2.95) and never fired. v8.1: warn <2.9
-    //    (T2DM 76% / healthy 42%), bad <2.6 (T2DM 35% / healthy 12%).
+    // 8. ENTR — diagonal line entropy. v8.3: HIGH side is the abnormal direction on Hall
+    //    (untreated): diabetic mean 2.98 vs non 2.66 (larger, less efficient repertoire —
+    //    the attractor needs many line lengths to express uncontrolled swings). v8.1 flagged
+    //    LOW entr — correct only for Colas TREATED T2DM (medication flattens dynamics,
+    //    2.786 vs 2.964). warn >2.85: non 13% / pre 36% / diab 60%; bad >3.0: 5% / 29% / 60%.
     if (m.entr !== null && m.entr !== undefined) {
-      let entrCls = 'good', entrDesc = '招式丰富(代谢灵活)';
-      if (m.entr < 2.6) { entrCls = 'bad'; entrDesc = '资本枯竭(单一模式死扛)'; baseScore -= 120; }
-      else if (m.entr < 2.9) { entrCls = 'warn'; entrDesc = '手段单一(适应性下降)'; baseScore -= 50; }
+      let entrCls = 'good', entrDesc = '招式高效(代谢从容)';
+      if (m.entr > 3.0) { entrCls = 'bad'; entrDesc = '策略耗散(波动失控)'; baseScore -= 120; }
+      else if (m.entr > 2.85) { entrCls = 'warn'; entrDesc = '手段冗杂(适应性下降)'; baseScore -= 50; }
       rData.entr = this.setCard('metric-entr', m.entr.toFixed(2), entrDesc, entrCls);
     } else {
       rData.entr = this.setCard('metric-entr', 'N/A', '数据点不足', 'warn');
@@ -1475,7 +1507,7 @@ const UI = {
     if (riskTier) {
       hr.className = `health-rating ${riskCls}`;
       hr.innerHTML = `<span class="dot"></span>筛查风险: ${riskTier} (P=${(screenRisk * 100).toFixed(1)}%)${suffix}`;
-      hr.title = riskDesc + '；校准于 GlucoBench Colas 队列 (n=208, 17 T2DM)，10x5 OOF AUC=0.67，非诊断依据';
+      hr.title = riskDesc + '；校准于 PLOS Biol Hall 队列 (n=57, 未治疗前期/糖尿病)，10x5 OOF AUC=0.73，非诊断依据';
     } else {
       hr.className = 'health-rating warn';
       hr.innerHTML = `<span class="dot"></span>风险不可估 (夜间数据不足)<span>${suffix}</span>`;
@@ -1494,10 +1526,10 @@ const UI = {
 ======================================================
 🌌 拓扑张量 (Topological Tensors - V8.0)
 ======================================================
-■ 校准筛查风险 (v8.0 逻辑回归, Colas 队列 10x5 OOF AUC=0.670):
+■ 校准筛查风险 (v8.3 逻辑回归, Hall 队列 10x5 OOF AUC=0.727):
   > ${riskTier || 'N/A'} — P=${screenRisk !== null ? (screenRisk * 100).toFixed(1) + '%' : '数据不足'}
-  > 输入特征: Lyapunov=${rData.ly ? rData.ly.val : 'N/A'} | ENTR=${rData.entr ? rData.entr.val : 'N/A'} | 夜间均糖=${nightMean !== null ? nightMean.toFixed(2) + ' mmol/L' : 'N/A'}
-  > 阈值: ≥50% 高风险 (Sens 0.77/Spec 0.62) | 30-50% 中风险 | <30% 低风险
+  > 输入特征: 夜间均糖=${nightMean !== null ? nightMean.toFixed(2) + ' mmol/L' : 'N/A'}
+  > 阈值: ≥50% 高风险 (Hall OOF Sens 0.26/Spec 0.82) | 30-50% 中风险 (Sens 0.74/Spec 0.63 若纳入) | <30% 低风险
 
 ■ 启发式代谢韧性指数 (MRI, 供参考): ${mri} / 1000
 
