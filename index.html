@@ -648,8 +648,16 @@ function parseCGMFromCSV(text) {
   for (let i = 1; i < lines.length; i++) {
     const parts = lines[i].split(delim);
     if (parts.length <= Math.max(timeIdx, valIdx)) continue;
-    const t = new Date(parts[timeIdx]?.trim());
-    const v = parseFloat(parts[valIdx]?.trim());
+    const tStr = parts[timeIdx]?.trim().replace(/^"|"$/g, '');
+    const vStr = parts[valIdx]?.trim().replace(/^"|"$/g, '');
+    let t = new Date(tStr);
+    
+    // Date format fallback
+    if (isNaN(t.getTime()) && tStr) {
+      t = new Date(tStr.replace(/-/g, '/')); 
+    }
+    
+    const v = parseFloat(vStr);
     if (!isNaN(t.getTime()) && !isNaN(v) && v > 0) { timestamps.push(t); values.push(v); }
   }
   if (timestamps.length === 0) return null;
@@ -1603,26 +1611,38 @@ ${refs}`;
     const z = document.getElementById('upload-zone');
     z.onclick = () => document.getElementById('file-input').click();
 
-    window.addEventListener('dragover', e => e.preventDefault());
-    window.addEventListener('drop', e => e.preventDefault());
+    z.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      z.classList.add('dragover');
+    });
 
-    z.ondragenter = e => { e.preventDefault(); e.stopPropagation(); z.classList.add('dragover'); };
-    z.ondragover = e => { e.preventDefault(); e.stopPropagation(); z.classList.add('dragover'); };
-    z.ondragleave = e => { e.preventDefault(); e.stopPropagation(); z.classList.remove('dragover'); };
-    z.ondrop = e => {
-      e.preventDefault(); e.stopPropagation(); z.classList.remove('dragover');
-      if (e.dataTransfer.files.length) {
+    z.addEventListener('dragleave', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      z.classList.remove('dragover');
+    });
+
+    z.addEventListener('drop', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      z.classList.remove('dragover');
+      if (e.dataTransfer && e.dataTransfer.files.length) {
         const file = e.dataTransfer.files[0];
         z.classList.add('has-file');
         document.getElementById('file-info').textContent = file.name;
         this.parse(file);
       }
-    };
+    });
+
+    // Also prevent defaults on window to stop browser from opening the file
+    window.addEventListener('dragover', e => e.preventDefault());
+    window.addEventListener('drop', e => e.preventDefault());
 
     // Control bindings
     document.getElementById('sel-period').onchange = () => this.analyze();
     document.getElementById('sel-treatment').onchange = e => {
-      document.getElementById('treatment-note').textContent = TREATMENT_NOTES_V84[e.target.value];
+      document.getElementById('treatment-note').textContent = TREATMENT_NOTES_V87[e.target.value] || '';
       this.analyze();
     };
     // v8.1: tau slider debounced — dragging fires analyze() per input event, and each run
@@ -1657,6 +1677,7 @@ ${refs}`;
 
   // Parse uploaded file (CSV with GBK fallback, or XLSX)
   parse(f) {
+    if (!f) return;
     const isCSV = f.name.toLowerCase().endsWith('.csv');
     const r = new FileReader();
 
