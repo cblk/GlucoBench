@@ -611,6 +611,37 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
           </div>
         </div>
 
+        <div class="metric-card" id="metric-angular-velocity">
+          <div class="metric-header">
+            <div class="metric-title">代谢引力场角速度 (Angular Vel.)</div>
+            <span class="info-icon">ℹ️</span>
+          </div>
+          <div class="metric-value-box">
+            <div class="metric-value" style="color:var(--text)">-</div>
+            <div class="metric-unit">rad/h</div>
+          </div>
+          <div class="metric-desc">相空间轨道的旋转速度；探测胰岛受体向心引力的物理衰竭。</div>
+          <div class="metric-tooltip">
+            <div class="tooltip-title">代谢引力场角速度 (Angular Velocity)</div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">物理与动力学定义</div>
+              <div class="tooltip-text">在二维相空间 (G, dG/dt) 中，系统受到饮食扰动后偏离并绕核心中心公转的平均角速度（开普勒掠面动能提取）。</div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">绝对物理基准 / 分级</div>
+              <div class="tooltip-standards">
+                • <strong>> 2.20 rad/h</strong>：敏锐回落（强引力汇）<br>
+                • <strong>2.05 ~ 2.20 rad/h</strong>：回落迟缓（引力轻微衰退）<br>
+                • <strong>≤ 2.05 rad/h</strong>：轨迹滞留（受体引力严重坍塌）
+              </div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">生理与临床意义</div>
+              <div class="tooltip-text">健康的受体像一个大质量的“引力汇”，强行将血糖从高位快速拽回（高角速度）。隐性受体抵抗会导致引力场变平，导致高血糖轨迹在相空间中如同在真空中缓慢漂移。</div>
+            </div>
+          </div>
+        </div>
+
         <!-- 1. Work Integral (v8.7 Core) -->
         <div class="metric-card" id="metric-workintegral">
           <div class="metric-header">
@@ -1996,6 +2027,68 @@ function computeNormalizedRecovery(points) {
 // smoothPoints: for Lyapunov and RQA (always smoothed)
 // skipRQA: skip RQA computation when only shape metrics are needed
 
+// Kepler Kinematics (Angular Velocity and Sweep Rate)
+function computeKeplerKinematics(times, vals, core) {
+  if (!vals || !times || vals.length < 3 || core === null) return { angularVelocity: null, sweepRate: null };
+  
+  const X = new Float64Array(vals.length);
+  const Y = new Float64Array(vals.length);
+  const T_hours = new Float64Array(vals.length);
+  
+  for (let i = 0; i < vals.length; i++) {
+    T_hours[i] = times[i].getTime() / (3600 * 1000);
+    X[i] = vals[i] !== null ? vals[i] - core : null;
+  }
+  
+  for (let i = 0; i < vals.length; i++) {
+    if (X[i] === null) { Y[i] = null; continue; }
+    if (i > 0 && i < vals.length - 1 && X[i-1] !== null && X[i+1] !== null) {
+      Y[i] = (X[i+1] - X[i-1]) / (T_hours[i+1] - T_hours[i-1]);
+    } else if (i === 0 && X[i+1] !== null) {
+      Y[i] = (X[i+1] - X[i]) / (T_hours[i+1] - T_hours[i]);
+    } else if (i === vals.length - 1 && X[i-1] !== null) {
+      Y[i] = (X[i] - X[i-1]) / (T_hours[i] - T_hours[i-1]);
+    } else {
+      Y[i] = null;
+    }
+  }
+  
+  const dY = new Float64Array(vals.length);
+  for (let i = 0; i < vals.length; i++) {
+    if (Y[i] === null) { dY[i] = null; continue; }
+    if (i > 0 && i < vals.length - 1 && Y[i-1] !== null && Y[i+1] !== null) {
+      dY[i] = (Y[i+1] - Y[i-1]) / (T_hours[i+1] - T_hours[i-1]);
+    } else {
+       dY[i] = null;
+    }
+  }
+  
+  let sumSweep = 0;
+  let sumR2 = 0;
+  let validCount = 0;
+  
+  for (let i = 1; i < vals.length - 1; i++) {
+    if (X[i] === null || Y[i] === null || dY[i] === null) continue;
+    
+    const r2 = X[i]*X[i] + Y[i]*Y[i];
+    if (r2 < 0.1) continue; // noise floor
+    
+    // Cross product magnitude: | X*dY - Y*dX | where dX = Y
+    const sweep = 0.5 * Math.abs(X[i] * dY[i] - Y[i] * Y[i]);
+    
+    sumSweep += sweep;
+    sumR2 += r2;
+    validCount++;
+  }
+  
+  if (validCount === 0 || sumR2 === 0) return { angularVelocity: null, sweepRate: null };
+  
+  const avgSweepRate = sumSweep / validCount;
+  const weightedAngularVel = 2.0 * sumSweep / sumR2; // rad/hour
+  
+  return { angularVelocity: weightedAngularVel, sweepRate: avgSweepRate };
+}
+
 // Unified kinetics function to compute early phase delay and relaxation fatigue
 function computeExcursionKinetics(times, vals) {
   if (!vals || !times || vals.length < 10) return { earlyDelay: null, relaxationTime: null };
@@ -2201,6 +2294,68 @@ function computeAttractorMetrics(shapePoints, rawPoints, smoothPoints, skipRQA =
     det: rqa.det, entr: rqa.entr, rr: rqa.rr, rpMatrix: rqa.rpMatrix,
     mean: arithMean, gravityCore, validPoints: valid, effectiveDim, embeddingDim: dim
   };
+}
+
+// Kepler Kinematics (Angular Velocity and Sweep Rate)
+function computeKeplerKinematics(times, vals, core) {
+  if (!vals || !times || vals.length < 3 || core === null) return { angularVelocity: null, sweepRate: null };
+  
+  const X = new Float64Array(vals.length);
+  const Y = new Float64Array(vals.length);
+  const T_hours = new Float64Array(vals.length);
+  
+  for (let i = 0; i < vals.length; i++) {
+    T_hours[i] = times[i].getTime() / (3600 * 1000);
+    X[i] = vals[i] !== null ? vals[i] - core : null;
+  }
+  
+  for (let i = 0; i < vals.length; i++) {
+    if (X[i] === null) { Y[i] = null; continue; }
+    if (i > 0 && i < vals.length - 1 && X[i-1] !== null && X[i+1] !== null) {
+      Y[i] = (X[i+1] - X[i-1]) / (T_hours[i+1] - T_hours[i-1]);
+    } else if (i === 0 && X[i+1] !== null) {
+      Y[i] = (X[i+1] - X[i]) / (T_hours[i+1] - T_hours[i]);
+    } else if (i === vals.length - 1 && X[i-1] !== null) {
+      Y[i] = (X[i] - X[i-1]) / (T_hours[i] - T_hours[i-1]);
+    } else {
+      Y[i] = null;
+    }
+  }
+  
+  const dY = new Float64Array(vals.length);
+  for (let i = 0; i < vals.length; i++) {
+    if (Y[i] === null) { dY[i] = null; continue; }
+    if (i > 0 && i < vals.length - 1 && Y[i-1] !== null && Y[i+1] !== null) {
+      dY[i] = (Y[i+1] - Y[i-1]) / (T_hours[i+1] - T_hours[i-1]);
+    } else {
+       dY[i] = null;
+    }
+  }
+  
+  let sumSweep = 0;
+  let sumR2 = 0;
+  let validCount = 0;
+  
+  for (let i = 1; i < vals.length - 1; i++) {
+    if (X[i] === null || Y[i] === null || dY[i] === null) continue;
+    
+    const r2 = X[i]*X[i] + Y[i]*Y[i];
+    if (r2 < 0.1) continue; // noise floor
+    
+    // Cross product magnitude: | X*dY - Y*dX | where dX = Y
+    const sweep = 0.5 * Math.abs(X[i] * dY[i] - Y[i] * Y[i]);
+    
+    sumSweep += sweep;
+    sumR2 += r2;
+    validCount++;
+  }
+  
+  if (validCount === 0 || sumR2 === 0) return { angularVelocity: null, sweepRate: null };
+  
+  const avgSweepRate = sumSweep / validCount;
+  const weightedAngularVel = 2.0 * sumSweep / sumR2; // rad/hour
+  
+  return { angularVelocity: weightedAngularVel, sweepRate: avgSweepRate };
 }
 
 // Unified kinetics function to compute early phase delay and relaxation fatigue
@@ -2443,6 +2598,7 @@ const UI = {
     const dynamicText = !s.inputs.work_integral && !s.inputs.ascend_friction && !s.inputs.night_friction
       ? `未启用（${s.inputs.dynamic_reason || '基线或阻力数据不足'}）`
       : `已启用（磁滞做功=${s.inputs.work_integral !== null && s.inputs.work_integral !== undefined ? s.inputs.work_integral.toFixed(2) : 'N/A'}, 上升阻力=${s.inputs.ascend_friction !== null && s.inputs.ascend_friction !== undefined ? s.inputs.ascend_friction.toFixed(2) : 'N/A'}, 夜间阻力=${s.inputs.night_friction !== null && s.inputs.night_friction !== undefined ? s.inputs.night_friction.toFixed(2) : 'N/A'}）`;
+    const advancedKinetics = `早相迟滞=${s.inputs.early_delay_min !== null ? s.inputs.early_delay_min.toFixed(1) + 'm' : 'N/A'}, 回落疲劳=${s.inputs.relaxation_time_min !== null ? s.inputs.relaxation_time_min.toFixed(1) + 'm' : 'N/A'}, 夜间AR1=${s.inputs.night_ar1 !== null ? s.inputs.night_ar1.toFixed(3) : 'N/A'}, 角速度=${s.inputs.angular_velocity !== null ? s.inputs.angular_velocity.toFixed(2) + 'rad/h' : 'N/A'}`;
     const metrics = log.metrics.map(item =>
       `| ${item.label} | ${item.value} | ${statusLabels[item.status] || item.status} | ${item.interpretation} |`
     ).join('\n');
@@ -2464,6 +2620,7 @@ const UI = {
 - 治疗语境：${s.treatment_context}
 - 夜间均糖输入：${s.inputs.night_mean_mmol_l === null ? 'N/A' : s.inputs.night_mean_mmol_l.toFixed(2) + ' mmol/L'}
 - 动力学输入：${dynamicText}
+- 高维物理探针：${advancedKinetics}
 - 分层阈值：${s.thresholds}
 - 解释：${s.interpretation}
 
@@ -2965,6 +3122,15 @@ ${refs}` : ''}
       rData.nightAR1 = this.setCard('metric-night-ar1', 'N/A', '缺少足够的夜间波动数据。', 'unavailable');
     }
 
+    if (m.angularVelocity !== null && m.angularVelocity !== undefined && Number.isFinite(m.angularVelocity)) {
+      let angCls = 'reference', angDesc = '强引力汇；受迫后轨道敏锐回归。';
+      if (m.angularVelocity <= 2.05) { angCls = 'bad'; angDesc = '引力严重坍塌（≤2.05）｜轨迹在相空间滞留，向心力丧失。'; }
+      else if (m.angularVelocity <= 2.20) { angCls = 'warn'; angDesc = '引力衰退（2.05-2.20）｜掠面角速度减慢。'; }
+      rData.angularVelocity = this.setCard('metric-angular-velocity', m.angularVelocity.toFixed(2), angDesc, angCls);
+    } else {
+      rData.angularVelocity = this.setCard('metric-angular-velocity', 'N/A', '缺少有效波动数据。', 'unavailable');
+    }
+
     // 1. Work Integral
     if (m.workIntegral !== null && m.workIntegral !== undefined && Number.isFinite(m.workIntegral)) {
       let wCls = 'reference', wDesc = '极低做功耗散；系统处于最小作用量物理区间。';
@@ -3177,6 +3343,7 @@ ${refs}` : ''}
           early_delay_min: Number.isFinite(m.earlyDelay) ? +m.earlyDelay.toFixed(2) : null,
           relaxation_time_min: Number.isFinite(m.relaxationTime) ? +m.relaxationTime.toFixed(2) : null,
           night_ar1: Number.isFinite(m.nightAR1) ? +m.nightAR1.toFixed(3) : null,
+          angular_velocity: Number.isFinite(m.angularVelocity) ? +m.angularVelocity.toFixed(3) : null,
           night_variance: Number.isFinite(m.nightVariance) ? +m.nightVariance.toFixed(3) : null,
           dynamic_reason: screening.usedDynamic ? null : (screening.reason || '治疗状态或动力学输入不足'),
         },

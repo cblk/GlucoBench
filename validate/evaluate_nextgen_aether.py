@@ -15,8 +15,8 @@ def roc_auc(y, scores):
     ranks = rankdata(scores)
     return float((ranks[pos].sum() - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg))
 
-def load_metrics(cohort):
-    path = Path("output") / f"phase_screening_metrics_{cohort}.json"
+def load_metrics(cohort, prefix="phase_screening_metrics"):
+    path = Path("output") / f"{prefix}_{cohort}.json"
     frame = pd.DataFrame(json.loads(path.read_text(encoding="utf-8")))
     return frame
 
@@ -50,8 +50,9 @@ def evaluate_cv(X, y, splits=5, repeats=20):
     return aucs
 
 def evaluate_features():
-    hall = load_metrics("hall")
-    colas = load_metrics("colas")
+    prefix = sys.argv[1].replace('output\\', '').replace('output/', '') if len(sys.argv) > 1 else "phase_screening_metrics"
+    hall = load_metrics("hall", prefix)
+    colas = load_metrics("colas", prefix)
 
     features = [
         "asymFriction",
@@ -62,7 +63,9 @@ def evaluate_features():
         "frictionGradient",
         "earlyDelay",
         "relaxationTime",
-        "nightAR1"
+        "nightAR1",
+        "angularVelocity",
+        "sweepRate"
     ]
 
     print("=== Next-Gen Aether Metrics Evaluation ===")
@@ -145,6 +148,10 @@ def evaluate_features():
 
     # Colas combinations
     print(f"Hall: nightMean + relaxationTime + nightAR1 AUC: {np.mean(evaluate_cv(hall[['nightMean', 'relaxationTime', 'nightAR1']].fillna(hall[['nightMean', 'relaxationTime', 'nightAR1']].median()).to_numpy(), hall['y'].to_numpy())):.4f}")
+    
+    if "angularVelocity" in hall.columns:
+        print(f"Hall: nightMean + angularVelocity + nightAR1 AUC: {np.mean(evaluate_cv(hall[['nightMean', 'angularVelocity', 'nightAR1']].fillna(hall[['nightMean', 'angularVelocity', 'nightAR1']].median()).to_numpy(), hall['y'].to_numpy())):.4f}")
+        print(f"Hall: nightMean + sweepRate + nightAR1 AUC: {np.mean(evaluate_cv(hall[['nightMean', 'sweepRate', 'nightAR1']].fillna(hall[['nightMean', 'sweepRate', 'nightAR1']].median()).to_numpy(), hall['y'].to_numpy())):.4f}")
     
     print("")
     y_c = colas["y"].to_numpy(int)

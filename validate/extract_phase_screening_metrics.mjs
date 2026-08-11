@@ -33,7 +33,7 @@ const context = vm.createContext({
 const expose = `
   globalThis.__pipeline = {
     resampleData, computeACF, recommendTau, sliceByPeriod, takensEmbedding,
-    estimateEmbeddingDimension, computeAttractorMetrics, computeExcursionKinetics, computeCriticalSlowingDown, computeRQA,
+    estimateEmbeddingDimension, computeAttractorMetrics, computeExcursionKinetics, computeCriticalSlowingDown, computeKeplerKinematics, computeRQA,
     computeAsymmetricFriction, calcDistance, getMedian, RQA_TARGET_RR
   };`;
   vm.runInContext(`${inline}\n${expose}`, context, { filename: "index-inline.js" });
@@ -74,6 +74,10 @@ function analyzeSubject(subject) {
   const nightMean = nightValues.length >= 6
     ? nightValues.reduce((sum, value) => sum + value, 0) / nightValues.length
     : null;
+    
+  const kepler = pipeline.computeKeplerKinematics(raw.timestamps, smooth.values, nightMean);
+  metrics.angularVelocity = kepler.angularVelocity;
+  metrics.sweepRate = kepler.sweepRate;
   const nightPointsAll = pipeline.takensEmbedding(night.values, tau, dimInfo.dim);
   const nightPoints = nightPointsAll.filter(point => point !== null);
   let coreDisplacement = null;
@@ -128,6 +132,8 @@ function analyzeSubject(subject) {
     frictionGradient: metrics.frictionGradient,
     earlyDelay: metrics.earlyDelay,
     relaxationTime: metrics.relaxationTime,
+    angularVelocity: metrics.angularVelocity,
+    sweepRate: metrics.sweepRate,
     nightAR1: metrics.nightAR1,
     nightVariance: metrics.nightVariance,
     dayFriction,
