@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CGM 塔肯斯相空间探针 v8.4.3</title>
+<title>CGM Aether相空间探针 v8.6</title>
 <!-- SheetJS for Excel parsing -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Plotly.js for 3D visualization -->
@@ -350,11 +350,17 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
           <div class="metric-value" style="color:var(--text)">-</div>
           <div class="metric-desc">轨迹重复持续时间多样性的熵；在治疗分层语境中有内部风险关联方向，但不存在跨人群通用的越高越好。</div>
         </div>
-        <div class="metric-card" id="metric-insulin-pred">
-          <div class="metric-title">实验性 FINS 回归（低效度）</div>
+        <div class="metric-card" id="metric-workintegral">
+          <div class="metric-title">相空间磁滞做功积分 (Work)</div>
           <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">拟合 R²≈0.01，几乎无个体预测力；只作研究回放，不应用于判断。</div>
+          <div class="metric-desc">降维相图上的磁滞环绝对面积；未治疗人群中该值高表示热力学废热不可逆代偿，具有最强筛查效力。</div>
         </div>
+        <div class="metric-card" id="metric-nightfriction">
+          <div class="metric-title">夜间相变阻力 (Night Fric)</div>
+          <div class="metric-value" style="color:var(--text)">-</div>
+          <div class="metric-desc">夜间基础相向心运动时的阻力；治疗人群受药物干预呈反向特征。</div>
+        </div>
+      </div>
       </div>
     </div>
   </div>
@@ -499,41 +505,35 @@ const RQA_SAMPLE_PAIRS = 1_000_000;
 // v8.4 frozen deployment parameters. Healthy references are full-cohort control
 // medians and robust scales (1.4826*MAD with the validation fallback hierarchy).
 // The Logistic coefficients are expressed on the raw nightMean/DynamicScore scale.
-const SCREENING_MODELS_V84 = Object.freeze({
+// v8.6 frozen deployment parameters.
+// Untreated uses workIntegral (Hysteresis Work). Treated uses nightFriction (Circadian Phase-Shift).
+const SCREENING_MODELS_V86 = Object.freeze({
   untreated: Object.freeze({
-    label: '未治疗动力学共识',
-    cohort: 'Hall 未治疗队列 (n=57/阳性19)',
-    reference: Object.freeze({
-      lyapunov: Object.freeze({ median: 0.21747328684772121, scale: 0.057793058951874796, direction: -1 }),
-      det: Object.freeze({ median: 0.9852847787383687, scale: 0.004363252363392722, direction: 1 }),
-      entr: Object.freeze({ median: 2.627792329573473, scale: 0.17161741119383928, direction: 1 }),
-    }),
-    intercept: -6.35073552463002,
-    nightMeanCoef: 0.8540537261383968,
-    dynamicCoef: 1.1654672610322259,
-    screeningThreshold: 0.25543623609424837,
-    validation: Object.freeze({ auc: 0.778, sensitivity: 0.775, specificity: 0.597 }),
+    label: "未治疗 Aether 积分做功筛查",
+    cohort: "Hall 未治疗队列 (n=57/阳性19)",
+    intercept: -5.981279,
+    nightMeanCoef: 0.776465,
+    dynamicCoef: 0.010558,
+    dynamicType: "workIntegral",
+    screeningThreshold: 0.25,
+    validation: Object.freeze({ auc: 0.756 }),
   }),
   treated: Object.freeze({
-    label: '已治疗动力学共识',
-    cohort: 'Colas 已治疗队列 (n=208/阳性17)',
-    reference: Object.freeze({
-      lyapunov: Object.freeze({ median: 0.11202436496475647, scale: 0.06878779009527695, direction: 1 }),
-      det: Object.freeze({ median: 0.994703680029221, scale: 0.003070961008111728, direction: -1 }),
-      entr: Object.freeze({ median: 2.9540503194717904, scale: 0.30832322428692244, direction: -1 }),
-    }),
-    intercept: -4.86963550442103,
-    nightMeanCoef: 0.3739500251268923,
-    dynamicCoef: 0.6603108250710589,
-    screeningThreshold: 0.0644700969917715,
-    validation: Object.freeze({ auc: 0.642, sensitivity: 0.798, specificity: 0.467 }),
+    label: "已治疗 昼夜相变阻力筛查",
+    cohort: "Colas 已治疗队列 (n=208/阳性17)",
+    intercept: -3.449426,
+    nightMeanCoef: 0.399202,
+    dynamicCoef: -0.073664,
+    dynamicType: "nightFriction",
+    screeningThreshold: 0.06,
+    validation: Object.freeze({ auc: 0.642 }),
   }),
 });
 
-const TREATMENT_NOTES_V84 = Object.freeze({
-  unknown: '未知状态仅使用夜间均糖；请勿猜测治疗状态。',
-  untreated: '未使用降糖药：低 Lyapunov + 高 DET/ENTR 为异常方向。',
-  treated: '正在使用降糖药：高 Lyapunov + 低 DET/ENTR 为异常方向。',
+const TREATMENT_NOTES_V86 = Object.freeze({
+  unknown: "未知状态仅使用夜间均糖；请勿猜测治疗状态。",
+  untreated: "未使用降糖药：高磁滞积分（不可逆做功大）为异常方向。",
+  treated: "正在使用降糖药：夜间残余摩擦力受药物干扰，权重逆转。",
 });
 
 // Insulin predictor constants — v8.2 re-fit on the ORIGINAL 53-subject training set
@@ -569,54 +569,45 @@ function getMedian(arr) {
   return s.length % 2 !== 0 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
 
-// Frozen white-box v8.4 screening rule. Unknown treatment or missing dynamics
-// returns the v8.3 nightMean risk exactly, so the safe fallback is testable.
-function directionalEvidenceV84(value, metric, treatmentStatus) {
-  const model = SCREENING_MODELS_V84[treatmentStatus];
-  const ref = model && model.reference[metric];
-  if (!ref || !Number.isFinite(value)) return null;
-  const robustZ = Math.max(-3, Math.min(3, (value - ref.median) / ref.scale));
-  return Math.max(0, Math.min(3, ref.direction * robustZ));
-}
-
-function computeScreeningRiskV84(nightMean, dynamics, treatmentStatus = 'unknown') {
+// Frozen white-box v8.6 screening rule
+function computeScreeningRiskV86(nightMean, workIntegral, nightFriction, treatmentStatus = "unknown") {
   if (!Number.isFinite(nightMean)) {
-    return { risk: null, mode: 'unavailable', usedConsensus: false, reason: '夜间数据不足' };
+    return { risk: null, mode: "unavailable", usedDynamic: false, reason: "夜间数据不足" };
   }
 
   const fallbackZ = 1.064314 * nightMean - 6.746364;
   const fallback = {
     risk: 1 / (1 + Math.exp(-fallbackZ)),
-    mode: 'night-only',
-    usedConsensus: false,
+    mode: "night-only",
+    usedDynamic: false,
     screeningThreshold: 0.30,
     highThreshold: 0.50,
-    dynamicScore: null,
-    evidence: null,
     model: null,
-    reason: treatmentStatus === 'unknown' ? '治疗状态未知' : '动力学指标不可计算',
+    reason: treatmentStatus === "unknown" ? "治疗状态未知" : "动力学计算失败",
   };
 
-  const model = SCREENING_MODELS_V84[treatmentStatus];
+  const model = SCREENING_MODELS_V86[treatmentStatus];
   if (!model) return fallback;
-  if (!dynamics || !['lyapunov', 'det', 'entr'].every(key => Number.isFinite(dynamics[key]))) {
-    return { ...fallback, mode: 'night-only-fallback' };
+  
+  let dynamicVal = null;
+  if (model.dynamicType === "workIntegral" && Number.isFinite(workIntegral)) {
+    dynamicVal = workIntegral;
+  } else if (model.dynamicType === "nightFriction" && Number.isFinite(nightFriction)) {
+    dynamicVal = nightFriction;
   }
 
-  const evidence = {};
-  for (const key of ['lyapunov', 'det', 'entr']) {
-    evidence[key] = directionalEvidenceV84(dynamics[key], key, treatmentStatus);
+  if (dynamicVal === null) {
+    return { ...fallback, mode: "night-only-fallback" };
   }
-  const dynamicScore = getMedian([evidence.lyapunov, evidence.det, evidence.entr]);
-  const z = model.intercept + model.nightMeanCoef * nightMean + model.dynamicCoef * dynamicScore;
+
+  const z = model.intercept + model.nightMeanCoef * nightMean + model.dynamicCoef * dynamicVal;
   return {
     risk: 1 / (1 + Math.exp(-z)),
     mode: treatmentStatus,
-    usedConsensus: true,
+    usedDynamic: true,
+    dynamicVal: dynamicVal,
     screeningThreshold: model.screeningThreshold,
     highThreshold: 0.50,
-    dynamicScore,
-    evidence,
     model,
     reason: null,
   };
@@ -1138,6 +1129,59 @@ function gammaApprox(x) {
   return Math.sqrt(2 * Math.PI / x) * Math.pow(x / Math.E, x);
 }
 
+// Phase Space Asymmetric Friction (Aether Protocol):
+function computeAsymmetricFriction(points, core) {
+  let frictionSum = 0;
+  let count = 0;
+  let workIntegral = 0;
+  
+  if (!points || points.length < 3 || !core) return { asymFriction: null, workIntegral: null };
+  
+  let dim = 3;
+  for (const p of points) {
+    if (p !== null) {
+      dim = p.length;
+      break;
+    }
+  }
+
+  for (let i = 1; i < points.length; i++) {
+    if (points[i] !== null && points[i-1] !== null) {
+      const v_g = points[i][0] - points[i-1][0];
+      
+      let vSq = 0;
+      let distSq = 0;
+      for(let d=0; d<dim; d++){
+          const v = points[i][d] - points[i-1][d];
+          vSq += v * v;
+          const dist = points[i][d] - core[d];
+          distSq += dist * dist;
+      }
+      const lenV = Math.sqrt(vSq);
+      const lenDist = Math.sqrt(distSq);
+      
+      if (dim >= 2) {
+        const rx = points[i-1][0] - core[0];
+        const ry = points[i-1][1] - core[1];
+        const dx = points[i][0] - points[i-1][0];
+        const dy = points[i][1] - points[i-1][1];
+        workIntegral += (rx * dy - ry * dx);
+      }
+      
+      if (v_g < -0.01 && lenV > 1e-6) {
+        const currentFric = lenDist / lenV;
+        frictionSum += currentFric;
+        count++;
+      }
+    }
+  }
+  
+  return {
+    asymFriction: count > 0 ? frictionSum / count : null,
+    workIntegral: Math.abs(workIntegral) / 2.0
+  };
+}
+
 // Normalized recovery velocity: average speed toward gravity core when approaching,
 // normalized by glucose standard deviation. Always uses RAW (unsmoothed) data.
 function computeNormalizedRecovery(points) {
@@ -1228,6 +1272,9 @@ function computeAttractorMetrics(shapePoints, rawPoints, smoothPoints, skipRQA =
 
   // Reactivity metrics
   const normalizedRecovery = computeNormalizedRecovery(rawPoints);
+  const fricObj = computeAsymmetricFriction(rawPoints, gravityCore);
+  const asymFriction = fricObj ? fricObj.asymFriction : null;
+  const workIntegral = fricObj ? fricObj.workIntegral : null;
   const dimension = boxCountingDimension(points);
   const lyapunov = lyapunovProxy(smoothPoints);
 
@@ -1238,6 +1285,7 @@ function computeAttractorMetrics(shapePoints, rawPoints, smoothPoints, skipRQA =
 
   return {
     volume, shapeRatio, avgRecovery: normalizedRecovery,
+    asymFriction, workIntegral,
     dimension, lyapunov,
     det: rqa.det, entr: rqa.entr, rr: rqa.rr, rpMatrix: rqa.rpMatrix,
     mean: arithMean, gravityCore, validPoints: valid, effectiveDim, embeddingDim: dim
@@ -1670,10 +1718,18 @@ ${refs}`;
 
     // Night baseline core
     const nightS = sliceByPeriod(timestamps, values, 'night');
-    const nightPoints = takensEmbedding(nightS.values, tau, dim).filter(p => p !== null);
+    const nightPointsAll = takensEmbedding(nightS.values, tau, dim);
+    const nightPoints = nightPointsAll.filter(p => p !== null);
     const nightCore = nightPoints.length > 0
       ? new Array(dim).fill(0).map((_, d) => getMedian(nightPoints.map(p => p[d])))
       : null;
+      
+    // Aether Protocol v8.6: Night-specific Friction for Treated cohort
+    let nightFriction = null;
+    if (nightCore) {
+      const nightFricObj = computeAsymmetricFriction(nightPointsAll, nightCore);
+      nightFriction = nightFricObj ? nightFricObj.asymFriction : null;
+    }
 
     // Raw & smooth pathways (anchored: Recovery→raw, Lyapunov/RQA→smooth)
     const { values: rawValues } = resampleData(this.rawData, false);

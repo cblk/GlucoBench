@@ -26,24 +26,31 @@ def evaluate_features():
 
     features = [
         "asymFriction",
-        "workIntegral"
+        "workIntegral",
+        "dayFriction",
+        "nightFriction",
     ]
 
     print("=== Next-Gen Aether Metrics Evaluation ===")
     for name, df in [("Hall (Untreated)", hall), ("Colas (Treated)", colas)]:
         y = df["y"].to_numpy(int)
         
+        # Derived feature: Friction Ratio
+        if "dayFriction" in df.columns and "nightFriction" in df.columns:
+            df["frictionRatio"] = df["dayFriction"] / df["nightFriction"]
+            features.append("frictionRatio")
+        
         print(f"\nCohort: {name} (N={len(y)}, Positives: {np.sum(y)})")
         print("-" * 40)
         
-        for feature in features:
+        for feature in set(features):
             if feature not in df.columns:
                 print(f"{feature}: Not found in dataframe")
                 continue
                 
             val = df[feature].to_numpy(float)
             
-            valid = ~np.isnan(val)
+            valid = ~np.isnan(val) & ~np.isinf(val)
             y_valid = y[valid]
             val_valid = val[valid]
 

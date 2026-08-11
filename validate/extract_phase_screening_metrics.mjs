@@ -34,7 +34,7 @@ const expose = `
 globalThis.__pipeline = {
   resampleData, computeACF, recommendTau, sliceByPeriod, takensEmbedding,
   estimateEmbeddingDimension, computeAttractorMetrics, computeRQA,
-  calcDistance, getMedian, RQA_TARGET_RR
+  computeAsymmetricFriction, calcDistance, getMedian, RQA_TARGET_RR
 };`;
 vm.runInContext(`${inline}\n${expose}`, context, { filename: "index-inline.js" });
 const pipeline = context.__pipeline;
@@ -67,14 +67,33 @@ function analyzeSubject(subject) {
   const nightMean = nightValues.length >= 6
     ? nightValues.reduce((sum, value) => sum + value, 0) / nightValues.length
     : null;
-  const nightPoints = pipeline.takensEmbedding(night.values, tau, dimInfo.dim).filter(point => point !== null);
+  const nightPointsAll = pipeline.takensEmbedding(night.values, tau, dimInfo.dim);
+  const nightPoints = nightPointsAll.filter(point => point !== null);
   let coreDisplacement = null;
+  let nightFriction = null;
   if (nightPoints.length) {
     const nightCore = Array.from(
       { length: dimInfo.dim },
       (_, dimension) => pipeline.getMedian(nightPoints.map(point => point[dimension])),
     );
     coreDisplacement = pipeline.calcDistance(metrics.gravityCore, nightCore);
+    
+    // Circadian friction: Night vs Day
+    const nightFricObj = pipeline.computeAsymmetricFriction(nightPointsAll, nightCore);
+    nightFriction = nightFricObj ? nightFricObj.asymFriction : null;
+  }
+  
+  const day = pipeline.sliceByPeriod(raw.timestamps, raw.values, "daytime");
+  const dayPointsAll = pipeline.takensEmbedding(day.values, tau, dimInfo.dim);
+  const dayPoints = dayPointsAll.filter(point => point !== null);
+  let dayFriction = null;
+  if (dayPoints.length) {
+    const dayCore = Array.from(
+      { length: dimInfo.dim },
+      (_, dimension) => pipeline.getMedian(dayPoints.map(point => point[dimension])),
+    );
+    const dayFricObj = pipeline.computeAsymmetricFriction(dayPointsAll, dayCore);
+    dayFriction = dayFricObj ? dayFricObj.asymFriction : null;
   }
 
   return {
@@ -96,6 +115,10 @@ function analyzeSubject(subject) {
     volume: metrics.volume,
     shapeRatio: metrics.shapeRatio,
     avgRecovery: metrics.avgRecovery,
+    asymFriction: metrics.asymFriction,
+    workIntegral: metrics.workIntegral,
+    dayFriction,
+    nightFriction,
     dimension: metrics.dimension,
     lyapunov: metrics.lyapunov,
     det: rqa.det,
