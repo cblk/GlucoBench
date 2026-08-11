@@ -50,6 +50,22 @@ The datasets are distributed according to the following licences and can be down
 
 To process the data, follow the instructions in the `exploratory_analysis/` folder. Processed datasets should be saved in the `raw_data/` folder. We provide examples in the `raw_data.zip` file.
 
+## External research datasets
+
+Additional datasets collected for the hidden baseline insulin and CGM dynamics research are staged under `output/external_datasets/raw/`. They are kept separate from the original GlucoBench benchmark datasets above: they are not bundled into `raw_data.zip`, are not loaded automatically by `DataFormatter`, and are not used by the training scripts unless a separate, approved validation workflow explicitly adds them.
+
+| Dataset | Local status | Available material |
+| ------- | ------------ | ------------------ |
+| Kobe CGM_AC | Complete public download | Zenodo source data and CGM files, plus a GitHub repository snapshot |
+| Stanford metabolic subphenotype | Complete public download | Public metabolic phenotype data package linked by the study |
+| ShanghaiT1DM / ShanghaiT2DM | Complete public download | Figshare package containing CGM, clinical, laboratory, medication, and dietary records |
+| Healthy non-diabetic reference (Dryad) | Public artifacts complete | Two versioned supplemental DOCX files; participant-level raw CGM is not exposed by Dryad |
+| BIG IDEAs PhysioNet v1.1.3 | CGM research subset complete | All 16 Dexcom files, 16 food logs, demographics, license, and official checksums; the incomplete full multimodal ZIP is isolated and must not be used |
+
+Completed external files are marked read-only. Unfinished downloads are stored only under an explicitly named `incomplete_*` directory and must never be treated as valid data. AI-READI, Human Phenotype Project / 10K, PREDICT 1, Framingham Exam 4, JAEB raw CGM, Singapore, and T2Help remain access-controlled, form-gated, or unpublished; a visible landing page does not mean that participant-level data has been acquired.
+
+See the [external dataset landscape](reports/dataset_landscape_20260811.md) for candidate selection and validation roles, and the [download audit](reports/dataset_download_audit_20260811.md) for exact files, sizes, hashes, licenses, and access blockers. External data must remain separate from product changes: downloading or validating a dataset does not authorize changes to `index.html`, screening formulas, or thresholds.
+
 # How to reproduce results?
 
 ## Setting up the enviroment
@@ -148,7 +164,6 @@ dataset_train = SamplingDatasetDual(series['train']['target'],
 ```
 
 **Parts (3) and (4)** are model-specific, so we omit their discussion. For inspiration, we suggest to take a look at the `lib/gluformer/model.py` and `lib/latent_ode/trainer_glunet.py` files.
-
 
 
 
