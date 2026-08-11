@@ -62,6 +62,7 @@ def evaluate_features():
         "frictionGradient",
         "earlyDelay",
         "relaxationTime",
+        "nightAR1"
     ]
 
     print("=== Next-Gen Aether Metrics Evaluation ===")
@@ -143,6 +144,8 @@ def evaluate_features():
         print("Hall: nightMean + workIntegral + ascendFriction AUC:", np.mean(evaluate_cv(X_hall3[valid_h3], y_h[valid_h3])))
 
     # Colas combinations
+    print(f"Hall: nightMean + relaxationTime + nightAR1 AUC: {np.mean(evaluate_cv(hall[['nightMean', 'relaxationTime', 'nightAR1']].fillna(hall[['nightMean', 'relaxationTime', 'nightAR1']].median()).to_numpy(), hall['y'].to_numpy())):.4f}")
+    
     print("")
     y_c = colas["y"].to_numpy(int)
     if "nightFriction" in colas.columns:

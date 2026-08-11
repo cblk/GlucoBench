@@ -33,7 +33,7 @@ const context = vm.createContext({
 const expose = `
   globalThis.__pipeline = {
     resampleData, computeACF, recommendTau, sliceByPeriod, takensEmbedding,
-    estimateEmbeddingDimension, computeAttractorMetrics, computeExcursionKinetics, computeRQA,
+    estimateEmbeddingDimension, computeAttractorMetrics, computeExcursionKinetics, computeCriticalSlowingDown, computeRQA,
     computeAsymmetricFriction, calcDistance, getMedian, RQA_TARGET_RR
   };`;
   vm.runInContext(`${inline}\n${expose}`, context, { filename: "index-inline.js" });
@@ -61,8 +61,11 @@ function analyzeSubject(subject) {
   if (!metrics) throw new Error(`Insufficient phase points for ${subject.cohort}/${subject.id}`);
   
   const kinetics = pipeline.computeExcursionKinetics(raw.timestamps, smooth.values);
+  const csd = pipeline.computeCriticalSlowingDown(raw.timestamps, raw.values);
   metrics.earlyDelay = kinetics.earlyDelay;
   metrics.relaxationTime = kinetics.relaxationTime;
+  metrics.nightAR1 = csd.ar1;
+  metrics.nightVariance = csd.variance;
 
   const validSmooth = pointsSmooth.filter(point => point !== null);
   const rqa = pipeline.computeRQA(validSmooth, pipeline.RQA_TARGET_RR, true);
@@ -125,6 +128,8 @@ function analyzeSubject(subject) {
     frictionGradient: metrics.frictionGradient,
     earlyDelay: metrics.earlyDelay,
     relaxationTime: metrics.relaxationTime,
+    nightAR1: metrics.nightAR1,
+    nightVariance: metrics.nightVariance,
     dayFriction,
     nightFriction,
     dimension: metrics.dimension,

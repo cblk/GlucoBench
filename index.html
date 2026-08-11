@@ -580,6 +580,37 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
           </div>
         </div>
 
+        <!-- 0.7 Night AR1 (Critical Slowing Down) -->
+        <div class="metric-card" id="metric-night-ar1">
+          <div class="metric-header">
+            <div class="metric-title">夜间临界慢化 (AR1)</div>
+            <span class="info-icon">ℹ️</span>
+          </div>
+          <div class="metric-value-box">
+            <div class="metric-value" style="color:var(--text)">-</div>
+          </div>
+          <div class="metric-desc">夜间血糖波动的自回归系数；探测隐性代谢崩溃的前兆。</div>
+          <div class="metric-tooltip">
+            <div class="tooltip-title">夜间临界慢化 (CSD: AR1)</div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">物理与动力学定义</div>
+              <div class="tooltip-text">提取夜间（0:00-6:00）未受外源碳水干扰的纯基础相波动序列，计算其 Lag-1 自回归系数（AR1）。反映系统自我纠错的敏锐度。</div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">绝对物理基准 / 分级</div>
+              <div class="tooltip-standards">
+                • <strong>≤ 0.85</strong>：高频白噪声（敏锐对抗）<br>
+                • <strong>0.85 ~ 0.95</strong>：低频游荡（纠错变慢）<br>
+                • <strong>> 0.95</strong>：极度慢化（崩溃前兆）
+              </div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">生理与临床意义</div>
+              <div class="tooltip-text">复杂系统崩溃前（相变）特有的“临界慢化”现象。高 AR1 代表夜间肝脏与胰岛的博弈变得极其迟钝和滞后，哪怕空腹绝对值依然正常，系统也已处于崩溃边缘。</div>
+            </div>
+          </div>
+        </div>
+
         <!-- 1. Work Integral (v8.7 Core) -->
         <div class="metric-card" id="metric-workintegral">
           <div class="metric-header">
@@ -2055,6 +2086,45 @@ function computeExcursionKinetics(times, vals) {
   };
 }
 
+// ============================================================================
+// S3.5 CRITICAL SLOWING DOWN (CSD) - NIGHT FLUCTUATIONS
+// ============================================================================
+
+function computeCriticalSlowingDown(times, vals) {
+  // Extract strictly night periods (0:00 - 6:00) to isolate baseline dynamics
+  let nightVals = [];
+  for (let i = 0; i < times.length; i++) {
+    if (!times[i] || vals[i] === null) continue;
+    let h = times[i].getHours();
+    if (h >= 0 && h < 6) {
+      nightVals.push(vals[i]);
+    }
+  }
+  
+  if (nightVals.length < 30) return { ar1: null, variance: null };
+
+  // Calculate Mean and Variance
+  let mean = nightVals.reduce((a, b) => a + b, 0) / nightVals.length;
+  let variance = nightVals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (nightVals.length - 1);
+  
+  // Calculate Lag-1 Autocorrelation (AR1)
+  let num = 0;
+  let den = 0;
+  for (let i = 1; i < nightVals.length; i++) {
+    num += (nightVals[i] - mean) * (nightVals[i-1] - mean);
+  }
+  for (let i = 0; i < nightVals.length; i++) {
+    den += Math.pow(nightVals[i] - mean, 2);
+  }
+  
+  let ar1 = den > 1e-8 ? num / den : 0;
+  
+  return { 
+    ar1: ar1, 
+    variance: variance 
+  };
+}
+
 function computeAttractorMetrics(shapePoints, rawPoints, smoothPoints, skipRQA = false) {
   const points = shapePoints;
   const valid = points.filter(p => p !== null);
@@ -2756,6 +2826,7 @@ ${refs}` : ''}
     
     // Aether Protocol v8.7: Kinetics (Time-to-Deceleration & Relaxation Fatigue)
     const kinetics = computeExcursionKinetics(timestamps, smoothValues);
+    const csd = computeCriticalSlowingDown(timestamps, rawValues);
 
     // Night baseline glucose (0:00-6:00, raw grid) — calibrated screening feature (v8.0).
     // v8.1: invariant across all UI controls → computed once in onDataReady().
@@ -2766,6 +2837,8 @@ ${refs}` : ''}
     if (!metrics) return;
     metrics.earlyDelay = kinetics.earlyDelay;
     metrics.relaxationTime = kinetics.relaxationTime;
+    metrics.nightAR1 = csd.ar1;
+    metrics.nightVariance = csd.variance;
 
     if (!this._screenDynamics && period === 'all' && smooth && tau === this._screenTau) {
       this._screenDynamics = {
@@ -2880,6 +2953,16 @@ ${refs}` : ''}
       rData.relaxTime = this.setCard('metric-relax-time', m.relaxationTime.toFixed(1) + ' min', rtDesc, rtCls);
     } else {
       rData.relaxTime = this.setCard('metric-relax-time', 'N/A', '缺少足够降幅的完整回落段。', 'unavailable');
+    }
+
+    // 0.7 Night AR1 (Critical Slowing Down)
+    if (m.nightAR1 !== null && m.nightAR1 !== undefined && Number.isFinite(m.nightAR1)) {
+      let ar1Cls = 'reference', ar1Desc = '高频敏锐对抗；未出现临界慢化。';
+      if (m.nightAR1 > 0.95) { ar1Cls = 'bad'; ar1Desc = '极度慢化（>0.95）｜系统自我纠错能力丧失，崩溃前兆。'; }
+      else if (m.nightAR1 > 0.85) { ar1Cls = 'warn'; ar1Desc = '低频游荡（0.85-0.95）｜夜间基础相调控开始变慢。'; }
+      rData.nightAR1 = this.setCard('metric-night-ar1', m.nightAR1.toFixed(3), ar1Desc, ar1Cls);
+    } else {
+      rData.nightAR1 = this.setCard('metric-night-ar1', 'N/A', '缺少足够的夜间波动数据。', 'unavailable');
     }
 
     // 1. Work Integral
@@ -3053,6 +3136,7 @@ ${refs}` : ''}
       { id: 'insulin_pred', label: '预测空腹胰岛素 (F-Ins)', value: rData.ins.val, status: rData.ins.band, interpretation: rData.ins.desc },
       { id: 'early_delay', label: '早相加速度迟滞 (Time-to-Deceleration)', value: rData.earlyDelay.val, status: rData.earlyDelay.band, interpretation: rData.earlyDelay.desc },
       { id: 'relaxation_time', label: '弛豫衰减疲劳度 (Relaxation Time)', value: rData.relaxTime.val, status: rData.relaxTime.band, interpretation: rData.relaxTime.desc },
+      { id: 'night_ar1', label: '夜间临界慢化 (AR1)', value: rData.nightAR1.val, status: rData.nightAR1.band, interpretation: rData.nightAR1.desc },
       { id: 'volume', label: '相空间展开体积', value: rData.vol.val, status: rData.vol.band, interpretation: rData.vol.desc },
       { id: 'recovery', label: '归一化向心步长', value: rData.vel.val, status: rData.vel.band, interpretation: rData.vel.desc },
       { id: 'shape_ratio', label: '主轴各向异性 λ₁/λ₂', value: rData.shp.val, status: rData.shp.band, interpretation: rData.shp.desc },
@@ -3092,6 +3176,8 @@ ${refs}` : ''}
           ascend_friction: Number.isFinite(m.ascendFriction) ? +m.ascendFriction.toFixed(4) : null,
           early_delay_min: Number.isFinite(m.earlyDelay) ? +m.earlyDelay.toFixed(2) : null,
           relaxation_time_min: Number.isFinite(m.relaxationTime) ? +m.relaxationTime.toFixed(2) : null,
+          night_ar1: Number.isFinite(m.nightAR1) ? +m.nightAR1.toFixed(3) : null,
+          night_variance: Number.isFinite(m.nightVariance) ? +m.nightVariance.toFixed(3) : null,
           dynamic_reason: screening.usedDynamic ? null : (screening.reason || '治疗状态或动力学输入不足'),
         },
         interpretation: riskDesc,
