@@ -176,19 +176,61 @@ body.report-open { overflow: hidden; }
 
 /* --- METRICS PANEL --- */
 .metrics-panel { 
-  width: 340px; background: var(--surface); border-left: 1px solid var(--border); padding: 16px; 
+  width: 350px; background: var(--surface); border-left: 1px solid var(--border); padding: 16px; 
   display: flex; flex-direction: column; gap: 12px; flex-shrink: 0; overflow-y: auto; 
-  box-shadow: -4px 0 10px rgba(0,0,0,0.1); z-index: 5;
+  box-shadow: -4px 0 10px rgba(0,0,0,0.1); z-index: 5; position: relative;
 }
 @media (max-width: 900px) {
   .content-area { flex-direction: column; }
   .metrics-panel { width: 100%; border-left: none; border-top: 1px solid var(--border); overflow-y: visible; }
 }
-.metric-card { background: var(--bg); border-radius: 10px; padding: 12px 16px; border: 1px solid var(--border); position: relative; overflow: hidden; }
-.metric-card .metric-title { font-size: 11px; color: var(--text-secondary); font-weight: 700; letter-spacing: 0.5px; }
-.metric-card .metric-value { font-size: 22px; font-weight: 800; margin: 4px 0; font-variant-numeric: tabular-nums; }
-.metric-card .metric-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
-.metric-card::before { content:''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--border); }
+
+#plotly-rp-div {
+  width: 320px;
+  max-width: 35%;
+  height: 100%;
+  flex: 0 0 auto;
+  border-left: 1px solid var(--border);
+  background: var(--bg);
+  display: none;
+}
+
+.metric-card { 
+  background: var(--bg); border-radius: 10px; padding: 12px 14px; border: 1px solid var(--border); 
+  position: relative; transition: all 0.2s ease; cursor: default;
+  display: flex; flex-direction: column; justify-content: space-between; min-height: 98px;
+}
+.metric-card:hover {
+  border-color: var(--primary-light);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  transform: translateY(-1px);
+}
+
+.metric-card .metric-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+}
+.metric-card .metric-title { 
+  font-size: 11px; color: var(--text-secondary); font-weight: 700; letter-spacing: 0.5px;
+  line-height: 1.25; flex: 1;
+}
+.metric-card .info-icon {
+  font-size: 11px; opacity: 0.4; transition: opacity 0.2s; flex-shrink: 0; cursor: help;
+}
+.metric-card:hover .info-icon { opacity: 0.9; color: var(--primary-light); }
+
+.metric-card .metric-value-box {
+  display: flex; align-items: baseline; gap: 6px; margin: 4px 0; height: 26px;
+}
+.metric-card .metric-value { 
+  font-size: 21px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; margin: 0;
+}
+
+.metric-card .metric-desc { 
+  font-size: 11.5px; color: var(--text-secondary); line-height: 1.4; margin-top: 2px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+.metric-card::before { content:''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--border); border-radius: 10px 0 0 10px; }
 .metric-card.good::before { background: var(--green); }
 .metric-card.warn::before { background: var(--yellow); }
 .metric-card.bad::before { background: var(--red); }
@@ -196,6 +238,54 @@ body.report-open { overflow: hidden; }
 .metric-card.shifted::before { background: var(--yellow); }
 .metric-card.extreme::before { background: var(--purple); }
 .metric-card.unavailable::before { background: var(--text-secondary); }
+
+/* --- HOVER TOOLTIP --- */
+.metric-card .metric-tooltip {
+  position: absolute;
+  right: calc(100% + 12px);
+  top: -4px;
+  width: 290px;
+  background: #091121;
+  border: 1px solid var(--primary);
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.85), 0 0 16px rgba(59,130,246,0.3);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+  z-index: 999;
+}
+@media (max-width: 1200px) {
+  .metric-card .metric-tooltip {
+    right: 0; top: calc(100% + 6px); transform: translateY(-4px);
+  }
+}
+
+.metric-card:hover .metric-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0) translateY(0);
+}
+
+.metric-tooltip .tooltip-title {
+  font-size: 12.5px; font-weight: 700; color: var(--primary-light); margin-bottom: 6px;
+  border-bottom: 1px solid var(--border); padding-bottom: 4px;
+}
+.metric-tooltip .tooltip-section {
+  margin-top: 8px;
+}
+.metric-tooltip .tooltip-label {
+  font-size: 10px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;
+}
+.metric-tooltip .tooltip-text {
+  font-size: 11px; color: var(--text); line-height: 1.45; margin-top: 2px;
+}
+.metric-tooltip .tooltip-standards {
+  font-size: 11px; color: #cbd5e1; line-height: 1.5; margin-top: 4px; background: rgba(30,41,59,0.7);
+  padding: 6px 8px; border-radius: 6px; border-left: 2px solid var(--primary-light);
+}
 .metrics-guide {
   grid-column: 1 / -1; padding: 8px 12px; border-radius: 8px;
   background: rgba(59,130,246,0.08); border: 1px solid rgba(96,165,250,0.18);
@@ -211,7 +301,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
   <header>
     <div class="header-title-box">
       <h1>CGM 塔肯斯相空间探针</h1>
-      <span class="subtitle">v8.4.3 / 筛查逻辑 v8.4 · 动力学意义校准</span>
+      <span class="subtitle">v8.7 / Aether 三变量动力学筛查模型</span>
     </div>
     <div class="health-rating" id="health-rating">
       <span class="dot" style="background:var(--text-secondary); box-shadow:none;"></span>
@@ -313,63 +403,348 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
       <!-- Metrics Panel -->
       <div class="metrics-panel" id="metrics-panel">
         <div class="metrics-guide">
-          <strong>读卡规则：</strong>蓝=参考/描述，黄=偏离，紫=显著偏离。Lyapunov/DET/ENTR 在治疗状态明确时表示相对分层健康参考的共识证据；单项、当前窗口卡色均不独立决定顶部筛查分值。
+          <strong>读卡规则：</strong>蓝=参考带，黄=轻度偏离，红/紫=高风险偏离。悬停任意卡片可显示其物理机制与判定标准。
         </div>
-        <div class="metric-card" id="metric-volume">
-          <div class="metric-title">相空间展开体积 (Volume)</div>
-          <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">当前窗口的多维离散尺度；受波动幅度、观察天数和所选时段影响，不是越小越健康。</div>
-        </div>
-        <div class="metric-card" id="metric-velocity">
-          <div class="metric-title">归一化向心步长 (Recovery)</div>
-          <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">轨迹接近自身中位核心时的平均步长÷血糖SD；低值不能单独推断胰岛素抵抗。</div>
-        </div>
-        <div class="metric-card" id="metric-shape">
-          <div class="metric-title">主轴各向异性 (λ₁/λ₂)</div>
-          <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">协方差最大与第二特征值之比；≈1较球状，较高更拉伸，不是时间迟滞指标。</div>
-        </div>
-        <div class="metric-card" id="metric-core">
-          <div class="metric-title">当前–夜间核心距离 (Core Dist)</div>
-          <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">当前所选时段与夜间核心的m维欧氏距离；受均糖和嵌入维数影响，不代表“透支”。</div>
-        </div>
-        <div class="metric-card" id="metric-dimension">
-          <div class="metric-title">盒计数几何维度 (Dimension)</div>
-          <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">四个网格尺度估计的有限样本充盈度；高低均无经验证的疾病方向。</div>
-        </div>
-        <div class="metric-card" id="metric-lyapunov">
-          <div class="metric-title">一步近邻发散代理 (Lyapunov)</div>
-          <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">局部轨迹下一步扩张/收缩的稳定性代理；内部数据中具有治疗分层方向，可作为动力学共识的一项健康参考偏离证据。</div>
-        </div>
-        <div class="metric-card" id="metric-det">
-          <div class="metric-title">RQA 确定性率 (DET)</div>
-          <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">轨迹重复片段的确定性比例；相对治疗分层健康参考的方向性偏离可提供共识证据，但不等同生理僵化。</div>
-        </div>
-        <div class="metric-card" id="metric-entr">
-          <div class="metric-title">RQA 线长熵 (ENTR)</div>
-          <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">轨迹重复持续时间多样性的熵；在治疗分层语境中有内部风险关联方向，但不存在跨人群通用的越高越好。</div>
-        </div>
+
+        <!-- 1. Work Integral (v8.7 Core) -->
         <div class="metric-card" id="metric-workintegral">
-          <div class="metric-title">相空间磁滞做功积分 (Work)</div>
-          <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">降维相图上的磁滞环绝对面积；未治疗人群中该值高表示热力学废热不可逆代偿，具有最强筛查效力。</div>
+          <div class="metric-header">
+            <div class="metric-title">相空间磁滞做功积分 (Work Integral)</div>
+            <span class="info-icon">ℹ️</span>
+          </div>
+          <div class="metric-value-box">
+            <div class="metric-value" style="color:var(--text)">-</div>
+          </div>
+          <div class="metric-desc">降维相图上的磁滞环绝对面积；高值代表不可逆热力学废热代偿。</div>
+          <div class="metric-tooltip">
+            <div class="tooltip-title">磁滞做功积分 (Work Integral)</div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">物理与动力学定义</div>
+              <div class="tooltip-text">相空间中系统偏离与弛豫归位全过程构成的磁滞环封闭做功面积（∮ dG·dĠ），定量评估受迫与弛豫不对称性。</div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">参考标准 / 分级</div>
+              <div class="tooltip-standards">
+                • <strong>≤ 60.0</strong>：低做功代偿（正常）<br>
+                • <strong>60.0 ~ 100.0</strong>：轻度代偿做功（偏高）<br>
+                • <strong>> 100.0</strong>：显著不可逆废热代偿（高风险）
+              </div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">生理与临床意义</div>
+              <div class="tooltip-text">度量升降过程中的耗散与滞后。高做功代表系统为维持表象稳态付出的热力学不可逆代偿（v8.7 最强核心特征，未治疗组 AUC=0.778）。</div>
+            </div>
+          </div>
         </div>
-        <div class="metric-card" id="metric-nightfriction">
-          <div class="metric-title">夜间相变阻力 (Night Fric)</div>
-          <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">夜间基础相向心运动时的阻力；治疗人群受药物干预呈反向特征。</div>
-        </div>
+
+        <!-- 2. Ascend Friction (v8.7 Core) -->
         <div class="metric-card" id="metric-ascendfriction">
-          <div class="metric-title">上升相阻力 (Ascend Fric)</div>
-          <div class="metric-value" style="color:var(--text)">-</div>
-          <div class="metric-desc">受迫血糖飙升时的向心拉扯粘滞力；未治疗高异常，反映早相形变刚度的改变。</div>
+          <div class="metric-header">
+            <div class="metric-title">上升相阻力 (Ascend Friction)</div>
+            <span class="info-icon">ℹ️</span>
+          </div>
+          <div class="metric-value-box">
+            <div class="metric-value" style="color:var(--text)">-</div>
+          </div>
+          <div class="metric-desc">受迫升糖阶段相轨迹拉回基线的向心黏滞拉扯阻力。</div>
+          <div class="metric-tooltip">
+            <div class="tooltip-title">上升相阻力 (Ascend Friction)</div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">物理与动力学定义</div>
+              <div class="tooltip-text">血糖飙升阶段（dG/dt > 0）轨迹受到的向心黏滞阻力，度量受迫升糖时的机械刚度。</div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">参考标准 / 分级</div>
+              <div class="tooltip-standards">
+                • <strong>≤ 15.0</strong>：上升弹性正常（正常）<br>
+                • <strong>> 15.0</strong>：升糖向心黏滞阻力偏高（高刚度代偿）
+              </div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">生理与临床意义</div>
+              <div class="tooltip-text">定量度量早相胰岛素分泌形变刚度。高阻力代表升糖时系统拉扯力猛烈但效率低下，早相代偿刚度改变。</div>
+            </div>
+          </div>
         </div>
+
+        <!-- 3. Night Friction (v8.7 Core) -->
+        <div class="metric-card" id="metric-nightfriction">
+          <div class="metric-header">
+            <div class="metric-title">夜间相变阻力 (Night Friction)</div>
+            <span class="info-icon">ℹ️</span>
+          </div>
+          <div class="metric-value-box">
+            <div class="metric-value" style="color:var(--text)">-</div>
+          </div>
+          <div class="metric-desc">夜间基础相向心归位运动时的阻力；剥离干预噪音。</div>
+          <div class="metric-tooltip">
+            <div class="tooltip-title">夜间相变阻力 (Night Friction)</div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">物理与动力学定义</div>
+              <div class="tooltip-text">夜间（00:00–06:00）基础相无进食干扰时，相轨迹向心归位运动的相位粘滞阻力。</div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">参考标准 / 分级</div>
+              <div class="tooltip-standards">
+                • <strong>≤ 20.0</strong>：基础相正常（正常）<br>
+                • <strong>> 20.0</strong>：基础相代偿阻力抬升（高代偿）
+              </div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">生理与临床意义</div>
+              <div class="tooltip-text">剥离干预噪音，直接捕捉基础胰岛素分泌的隐性代偿抬升（已治疗组 AUC=0.650 核心特征）。</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Volume -->
+        <div class="metric-card" id="metric-volume">
+          <div class="metric-header">
+            <div class="metric-title">相空间展开体积 (Volume)</div>
+            <span class="info-icon">ℹ️</span>
+          </div>
+          <div class="metric-value-box">
+            <div class="metric-value" style="color:var(--text)">-</div>
+          </div>
+          <div class="metric-desc">当前窗口的多维离散尺度；受波动幅度与天数影响。</div>
+          <div class="metric-tooltip">
+            <div class="tooltip-title">相空间展开体积 (Volume)</div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">物理与动力学定义</div>
+              <div class="tooltip-text">重构相空间中状态轨迹充盈的超体积包络（log V），刻画系统在多维空间的离散发散尺度。</div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">参考标准 / 分级</div>
+              <div class="tooltip-standards">
+                • <strong>≤ 2.0</strong>：集中（参考带）<br>
+                • <strong>2.0 ~ 3.0</strong>：较展开（偏离）<br>
+                • <strong>> 3.0</strong>：高度展开（显著偏离）
+              </div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">生理与临床意义</div>
+              <div class="tooltip-text">定量描述整体血糖系统的多维散布程度。受时段与观察天数影响，单项不独立决定病理方向。</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Velocity -->
+        <div class="metric-card" id="metric-velocity">
+          <div class="metric-header">
+            <div class="metric-title">归一化向心步长 (Recovery)</div>
+            <span class="info-icon">ℹ️</span>
+          </div>
+          <div class="metric-value-box">
+            <div class="metric-value" style="color:var(--text)">-</div>
+          </div>
+          <div class="metric-desc">轨迹接近自身中位核心时的平均向心步长与血糖SD之比。</div>
+          <div class="metric-tooltip">
+            <div class="tooltip-title">归一化向心步长 (Recovery)</div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">物理与动力学定义</div>
+              <div class="tooltip-text">轨迹接近自身中位核心时的平均步长 ÷ 血糖 SD，度量扰动后向核心弛豫的平均速率。</div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">参考标准 / 分级</div>
+              <div class="tooltip-standards">
+                • <strong>≥ 0.14</strong>：向心速度较快（正常）<br>
+                • <strong>0.10 ~ 0.14</strong>：中等弛豫（偏离）<br>
+                • <strong>< 0.10</strong>：显著偏慢（低向心步长）
+              </div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">生理与临床意义</div>
+              <div class="tooltip-text">反映血糖受到扰动后恢复至平衡态的动态收敛速率。</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6. Shape -->
+        <div class="metric-card" id="metric-shape">
+          <div class="metric-header">
+            <div class="metric-title">主轴各向异性 (λ₁/λ₂)</div>
+            <span class="info-icon">ℹ️</span>
+          </div>
+          <div class="metric-value-box">
+            <div class="metric-value" style="color:var(--text)">-</div>
+          </div>
+          <div class="metric-desc">协方差最大与第二特征值之比；≈1较球状，较高更拉伸。</div>
+          <div class="metric-tooltip">
+            <div class="tooltip-title">主轴各向异性 (Shape Ratio)</div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">物理与动力学定义</div>
+              <div class="tooltip-text">相空间协方差矩阵第一与第二主特征值之比（λ₁/λ₂），描述吸引子包络主轴拉伸形状。</div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">参考标准 / 分级</div>
+              <div class="tooltip-standards">
+                • <strong>< 1.2</strong>：近各向同性球状<br>
+                • <strong>1.2 ~ 1.8</strong>：轻度椭球拉伸<br>
+                • <strong>≥ 1.8</strong>：明显单轴拉伸形态
+              </div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">生理与临床意义</div>
+              <div class="tooltip-text">刻画相轨迹几何拓扑形态，反映调控主导维度在状态空间中的偏重方向。</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 7. Core Dist -->
+        <div class="metric-card" id="metric-core">
+          <div class="metric-header">
+            <div class="metric-title">当前–夜间核心距离 (Core Dist)</div>
+            <span class="info-icon">ℹ️</span>
+          </div>
+          <div class="metric-value-box">
+            <div class="metric-value" style="color:var(--text)">-</div>
+          </div>
+          <div class="metric-desc">当前所选时段与夜间核心的 m 维欧氏距离。</div>
+          <div class="metric-tooltip">
+            <div class="tooltip-title">当前–夜间核心距离 (Core Dist)</div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">物理与动力学定义</div>
+              <div class="tooltip-text">当前时段引力核与夜间基础相（00:00-06:00）引力核在 m 维重构空间中的欧氏距离。</div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">参考标准 / 分级</div>
+              <div class="tooltip-standards">
+                • <strong>0.0</strong>：同一夜间基准<br>
+                • <strong>≤ 0.5</strong>：核心距离偏小<br>
+                • <strong>0.5 ~ 1.5</strong>：核心中度位移<br>
+                • <strong>> 1.5</strong>：核心显著状态位移
+              </div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">生理与临床意义</div>
+              <div class="tooltip-text">反映昼夜/摄食受迫状态相对于最纯净基础平稳相（夜间）的状态偏移量（mmol/L）。</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 8. Dimension -->
+        <div class="metric-card" id="metric-dimension">
+          <div class="metric-header">
+            <div class="metric-title">盒计数几何维度 (Dimension)</div>
+            <span class="info-icon">ℹ️</span>
+          </div>
+          <div class="metric-value-box">
+            <div class="metric-value" style="color:var(--text)">-</div>
+          </div>
+          <div class="metric-desc">四个网格尺度估计的有限样本充盈度。</div>
+          <div class="metric-tooltip">
+            <div class="tooltip-title">盒计数几何维度 (Dimension)</div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">物理与动力学定义</div>
+              <div class="tooltip-text">利用 Box-Counting 算法在四个尺度下估计相轨迹在相空间中的有限分形维度。</div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">参考标准 / 分级</div>
+              <div class="tooltip-standards">
+                • <strong>1.81 ~ 2.01</strong>：内部参考带<br>
+                • <strong>< 1.80 或 > 2.02</strong>：几何分形充盈度明显偏离
+              </div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">生理与临床意义</div>
+              <div class="tooltip-text">度量相轨迹在相空间中的几何充盈复杂度与非线性自由度。</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 9. Lyapunov -->
+        <div class="metric-card" id="metric-lyapunov">
+          <div class="metric-header">
+            <div class="metric-title">一步近邻发散代理 (Lyapunov)</div>
+            <span class="info-icon">ℹ️</span>
+          </div>
+          <div class="metric-value-box">
+            <div class="metric-value" style="color:var(--text)">-</div>
+          </div>
+          <div class="metric-desc">局部轨迹下一步扩张/收缩的稳定性代理。</div>
+          <div class="metric-tooltip">
+            <div class="tooltip-title">一步近邻发散代理 (Lyapunov)</div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">物理与动力学定义</div>
+              <div class="tooltip-text">相轨迹上局部近邻相点在下一个时间步的发散或收缩速率代理（Lyapunov Exponent Proxy）。</div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">参考标准 / 分级</div>
+              <div class="tooltip-standards">
+                • <strong>< 0.15</strong>：轨迹局部收敛好<br>
+                • <strong>0.15 ~ 0.25</strong>：适度发散（正常带）<br>
+                • <strong>> 0.25</strong>：显著发散（不稳定）
+              </div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">生理与临床意义</div>
+              <div class="tooltip-text">度量系统对微小扰动的敏感性（局部混沌度），反映非线性稳态调控能力。</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 10. DET -->
+        <div class="metric-card" id="metric-det">
+          <div class="metric-header">
+            <div class="metric-title">RQA 确定性率 (DET)</div>
+            <span class="info-icon">ℹ️</span>
+          </div>
+          <div class="metric-value-box">
+            <div class="metric-value" style="color:var(--text)">-</div>
+          </div>
+          <div class="metric-desc">轨迹重复片段的确定性比例；反映重复结构。</div>
+          <div class="metric-tooltip">
+            <div class="tooltip-title">RQA 确定性率 (DET)</div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">物理与动力学定义</div>
+              <div class="tooltip-text">递归定量分析（RQA）中构成平行于对角线的递归点占总递归点的比例。</div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">参考标准 / 分级</div>
+              <div class="tooltip-standards">
+                • <strong>98.0% ~ 99.2%</strong>：正常重复带<br>
+                • <strong>> 99.2%</strong>：强确定性/周期僵化<br>
+                • <strong>< 98.0%</strong>：随机性增高
+              </div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">生理与临床意义</div>
+              <div class="tooltip-text">度量血糖轨迹重复片段与内在确定性调控结构的比例。</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 11. ENTR -->
+        <div class="metric-card" id="metric-entr">
+          <div class="metric-header">
+            <div class="metric-title">RQA 线长熵 (ENTR)</div>
+            <span class="info-icon">ℹ️</span>
+          </div>
+          <div class="metric-value-box">
+            <div class="metric-value" style="color:var(--text)">-</div>
+          </div>
+          <div class="metric-desc">轨迹重复持续时间多样性的熵；描述结构复杂度。</div>
+          <div class="metric-tooltip">
+            <div class="tooltip-title">RQA 线长熵 (ENTR)</div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">物理与动力学定义</div>
+              <div class="tooltip-text">递归图对角线段长度分布的香农熵（Shannon Entropy of Diagonal Line Lengths）。</div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">参考标准 / 分级</div>
+              <div class="tooltip-standards">
+                • <strong>2.00 ~ 3.00</strong>：正常复杂熵带<br>
+                • <strong>> 3.00</strong>：高线长多样性<br>
+                • <strong>< 2.00</strong>：重复结构单一
+              </div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">生理与临床意义</div>
+              <div class="tooltip-text">度量调控轨迹在相空间中重复持续时间的多样性与复杂结构。</div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -2348,10 +2723,10 @@ ${refs}` : ''}
       };
       const layoutRP = {
         title: { text: '递归图 (Recurrence Plot)', font: { color: '#94a3b8', size: 12 } },
-        margin: { l: 30, r: 10, b: 30, t: 30 },
+        margin: { l: 30, r: 20, b: 30, t: 30 },
         paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
-        xaxis: { showgrid: false, zeroline: false, showticklabels: false },
-        yaxis: { showgrid: false, zeroline: false, showticklabels: false, autorange: 'reversed' },
+        xaxis: { showgrid: false, zeroline: false, showticklabels: false, constrain: 'domain' },
+        yaxis: { showgrid: false, zeroline: false, showticklabels: false, autorange: 'reversed', scaleanchor: 'x', scaleratio: 1 },
         showlegend: false
       };
       try {
