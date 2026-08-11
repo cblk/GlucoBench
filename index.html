@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CGM Aether相空间探针 v8.6</title>
+<title>CGM Aether相空间探针 v8.7</title>
 <!-- SheetJS for Excel parsing -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Plotly.js for 3D visualization -->
@@ -160,7 +160,7 @@ body.report-open { overflow: hidden; }
 }
 
 /* --- CONTENT AREA --- */
-.content-area { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
+.content-area { flex: 1; display: flex; flex-direction: row; min-width: 0; position: relative; }
 
 /* Plot Containers */
 .plot-container { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
@@ -176,8 +176,13 @@ body.report-open { overflow: hidden; }
 
 /* --- METRICS PANEL --- */
 .metrics-panel { 
-  background: var(--surface); border-top: 1px solid var(--border); padding: 16px 24px; 
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; flex-shrink: 0; box-shadow: 0 -4px 10px rgba(0,0,0,0.2); z-index: 5;
+  width: 340px; background: var(--surface); border-left: 1px solid var(--border); padding: 16px; 
+  display: flex; flex-direction: column; gap: 12px; flex-shrink: 0; overflow-y: auto; 
+  box-shadow: -4px 0 10px rgba(0,0,0,0.1); z-index: 5;
+}
+@media (max-width: 900px) {
+  .content-area { flex-direction: column; }
+  .metrics-panel { width: 100%; border-left: none; border-top: 1px solid var(--border); overflow-y: visible; }
 }
 .metric-card { background: var(--bg); border-radius: 10px; padding: 12px 16px; border: 1px solid var(--border); position: relative; overflow: hidden; }
 .metric-card .metric-title { font-size: 11px; color: var(--text-secondary); font-weight: 700; letter-spacing: 0.5px; }
@@ -360,7 +365,11 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
           <div class="metric-value" style="color:var(--text)">-</div>
           <div class="metric-desc">夜间基础相向心运动时的阻力；治疗人群受药物干预呈反向特征。</div>
         </div>
-      </div>
+        <div class="metric-card" id="metric-ascendfriction">
+          <div class="metric-title">上升相阻力 (Ascend Fric)</div>
+          <div class="metric-value" style="color:var(--text)">-</div>
+          <div class="metric-desc">受迫血糖飙升时的向心拉扯粘滞力；未治疗高异常，反映早相形变刚度的改变。</div>
+        </div>
       </div>
     </div>
   </div>
@@ -507,33 +516,33 @@ const RQA_SAMPLE_PAIRS = 1_000_000;
 // The Logistic coefficients are expressed on the raw nightMean/DynamicScore scale.
 // v8.6 frozen deployment parameters.
 // Untreated uses workIntegral (Hysteresis Work). Treated uses nightFriction (Circadian Phase-Shift).
-const SCREENING_MODELS_V86 = Object.freeze({
+const SCREENING_MODELS_V87 = Object.freeze({
   untreated: Object.freeze({
-    label: "未治疗 Aether 积分做功筛查",
+    label: "未治疗 Aether 全维度复合筛查",
     cohort: "Hall 未治疗队列 (n=57/阳性19)",
-    intercept: -5.981279,
-    nightMeanCoef: 0.776465,
-    dynamicCoef: 0.010558,
-    dynamicType: "workIntegral",
+    intercept: -6.772379,
+    nightMeanCoef: 0.701805,
+    workIntegralCoef: 0.008823,
+    ascendFrictionCoef: 0.103079,
     screeningThreshold: 0.25,
-    validation: Object.freeze({ auc: 0.756 }),
+    validation: Object.freeze({ auc: 0.778 }),
   }),
   treated: Object.freeze({
-    label: "已治疗 昼夜相变阻力筛查",
+    label: "已治疗 昼夜相变与形变受迫筛查",
     cohort: "Colas 已治疗队列 (n=208/阳性17)",
-    intercept: -3.449426,
-    nightMeanCoef: 0.399202,
-    dynamicCoef: -0.073664,
-    dynamicType: "nightFriction",
+    intercept: -2.103627,
+    nightMeanCoef: 0.404453,
+    nightFrictionCoef: -0.050432,
+    ascendFrictionCoef: -0.102868,
     screeningThreshold: 0.06,
-    validation: Object.freeze({ auc: 0.642 }),
+    validation: Object.freeze({ auc: 0.650 }),
   }),
 });
 
-const TREATMENT_NOTES_V86 = Object.freeze({
+const TREATMENT_NOTES_V87 = Object.freeze({
   unknown: "未知状态仅使用夜间均糖；请勿猜测治疗状态。",
-  untreated: "未使用降糖药：高磁滞积分（不可逆做功大）为异常方向。",
-  treated: "正在使用降糖药：夜间残余摩擦力受药物干扰，权重逆转。",
+  untreated: "未使用降糖药：高磁滞做功 + 高上升阻力（早相丧失）。",
+  treated: "正在使用降糖药：受药物强干扰，基础夜间摩擦力与上升阻力呈逆转特征。",
 });
 
 // Insulin predictor constants — v8.2 re-fit on the ORIGINAL 53-subject training set
@@ -569,8 +578,8 @@ function getMedian(arr) {
   return s.length % 2 !== 0 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
 
-// Frozen white-box v8.6 screening rule
-function computeScreeningRiskV86(nightMean, workIntegral, nightFriction, treatmentStatus = "unknown") {
+// Frozen white-box v8.7 screening rule
+function computeScreeningRiskV87(nightMean, workIntegral, nightFriction, ascendFriction, treatmentStatus = "unknown") {
   if (!Number.isFinite(nightMean)) {
     return { risk: null, mode: "unavailable", usedDynamic: false, reason: "夜间数据不足" };
   }
@@ -586,26 +595,27 @@ function computeScreeningRiskV86(nightMean, workIntegral, nightFriction, treatme
     reason: treatmentStatus === "unknown" ? "治疗状态未知" : "动力学计算失败",
   };
 
-  const model = SCREENING_MODELS_V86[treatmentStatus];
+  const model = SCREENING_MODELS_V87[treatmentStatus];
   if (!model) return fallback;
   
-  let dynamicVal = null;
-  if (model.dynamicType === "workIntegral" && Number.isFinite(workIntegral)) {
-    dynamicVal = workIntegral;
-  } else if (model.dynamicType === "nightFriction" && Number.isFinite(nightFriction)) {
-    dynamicVal = nightFriction;
-  }
-
-  if (dynamicVal === null) {
+  if (!Number.isFinite(ascendFriction)) {
     return { ...fallback, mode: "night-only-fallback" };
   }
 
-  const z = model.intercept + model.nightMeanCoef * nightMean + model.dynamicCoef * dynamicVal;
+  let z = model.intercept + model.nightMeanCoef * nightMean + model.ascendFrictionCoef * ascendFriction;
+  
+  if (treatmentStatus === "untreated") {
+    if (!Number.isFinite(workIntegral)) return { ...fallback, mode: "night-only-fallback" };
+    z += model.workIntegralCoef * workIntegral;
+  } else if (treatmentStatus === "treated") {
+    if (!Number.isFinite(nightFriction)) return { ...fallback, mode: "night-only-fallback" };
+    z += model.nightFrictionCoef * nightFriction;
+  }
+
   return {
     risk: 1 / (1 + Math.exp(-z)),
     mode: treatmentStatus,
     usedDynamic: true,
-    dynamicVal: dynamicVal,
     screeningThreshold: model.screeningThreshold,
     highThreshold: 0.50,
     model,
