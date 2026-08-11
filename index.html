@@ -2071,7 +2071,7 @@ function computeKeplerKinematics(times, vals, core) {
     if (X[i] === null || Y[i] === null || dY[i] === null) continue;
     
     const r2 = X[i]*X[i] + Y[i]*Y[i];
-    if (r2 < 0.1) continue; // noise floor
+    if (r2 < 0.05) continue; // lower noise floor for real data
     
     // Cross product magnitude: | X*dY - Y*dX | where dX = Y
     const sweep = 0.5 * Math.abs(X[i] * dY[i] - Y[i] * Y[i]);
@@ -2081,7 +2081,7 @@ function computeKeplerKinematics(times, vals, core) {
     validCount++;
   }
   
-  if (validCount === 0 || sumR2 === 0) return { angularVelocity: null, sweepRate: null };
+  if (validCount < 5 || sumR2 === 0) return { angularVelocity: null, sweepRate: null };
   
   const avgSweepRate = sumSweep / validCount;
   const weightedAngularVel = 2.0 * sumSweep / sumR2; // rad/hour
@@ -2340,7 +2340,7 @@ function computeKeplerKinematics(times, vals, core) {
     if (X[i] === null || Y[i] === null || dY[i] === null) continue;
     
     const r2 = X[i]*X[i] + Y[i]*Y[i];
-    if (r2 < 0.1) continue; // noise floor
+    if (r2 < 0.05) continue; // lower noise floor for real data
     
     // Cross product magnitude: | X*dY - Y*dX | where dX = Y
     const sweep = 0.5 * Math.abs(X[i] * dY[i] - Y[i] * Y[i]);
@@ -2350,7 +2350,7 @@ function computeKeplerKinematics(times, vals, core) {
     validCount++;
   }
   
-  if (validCount === 0 || sumR2 === 0) return { angularVelocity: null, sweepRate: null };
+  if (validCount < 5 || sumR2 === 0) return { angularVelocity: null, sweepRate: null };
   
   const avgSweepRate = sumSweep / validCount;
   const weightedAngularVel = 2.0 * sumSweep / sumR2; // rad/hour
@@ -2984,6 +2984,8 @@ ${refs}` : ''}
     // Aether Protocol v8.7: Kinetics (Time-to-Deceleration & Relaxation Fatigue)
     const kinetics = computeExcursionKinetics(timestamps, smoothValues);
     const csd = computeCriticalSlowingDown(timestamps, rawValues);
+    const nightMean = this._nightMean;
+    const kepler = computeKeplerKinematics(timestamps, smoothValues, nightMean);
 
     // Night baseline glucose (0:00-6:00, raw grid) — calibrated screening feature (v8.0).
     // v8.1: invariant across all UI controls → computed once in onDataReady().
@@ -2996,6 +2998,8 @@ ${refs}` : ''}
     metrics.relaxationTime = kinetics.relaxationTime;
     metrics.nightAR1 = csd.ar1;
     metrics.nightVariance = csd.variance;
+    metrics.angularVelocity = kepler.angularVelocity;
+    metrics.sweepRate = kepler.sweepRate;
 
     if (!this._screenDynamics && period === 'all' && smooth && tau === this._screenTau) {
       this._screenDynamics = {
