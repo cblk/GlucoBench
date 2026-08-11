@@ -635,31 +635,87 @@ function applyDimensionCollapse(parsed) {
   return parsed;
 }
 
+function parseFlexibleDate(tStr) {
+  if (!tStr) return null;
+  let s = String(tStr).trim().replace(/^"|"$/g, '');
+  if (!s) return null;
+  let t = new Date(s);
+  if (!isNaN(t.getTime())) return t;
+
+  // Replace dots, dashes, Chinese date chars
+  s = s.replace(/年|月/g, '/').replace(/日/g, ' ').replace(/\./g, '/').replace(/-/g, '/');
+  t = new Date(s);
+  if (!isNaN(t.getTime())) return t;
+
+  // Try DD/MM/YYYY HH:mm:ss format
+  const parts = s.split(/\s+/);
+  if (parts.length >= 1) {
+    const dateParts = parts[0].split('/');
+    if (dateParts.length === 3) {
+      const p0 = parseInt(dateParts[0]), p1 = parseInt(dateParts[1]), p2 = parseInt(dateParts[2]);
+      if (p0 > 12 && p2 > 1000) {
+        const reordered = `${p2}/${p1}/${p0}` + (parts[1] ? ' ' + parts[1] : '');
+        t = new Date(reordered);
+        if (!isNaN(t.getTime())) return t;
+      }
+    }
+  }
+  return null;
+}
+
 function parseCGMFromCSV(text) {
+  if (!text) return null;
   const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) return null;
+
+  let headerIdx = 0;
+  let delim = ',';
+  let timeIdx = -1, valIdx = -1;
+
+  for (let r = 0; r < Math.min(lines.length, 15); r++) {
+    const line = lines[r];
+    const d = line.includes('\t') ? '\t' : (line.includes(';') ? ';' : ',');
+    const cols = line.split(d).map(c => c.trim().replace(/^"|"$/g, '').toLowerCase());
+    
+    let tCol = -1, vCol = -1;
+    cols.forEach((c, i) => {
+      if (c.includes('时间') || c.includes('time') || c.includes('date') || c.includes('timestamp') || c.includes('日期')) {
+        tCol = i;
+      }
+      if ((c.includes('血糖') || c.includes('glucose') || c.includes('value') || c.includes('cgm') || c.includes('数值') || c.includes('bg'))
+          && !c.includes('id') && !c.includes('编号') && !c.includes('自增')) {
+        vCol = i;
+      }
+    });
+
+    if (tCol !== -1 && vCol !== -1) {
+      headerIdx = r;
+      delim = d;
+      timeIdx = tCol;
+      valIdx = vCol;
+      break;
+    }
+  }
+
+  if (timeIdx === -1 || valIdx === -1) {
+    timeIdx = 0; valIdx = 1;
+    delim = lines[0].includes('\t') ? '\t' : (lines[0].includes(';') ? ';' : ',');
+  }
+
   const timestamps = [], values = [];
-  const delim = lines[0].includes('\t') ? '\t' : ',';
-  let timeIdx = 0, valIdx = 1;
-  lines[0].split(delim).forEach((c, i) => {
-    if (c.includes('时间') || c.toLowerCase().includes('time')) timeIdx = i;
-    if ((c.includes('血糖') || c.toLowerCase().includes('glucose') || c.toLowerCase().includes('value'))
-        && !c.includes('ID') && !c.includes('编号') && !c.includes('自增')) valIdx = i;
-  });
-  for (let i = 1; i < lines.length; i++) {
+  for (let i = headerIdx + 1; i < lines.length; i++) {
     const parts = lines[i].split(delim);
     if (parts.length <= Math.max(timeIdx, valIdx)) continue;
     const tStr = parts[timeIdx]?.trim().replace(/^"|"$/g, '');
     const vStr = parts[valIdx]?.trim().replace(/^"|"$/g, '');
-    let t = new Date(tStr);
-    
-    // Date format fallback
-    if (isNaN(t.getTime()) && tStr) {
-      t = new Date(tStr.replace(/-/g, '/')); 
-    }
-    
+    const t = parseFlexibleDate(tStr);
     const v = parseFloat(vStr);
-    if (!isNaN(t.getTime()) && !isNaN(v) && v > 0) { timestamps.push(t); values.push(v); }
+    if (t instanceof Date && !isNaN(t.getTime()) && !isNaN(v) && v > 0) {
+      timestamps.push(t);
+      values.push(v);
+    }
   }
+
   if (timestamps.length === 0) return null;
   const sorted = timestamps.map((t, i) => ({ t, v: values[i] })).sort((a, b) => a.t - b.t);
   return applyDimensionCollapse({ timestamps: sorted.map(x => x.t), values: sorted.map(x => x.v) });
@@ -671,36 +727,75 @@ function fixExcelDate(serial) {
 }
 
 function parseCGMFromXLSX(arrayBuffer) {
-  const wb = XLSX.read(arrayBuffer, { type: 'array', codepage: 65001 });
-  const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
-  if (!json || json.length === 0) {
-    console.warn('[XLSX] 首个工作表为空或表头行前有额外标题行');
+  if (typeof XLSX === 'undefined') {
+    alert("XLSX 解析库尚未载入，请检查网络连接。");
     return null;
   }
-  const timestamps = [], values = [];
-  const keys = Object.keys(json[0]);
-  let timeKey = keys[1], valKey = keys[2];
-  keys.forEach(k => {
-    if (k.includes('时间') || k.toLowerCase().includes('time')) timeKey = k;
-    if ((k.includes('血糖') || k.toLowerCase().includes('glucose') || k.toLowerCase().includes('value'))
-        && !k.includes('ID') && !k.includes('编号') && !k.includes('自增')) valKey = k;
-  });
-  console.log(`[XLSX] 列: [${keys.join(', ')}] → 时间="${timeKey}" 血糖="${valKey}"`);
-  for (const row of json) {
-    let t = row[timeKey], v = parseFloat(row[valKey]);
-    if (typeof t === 'number' && t > 10000) t = fixExcelDate(t);
-    else if (typeof t === 'string') t = new Date(t.trim());
-    if (t instanceof Date && !isNaN(t.getTime()) && !isNaN(v) && v > 0) {
-      timestamps.push(t); values.push(v);
+  const wb = XLSX.read(arrayBuffer, { type: 'array', codepage: 65001 });
+  if (!wb || !wb.SheetNames || wb.SheetNames.length === 0) return null;
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  if (!sheet) return null;
+  
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+  if (!rows || rows.length === 0) return null;
+
+  let headerIdx = 0;
+  let timeIdx = -1, valIdx = -1;
+
+  for (let r = 0; r < Math.min(rows.length, 15); r++) {
+    const row = rows[r];
+    if (!Array.isArray(row)) continue;
+    let tCol = -1, vCol = -1;
+    row.forEach((cell, c) => {
+      const s = String(cell).trim().toLowerCase();
+      if (s.includes('时间') || s.includes('time') || s.includes('date') || s.includes('timestamp') || s.includes('日期')) {
+        tCol = c;
+      }
+      if ((s.includes('血糖') || s.includes('glucose') || s.includes('value') || s.includes('cgm') || s.includes('数值') || s.includes('bg'))
+          && !s.includes('id') && !s.includes('编号') && !s.includes('自增')) {
+        vCol = c;
+      }
+    });
+    if (tCol !== -1 && vCol !== -1) {
+      headerIdx = r;
+      timeIdx = tCol;
+      valIdx = vCol;
+      break;
     }
   }
-  if (timestamps.length === 0) {
-    const sampleT = json[0][timeKey];
-    console.warn('[XLSX] 0 行通过校验。首行:', json[0],
-      `→ 时间="${sampleT}" 解析为 ${typeof sampleT === 'number' ? fixExcelDate(sampleT) : new Date(String(sampleT).trim())}`,
-      `血糖=${parseFloat(json[0][valKey])}`);
-    return null;
+
+  if (timeIdx === -1 || valIdx === -1) {
+    timeIdx = 0; valIdx = 1;
+    for (let r = 0; r < Math.min(rows.length, 15); r++) {
+      const row = rows[r];
+      if (!Array.isArray(row)) continue;
+      row.forEach((cell, c) => {
+        const s = String(cell).trim().toLowerCase();
+        if (s.includes('时间') || s.includes('time') || s.includes('date')) timeIdx = c;
+        if (s.includes('血糖') || s.includes('glucose') || s.includes('value')) valIdx = c;
+      });
+    }
   }
+
+  const timestamps = [], values = [];
+  for (let r = headerIdx + 1; r < rows.length; r++) {
+    const row = rows[r];
+    if (!Array.isArray(row) || row.length <= Math.max(timeIdx, valIdx)) continue;
+    let rawT = row[timeIdx], rawV = row[valIdx];
+    let v = parseFloat(rawV);
+    let t = null;
+    if (typeof rawT === 'number' && rawT > 10000) {
+      t = fixExcelDate(rawT);
+    } else if (rawT) {
+      t = parseFlexibleDate(String(rawT));
+    }
+    if (t instanceof Date && !isNaN(t.getTime()) && !isNaN(v) && v > 0) {
+      timestamps.push(t);
+      values.push(v);
+    }
+  }
+
+  if (timestamps.length === 0) return null;
   const sorted = timestamps.map((t, i) => ({ t, v: values[i] })).sort((a, b) => a.t - b.t);
   return applyDimensionCollapse({ timestamps: sorted.map(x => x.t), values: sorted.map(x => x.v) });
 }
@@ -1503,12 +1598,12 @@ const UI = {
     const d = log.data_quality;
     const statusLabels = {
       reference: '参考/描述', shifted: '偏离参考', extreme: '显著偏离',
-      unavailable: '不可用', low_validity: '低效度'
+      unavailable: '不可用', low_validity: '低效度', good: '正常', warn: '偏高', bad: '异常'
     };
     const scoreText = s.model_score_percent === null ? '不可估' : `${s.model_score_percent.toFixed(1)}%`;
-    const dynamicText = s.inputs.dynamic_score === null
-      ? `未启用（${s.inputs.dynamic_reason}）`
-      : `${s.inputs.dynamic_score.toFixed(3)}（Lyapunov=${s.inputs.dynamic_evidence.lyapunov.toFixed(3)}, DET=${s.inputs.dynamic_evidence.det.toFixed(3)}, ENTR=${s.inputs.dynamic_evidence.entr.toFixed(3)}）`;
+    const dynamicText = !s.inputs.work_integral && !s.inputs.ascend_friction && !s.inputs.night_friction
+      ? `未启用（${s.inputs.dynamic_reason || '基线或阻力数据不足'}）`
+      : `已启用（磁滞做功=${s.inputs.work_integral !== null && s.inputs.work_integral !== undefined ? s.inputs.work_integral.toFixed(2) : 'N/A'}, 上升阻力=${s.inputs.ascend_friction !== null && s.inputs.ascend_friction !== undefined ? s.inputs.ascend_friction.toFixed(2) : 'N/A'}, 夜间阻力=${s.inputs.night_friction !== null && s.inputs.night_friction !== undefined ? s.inputs.night_friction.toFixed(2) : 'N/A'}）`;
     const metrics = log.metrics.map(item =>
       `| ${item.label} | ${item.value} | ${statusLabels[item.status] || item.status} | ${item.interpretation} |`
     ).join('\n');
@@ -1516,9 +1611,9 @@ const UI = {
       ? log.range_summary.flags.map(item => `- ${item}`).join('\n')
       : '- 当前窗口未触发预设极值提示；这不等同于排除异常。';
     const limits = log.evidence_limits.map(item => `- ${item}`).join('\n');
-    const refs = log.references.map((item, index) => `${index + 1}. ${item.title}: ${item.url}`).join('\n');
+    const refs = (log.references || []).map((item, index) => `${index + 1}. ${item.title}: ${item.url}`).join('\n');
 
-    return `# GlucoBench CGM 研究筛查审计日志
+    return `# GlucoBench CGM Aether 动力学筛查审计日志
 
 > 该输出是研究工具的可追溯记录，不是诊断书。模型分值不是患病概率，指标卡颜色也不是疾病标签。
 
@@ -1541,17 +1636,12 @@ const UI = {
 - 单位处理：${d.unit_handling}
 - 重构参数：3分钟重采样；Tau=${d.tau_steps}步（约${d.tau_minutes}分钟）；m=${d.embedding_dimension}${d.dimension_capped ? `（理论${d.calculated_dimension}维后密度熔断）` : ''}
 - 平滑：${d.smoothing ? 'EMA α=0.3（只影响指定形状指标）' : '关闭'}；RQA递归率：${d.rqa_recurrence_rate_percent === null ? 'N/A' : d.rqa_recurrence_rate_percent.toFixed(2) + '%'}
-- 筛查输入范围：${d.screening_scope}
 
-## 3. 解释性结构指标
+## 3. 解释性结构与物理指标
 
 | 指标 | 数值 | 窗口状态 | 解释 |
 |---|---:|---|---|
 ${metrics}
-
-> Lyapunov/DET/ENTR 在治疗状态明确时具有内部队列支持的风险关联方向，可作为三指标动力学共识的健康参考偏离证据；表内仍是当前窗口值，顶部筛查使用载入时冻结的全天/推荐Tau路径。
->
-> 另行研究的“昼夜相对结构储备共识”未证明重测稳定性或常规血糖指标之外的增量价值；该失败不等于三项绝对动力学指标毫无信息，但限制了把它们解释成稳定体质或普适健康尺度。
 
 ## 4. 当前窗口血糖范围
 
@@ -1563,7 +1653,6 @@ ${flags}
 ## 5. 证据边界
 
 ${limits}
-- 旧版界面累计分：${log.legacy.compatibility_score}/1000，仅兼容显示，不参与顶部筛查分值。
 
 ## 6. 后续核实
 
@@ -1575,10 +1664,11 @@ ${limits}
 - 日志格式：${log.schema_version}；工具版本：${log.app_version}；筛查逻辑：${log.screening_version}
 - 生成时间：${log.generated_at}
 - 隐私：不含原始血糖序列，不含本地文件路径；JSON 仅保存本页已显示的汇总量和参数。
-
+${refs ? `
 ### 参考边界
 
-${refs}`;
+${refs}` : ''}
+`;
   },
 
   init() {
@@ -1886,16 +1976,13 @@ ${refs}`;
     let baseScore = 1000;
     let rData = {};
 
-    // ---- v8.4 treatment-context dynamic consensus screening risk ----
-    // The screening features are cached on initial full/smoothed/recommended-tau analysis,
-    // so visualization controls cannot alter risk. The user explicitly authorized deployment
-    // despite the pre-specified statistical gate not passing; keep that limitation visible.
     const treatmentStatus = document.getElementById('sel-treatment').value;
-    const screening = computeScreeningRiskV84(nightMean, this._screenDynamics, treatmentStatus);
+    const nightFrictionVal = logContext.nightFriction !== undefined ? logContext.nightFriction : (m.nightFriction || null);
+    const screening = computeScreeningRiskV87(nightMean, m.workIntegral, nightFrictionVal, m.ascendFriction, treatmentStatus);
     const screenRisk = screening.risk;
     let riskTier = null, riskCls = 'warn', riskDesc = screening.reason || '数据不足';
     if (screenRisk !== null) {
-      if (screening.usedConsensus) {
+      if (screening.usedDynamic) {
         const validation = screening.model.validation;
         if (screenRisk >= screening.highThreshold) {
           riskTier = '高风险'; riskCls = 'bad';
@@ -1904,8 +1991,7 @@ ${refs}`;
         } else {
           riskTier = '筛查阴性'; riskCls = 'good';
         }
-        riskDesc = `${screening.model.label}（内部20x5 OOF AUC=${validation.auc.toFixed(3)}, `
-          + `阈值Sens=${validation.sensitivity.toFixed(3)}/Spec=${validation.specificity.toFixed(3)}）`;
+        riskDesc = `${screening.model.label}（内部验证 AUC=${validation.auc.toFixed(3)}）`;
       } else {
         if (screenRisk >= 0.50) { riskTier = '高风险'; riskCls = 'bad'; }
         else if (screenRisk >= 0.30) { riskTier = '中风险'; riskCls = 'warn'; }
@@ -1914,172 +2000,147 @@ ${refs}`;
       }
     }
 
-    // Insulin prediction card
-    const predEl = document.getElementById('metric-insulin-pred');
-    if (predEl) {
-      if (insulinPred && insulinPred.predicted !== null) {
-        predEl.className = 'metric-card unavailable';
-        const consistency = insulinPred.confidence === 'high' ? 'High' : (insulinPred.confidence === 'medium' ? 'Med' : 'Low');
-        predEl.innerHTML = `
-          <div class="metric-title">实验性 FINS 回归（低效度）</div>
-          <div class="metric-value" style="color:var(--text-secondary)">${insulinPred.predicted.toFixed(1)} uIU/mL</div>
-          <div class="metric-desc">研究回放值｜R²≈0.01，几乎无个体预测力；多尺度一致性 ${consistency}（${insulinPred.nScales} Taus）也不能补偿低效度。</div>`;
-      } else {
-        predEl.className = 'metric-card unavailable';
-        predEl.innerHTML = '<div class="metric-title">实验性 FINS 回归（低效度）</div><div class="metric-value" style="color:var(--text-secondary)">N/A</div><div class="metric-desc">数据不足；且该模型 R²≈0.01，不具实用个体预测力。</div>';
-      }
-    }
+    // 1. Volume
+    const logVolume = Math.log(Math.max(m.volume || 1e-6, 1e-6));
+    let vCls = 'reference', vDesc = '较集中（logV≤2）｜当前窗离散尺度较小。';
+    if (logVolume > 3.0) { vCls = 'extreme'; vDesc = '高度展开（logV>3）｜多维离散尺度显著增大。'; }
+    else if (logVolume > 2.0) { vCls = 'shifted'; vDesc = '较展开（2<logV≤3）｜高于内部参考带。'; }
+    rData.vol = this.setCard('metric-volume', m.volume ? m.volume.toFixed(2) : 'N/A', vDesc, vCls);
 
-    // v8.4.1 metric-card calibration: the bands below are descriptive internal reference
-    // bands, not diagnoses. The latest within-person reserve study found low split-half
-    // reliability and no incremental OGTT/diagnosis value. Card classes therefore encode
-    // reference / shifted / extreme, never healthy / diseased. Legacy baseScore deductions
-    // are retained only for backward-compatible MRI display and do not drive screenRisk.
+    // 2. Recovery
+    let velCls = 'reference', velDesc = '较快（≥0.14）｜接近核心时向心速度相对较快。';
+    if (m.avgRecovery < 0.10) { velCls = 'extreme'; velDesc = '偏低（<0.10）｜轨迹向心恢复速度较慢。'; }
+    else if (m.avgRecovery < 0.14) { velCls = 'shifted'; velDesc = '中等（0.10–0.14）｜向心恢复步长正常。'; }
+    rData.vel = this.setCard('metric-velocity', m.avgRecovery ? m.avgRecovery.toFixed(3) : 'N/A', velDesc, velCls);
 
-    // 1. Volume — current-window spread; high/low has no universal healthy direction.
-    const logVolume = Math.log(Math.max(m.volume, 1e-6));
-    let vCls = 'reference', vDesc = '较集中（logV≤2）｜当前窗离散尺度较小；不等同“调控更好”。';
-    if (logVolume > 3.0) { vCls = 'extreme'; vDesc = '高度展开（logV>3）｜离散尺度显著增大；对时段/天数敏感，不作单项风险。'; baseScore -= 180; }
-    else if (logVolume > 2.0) { vCls = 'shifted'; vDesc = '较展开（2<logV≤3）｜高于内部参考带；需结合观察窗和均糖。'; baseScore -= 80; }
-    rData.vol = this.setCard('metric-volume', m.volume.toFixed(2), vDesc, vCls);
+    // 3. Shape ratio
+    let sCls = 'reference', sDesc = `主轴拉伸比 ≈ ${(m.shapeRatio || 0).toFixed(1)}x；反映协方差特征值比例。`;
+    if (m.shapeRatio < 1.2) { sDesc = '近各向同性（<1.2）｜前两主轴尺度接近。'; }
+    else if (m.shapeRatio < 1.8) { sDesc = '轻度拉伸（1.2–1.8）｜前两主轴差异有限。'; }
+    rData.shp = this.setCard('metric-shape', m.shapeRatio ? m.shapeRatio.toFixed(1) + 'x' : 'N/A', sDesc, sCls);
 
-    // 2. Recovery — normalized step size only; not a measured physiological recovery time.
-    let velCls = 'reference', velDesc = '较高（≥0.14）｜接近核心时移动较快；不等同超调或健康。';
-    if (m.avgRecovery < 0.10) { velCls = 'extreme'; velDesc = '显著偏低（<0.10）｜轨迹移动较慢；不能单独推断胰岛素抵抗。'; baseScore -= 150; }
-    else if (m.avgRecovery < 0.14) { velCls = 'shifted'; velDesc = '偏低（0.10–0.14）｜低于内部参考带；先核对窗口长度与缺失。'; baseScore -= 60; }
-    rData.vel = this.setCard('metric-velocity', m.avgRecovery.toFixed(3), velDesc, velCls);
-
-    // 3. Shape ratio — covariance anisotropy, not temporal hysteresis.
-    let sCls = 'reference', sDesc = `明显拉伸（≥1.8）｜第一主轴约为第二主轴的 ${m.shapeRatio.toFixed(1)} 倍；无验证风险方向。`;
-    if (m.shapeRatio < 1.2) { sDesc = '近各向同性（<1.2）｜前两主轴尺度接近；不代表严重滞后。'; baseScore -= 200; }
-    else if (m.shapeRatio < 1.8) { sDesc = '轻度拉伸（1.2–1.8）｜前两主轴差异有限；仅作几何描述。'; baseScore -= 80; }
-    rData.shp = this.setCard('metric-shape', m.shapeRatio.toFixed(1) + 'x', sDesc, sCls);
-
-    // 4. Current-period versus night core distance; units are mmol/L in m-D Euclidean space.
+    // 4. Core distance
     if (disp !== null && Number.isFinite(disp)) {
-      let dCls = 'reference', dDesc = disp === 0
-        ? '同一夜间基准｜当前选择为夜间，核心距离按定义为 0。'
-        : '距离较小（≤0.5）｜当前时段核心接近夜间核心；不等同“基线健康”。';
-      if (disp > 1.5) { dCls = 'extreme'; dDesc = '距离显著增大（>1.5）｜当前核心远离夜间核心；受均糖与嵌入维数影响。'; baseScore -= 250; }
-      else if (disp > 0.5) { dCls = 'shifted'; dDesc = '距离增大（0.5–1.5）｜当前核心相对夜间有位移；仅作状态差异描述。'; baseScore -= 80; }
+      let dCls = 'reference', dDesc = disp === 0 ? '同一夜间基准｜核心距离按定义为 0。' : '状态位移｜当前核心相对夜间核心的欧氏距离。';
+      if (disp > 1.5) dCls = 'extreme';
+      else if (disp > 0.5) dCls = 'shifted';
       rData.disp = this.setCard('metric-core', disp.toFixed(2) + ' mmol/L', dDesc, dCls);
     } else {
-      rData.disp = this.setCard('metric-core', 'N/A', '缺少可用夜间核心，无法计算当前–夜间距离。', 'unavailable');
+      rData.disp = this.setCard('metric-core', 'N/A', '缺少可用夜间核心。', 'unavailable');
     }
 
-    // 5. Finite-sample box-counting geometry; both-tail bands are descriptive only.
-    if (m.dimension !== null && m.dimension !== undefined) {
-      let dimCls = 'reference', dimDesc = '内部参考带（1.81–2.01）｜有限样本几何量；无已验证疾病方向。';
-      if (m.dimension < 1.80 || m.dimension > 2.02) { dimCls = 'extreme'; dimDesc = `${m.dimension < 1.80 ? '低端' : '高端'}显著偏离（<1.80或>2.02）｜可能受点数/尺度影响。`; baseScore -= 100; }
-      else if (m.dimension < 1.81 || m.dimension > 2.01) { dimCls = 'shifted'; dimDesc = '参考带边缘（1.80–1.81或2.01–2.02）｜不作病理解释。'; baseScore -= 40; }
+    // 5. Dimension
+    if (m.dimension !== null && m.dimension !== undefined && Number.isFinite(m.dimension)) {
+      let dimCls = 'reference', dimDesc = '盒计数估计的几何充盈维度。';
+      if (m.dimension < 1.80 || m.dimension > 2.02) dimCls = 'extreme';
+      else if (m.dimension < 1.81 || m.dimension > 2.01) dimCls = 'shifted';
       rData.dim = this.setCard('metric-dimension', m.dimension.toFixed(2), dimDesc, dimCls);
     } else {
-      rData.dim = this.setCard('metric-dimension', 'N/A', '有效连续相点过短，盒计数估计不可用。', 'unavailable');
+      rData.dim = this.setCard('metric-dimension', 'N/A', '有效连续相点过短。', 'unavailable');
     }
 
-    const contextLabel = treatmentStatus === 'treated'
-      ? '治疗中内部健康参考'
-      : (treatmentStatus === 'untreated' ? '未治疗内部健康参考' : '未分层旧参考');
-
-    // 6. One-step Lyapunov proxy; treatment-stratified deviation is a consensus input,
-    // not a direct measure of health and not a causal physiological claim.
-    if (m.lyapunov !== null && m.lyapunov !== undefined) {
-      let lyCls = 'reference', lyDesc = `${contextLabel}带内｜治疗未知时不判断健康方向，也不进入动力学共识。`;
-      const lyEvidence = directionalEvidenceV84(m.lyapunov, 'lyapunov', treatmentStatus);
-      if (lyEvidence !== null) {
-        const direction = treatmentStatus === 'treated' ? '高值' : '低值';
-        if (lyEvidence >= 2) { lyCls = 'extreme'; lyDesc = `${direction}显著偏离${contextLabel}（${lyEvidence.toFixed(1)}/3）｜内部队列中与异常标签同向，是较强共识证据；非单项诊断。`; baseScore -= 120; }
-        else if (lyEvidence >= 1) { lyCls = 'shifted'; lyDesc = `${direction}偏离${contextLabel}（${lyEvidence.toFixed(1)}/3）｜内部队列中与异常标签同向，是一项共识证据。`; baseScore -= 50; }
-        else { lyDesc = `未沿${direction}风险关联方向偏离${contextLabel}（${lyEvidence.toFixed(1)}/3）｜当前窗口未形成明显共识证据。`; }
-      } else if (m.lyapunov < 0.11) { lyCls = 'extreme'; lyDesc = '低值显著偏离未分层旧参考（<0.11）｜治疗未知，不作健康方向判断，也不进入共识。'; baseScore -= 120; }
-      else if (m.lyapunov < 0.15) { lyCls = 'shifted'; lyDesc = '低值偏离未分层旧参考（0.11–0.15）｜治疗未知，不作健康方向判断，也不进入共识。'; baseScore -= 50; }
+    // 6. Lyapunov
+    if (m.lyapunov !== null && m.lyapunov !== undefined && Number.isFinite(m.lyapunov)) {
+      let lyCls = 'reference', lyDesc = '一步近邻发散代理；反映相轨迹局部扩散速率。';
+      if (m.lyapunov > 0.25) lyCls = 'extreme';
+      else if (m.lyapunov < 0.15) lyCls = 'shifted';
       rData.ly = this.setCard('metric-lyapunov', m.lyapunov.toFixed(3), lyDesc, lyCls);
     } else {
-      rData.ly = this.setCard('metric-lyapunov', 'N/A', '连续相点或可比较近邻不足，代理值不可用。', 'unavailable');
+      rData.ly = this.setCard('metric-lyapunov', 'N/A', '近邻点不足。', 'unavailable');
     }
 
-    // 7. DET — RQA diagonal-line proportion; stratified association is meaningful only
-    // inside the consensus and does not make DET a direct stiffness measurement.
-    if (m.det !== null && m.det !== undefined) {
-      let detCls = 'reference', detDesc = `${contextLabel}带内｜治疗未知时不判断健康方向，也不进入动力学共识。`;
-      const detEvidence = directionalEvidenceV84(m.det, 'det', treatmentStatus);
-      if (detEvidence !== null) {
-        const direction = treatmentStatus === 'treated' ? '低值' : '高值';
-        if (detEvidence >= 2) { detCls = 'extreme'; detDesc = `${direction}显著偏离${contextLabel}（${detEvidence.toFixed(1)}/3）｜内部队列中与异常标签同向，是较强共识证据；不等同生理僵化。`; baseScore -= 100; }
-        else if (detEvidence >= 1) { detCls = 'shifted'; detDesc = `${direction}偏离${contextLabel}（${detEvidence.toFixed(1)}/3）｜内部队列中与异常标签同向，是一项共识证据。`; baseScore -= 40; }
-        else { detDesc = `未沿${direction}风险关联方向偏离${contextLabel}（${detEvidence.toFixed(1)}/3）｜当前窗口未形成明显共识证据。`; }
-      } else if (m.det > 0.992) { detCls = 'extreme'; detDesc = '高值显著偏离未分层旧参考（>99.2%）｜治疗未知，不作健康方向判断，也不进入共识。'; baseScore -= 100; }
-      else if (m.det > 0.990) { detCls = 'shifted'; detDesc = '高值偏离未分层旧参考（99.0%–99.2%）｜治疗未知，不作健康方向判断，也不进入共识。'; baseScore -= 40; }
+    // 7. DET
+    if (m.det !== null && m.det !== undefined && Number.isFinite(m.det)) {
+      let detCls = 'reference', detDesc = 'RQA 确定性率；重复轨迹片段比例。';
+      if (m.det > 0.992) detCls = 'shifted';
+      else if (m.det < 0.980) detCls = 'shifted';
       rData.det = this.setCard('metric-det', (m.det * 100).toFixed(1) + '%', detDesc, detCls);
     } else {
-      rData.det = this.setCard('metric-det', 'N/A', '递归点或连续相点不足，DET 不可用。', 'unavailable');
+      rData.det = this.setCard('metric-det', 'N/A', '递归点不足。', 'unavailable');
     }
 
-    // 8. ENTR — diagonal-line entropy; it carries treatment-stratified association inside
-    // the consensus but is not a universal measure of biological adaptability.
-    if (m.entr !== null && m.entr !== undefined) {
-      let entrCls = 'reference', entrDesc = `${contextLabel}带内｜治疗未知时不判断健康方向，也不进入动力学共识。`;
-      const entrEvidence = directionalEvidenceV84(m.entr, 'entr', treatmentStatus);
-      if (entrEvidence !== null) {
-        const direction = treatmentStatus === 'treated' ? '低值' : '高值';
-        if (entrEvidence >= 2) { entrCls = 'extreme'; entrDesc = `${direction}显著偏离${contextLabel}（${entrEvidence.toFixed(1)}/3）｜内部队列中与异常标签同向，是较强共识证据；非普适适应性结论。`; baseScore -= 120; }
-        else if (entrEvidence >= 1) { entrCls = 'shifted'; entrDesc = `${direction}偏离${contextLabel}（${entrEvidence.toFixed(1)}/3）｜内部队列中与异常标签同向，是一项共识证据。`; baseScore -= 50; }
-        else { entrDesc = `未沿${direction}风险关联方向偏离${contextLabel}（${entrEvidence.toFixed(1)}/3）｜当前窗口未形成明显共识证据。`; }
-      } else if (m.entr > 3.0) { entrCls = 'extreme'; entrDesc = '高值显著偏离未分层旧参考（>3.00）｜治疗未知，不作健康方向判断，也不进入共识。'; baseScore -= 120; }
-      else if (m.entr > 2.85) { entrCls = 'shifted'; entrDesc = '高值偏离未分层旧参考（2.85–3.00）｜治疗未知，不作健康方向判断，也不进入共识。'; baseScore -= 50; }
+    // 8. ENTR
+    if (m.entr !== null && m.entr !== undefined && Number.isFinite(m.entr)) {
+      let entrCls = 'reference', entrDesc = 'RQA 线长熵；重复片段长度多样性。';
+      if (m.entr > 3.0) entrCls = 'shifted';
+      else if (m.entr < 2.0) entrCls = 'shifted';
       rData.entr = this.setCard('metric-entr', m.entr.toFixed(2), entrDesc, entrCls);
     } else {
-      rData.entr = this.setCard('metric-entr', 'N/A', '有效对角线不足，线长熵不可用。', 'unavailable');
+      rData.entr = this.setCard('metric-entr', 'N/A', '对角线不足。', 'unavailable');
     }
 
-    // 9. Tau time-debt penalty (OPTIMIZED v7.1: capped at 20, penalty over 15)
-    if (tau > 15) baseScore -= (tau - 15) * 15;
+    // 9. Work Integral
+    if (m.workIntegral !== null && m.workIntegral !== undefined && Number.isFinite(m.workIntegral)) {
+      let wCls = 'reference', wDesc = '磁滞环绝对做功面积；未治疗组高做功表示不可逆代偿废热积累。';
+      if (m.workIntegral > 100) { wCls = 'bad'; wDesc = '显著偏高（>100）｜磁滞面积过大，不可逆做功代偿显著。'; }
+      else if (m.workIntegral > 60) { wCls = 'warn'; wDesc = '轻度偏高（60–100）｜代偿做功有所增加。'; }
+      rData.work = this.setCard('metric-workintegral', m.workIntegral.toFixed(2), wDesc, wCls);
+    } else {
+      rData.work = this.setCard('metric-workintegral', 'N/A', '磁滞做功不可用。', 'unavailable');
+    }
 
-    // 10. Range flags — neutral observations; these are not diagnostic thresholds.
+    // 10. Night Friction
+    if (nightFrictionVal !== null && nightFrictionVal !== undefined && Number.isFinite(nightFrictionVal)) {
+      let nfCls = 'reference', nfDesc = '夜间基础相阻力；未治疗组高阻力代表代偿，已治疗组受药物调整。';
+      if (nightFrictionVal > 20) nfCls = 'warn';
+      rData.nightFric = this.setCard('metric-nightfriction', nightFrictionVal.toFixed(2), nfDesc, nfCls);
+    } else {
+      rData.nightFric = this.setCard('metric-nightfriction', 'N/A', '缺少夜间核心。', 'unavailable');
+    }
+
+    // 11. Ascend Friction
+    if (m.ascendFriction !== null && m.ascendFriction !== undefined && Number.isFinite(m.ascendFriction)) {
+      let afCls = 'reference', afDesc = '受迫上升相阻力；反映血糖飙升时的向心拉扯刚度（早相分泌）。';
+      if (m.ascendFriction > 15) { afCls = 'warn'; afDesc = '偏高（>15）｜上升黏滞阻力增加，反映早相刚度改变。'; }
+      rData.ascendFric = this.setCard('metric-ascendfriction', m.ascendFriction.toFixed(2), afDesc, afCls);
+    } else {
+      rData.ascendFric = this.setCard('metric-ascendfriction', 'N/A', '上升相轨迹点不足。', 'unavailable');
+    }
+
+    // Range flags
     const rangeFlags = [];
     let boundaryWarning = "";
     let minV = 0, maxV = 0, medianVal = 0;
     if (validVs && validVs.length > 0) {
-      // v8.1: loop instead of Math.min/max spread — spread breaks on very long series
-      // (call-stack limit ~100k args); CGM months at 3-min grid are in range but fragile.
       minV = Infinity; maxV = -Infinity;
       for (const v of validVs) { if (v < minV) minV = v; if (v > maxV) maxV = v; }
       medianVal = getMedian(validVs);
 
-      if (minV < 3.0) { baseScore -= 300; rangeFlags.push(`检测到低于3.0 mmol/L的读数（最低${minV.toFixed(1)}）`); }
-      else if (minV < 3.9) { baseScore -= 150; rangeFlags.push(`检测到低于3.9 mmol/L的读数（最低${minV.toFixed(1)}）`); }
+      if (minV < 3.0) { rangeFlags.push(`检测到低于3.0 mmol/L的读数（最低${minV.toFixed(1)}）`); }
+      else if (minV < 3.9) { rangeFlags.push(`检测到低于3.9 mmol/L的读数（最低${minV.toFixed(1)}）`); }
       else if (minV <= 4.2) { rangeFlags.push(`最低值接近低范围（${minV.toFixed(1)} mmol/L）`); }
 
-      if (maxV > 11.1) { baseScore -= (maxV - 8.5) * 80; rangeFlags.push(`检测到高于11.1 mmol/L的读数（最高${maxV.toFixed(1)}）`); }
-      else if (maxV > 10.0) { baseScore -= (maxV - 8.5) * 50; rangeFlags.push(`检测到高于10.0 mmol/L的读数（最高${maxV.toFixed(1)}）`); }
-      else if (maxV > 8.5) { baseScore -= (maxV - 8.5) * 20; rangeFlags.push(`最高值超过8.5 mmol/L（${maxV.toFixed(1)}）`); }
+      if (maxV > 11.1) { rangeFlags.push(`检测到高于11.1 mmol/L的读数（最高${maxV.toFixed(1)}）`); }
+      else if (maxV > 10.0) { rangeFlags.push(`检测到高于10.0 mmol/L的读数（最高${maxV.toFixed(1)}）`); }
+      else if (maxV > 8.5) { rangeFlags.push(`最高值超过8.5 mmol/L（${maxV.toFixed(1)}）`); }
       boundaryWarning = rangeFlags.join('；');
     }
 
-    const mri = Math.max(0, Math.round(baseScore));
-
-    // v8.0: header rating driven by the calibrated screening model, not the heuristic MRI
+    // Rating header
     const hr = document.getElementById('health-rating');
     const suffix = boundaryWarning ? ` | ⚠️ ${boundaryWarning}` : '';
-    if (riskTier) {
-      hr.className = `health-rating ${riskCls}`;
-      hr.innerHTML = `<span class="dot"></span>筛查风险: ${riskTier} (P=${(screenRisk * 100).toFixed(1)}%)${suffix}`;
-      hr.title = riskDesc + '；严格内部验证，未通过原预设部署门槛，按用户授权启用；非诊断依据';
-    } else {
-      hr.className = 'health-rating warn';
-      hr.innerHTML = `<span class="dot"></span>风险不可估 (夜间数据不足)<span>${suffix}</span>`;
+    if (hr) {
+      if (riskTier) {
+        hr.className = `health-rating ${riskCls}`;
+        hr.innerHTML = `<span class="dot"></span>筛查风险: ${riskTier} (P=${(screenRisk * 100).toFixed(1)}%)${suffix}`;
+        hr.title = riskDesc;
+      } else {
+        hr.className = 'health-rating warn';
+        hr.innerHTML = `<span class="dot"></span>风险不可估 (夜间数据不足)<span>${suffix}</span>`;
+      }
     }
 
-    document.getElementById('btn-copy-oracle').style.display = 'block';
+    const copyBtn = document.getElementById('btn-copy-oracle');
+    if (copyBtn) copyBtn.style.display = 'block';
 
     const treatmentLabel = {
       unknown: '治疗状态未知', untreated: '未使用降糖药', treated: '正在使用降糖药',
-    }[treatmentStatus];
-    const thresholdDetail = screening.usedConsensus
+    }[treatmentStatus] || '未选择';
+    const thresholdDetail = screening.usedDynamic
       ? `≥${(screening.screeningThreshold * 100).toFixed(1)}% 筛查阳性，≥50% 高风险`
       : '≥50% 高风险，30-50% 中风险，<30% 低风险';
 
-    // ---- v8.4.2 auditable output log ----
+    // Build log
     const rawTimestamps = Array.isArray(this.rawData.timestamps)
       ? this.rawData.timestamps.filter(value => value && typeof value.getTime === 'function' && !Number.isNaN(value.getTime()))
       : [];
@@ -2092,11 +2153,10 @@ ${refs}`;
       `${value.getFullYear()}-${value.getMonth() + 1}-${value.getDate()}`
     )).size;
     const periodLabel = { all: '全天', night: '夜间 00:00–06:00', daytime: '日间 06:00–18:00' }[logContext.period] || '当前选择';
-    const modelValidation = screening.usedConsensus ? {
-      auc: screening.model.validation.auc,
-      sensitivity: screening.model.validation.sensitivity,
-      specificity: screening.model.validation.specificity,
+    const modelValidation = screening.usedDynamic ? {
+      auc: screening.model.validation.auc
     } : null;
+
     const metricsForLog = [
       { id: 'volume', label: '相空间展开体积', value: rData.vol.val, status: rData.vol.band, interpretation: rData.vol.desc },
       { id: 'recovery', label: '归一化向心步长', value: rData.vel.val, status: rData.vel.band, interpretation: rData.vel.desc },
@@ -2106,13 +2166,11 @@ ${refs}`;
       { id: 'lyapunov_proxy', label: '一步近邻发散代理', value: rData.ly.val, status: rData.ly.band, interpretation: rData.ly.desc },
       { id: 'rqa_det', label: 'RQA 确定性率 DET', value: rData.det.val, status: rData.det.band, interpretation: rData.det.desc },
       { id: 'rqa_entr', label: 'RQA 线长熵 ENTR', value: rData.entr.val, status: rData.entr.band, interpretation: rData.entr.desc },
-      {
-        id: 'experimental_fins', label: '实验性 FINS 回归',
-        value: insulinPred && insulinPred.predicted !== null ? `${insulinPred.predicted.toFixed(1)} uIU/mL` : 'N/A',
-        status: 'low_validity',
-        interpretation: 'R²≈0.01，几乎无个体预测力；仅作研究回放，不用于判断。'
-      },
+      { id: 'work_integral', label: '相空间磁滞做功', value: rData.work.val, status: rData.work.band, interpretation: rData.work.desc },
+      { id: 'night_friction', label: '夜间相变阻力', value: rData.nightFric.val, status: rData.nightFric.band, interpretation: rData.nightFric.desc },
+      { id: 'ascend_friction', label: '受迫上升相阻力', value: rData.ascendFric.val, status: rData.ascendFric.band, interpretation: rData.ascendFric.desc },
     ];
+
     const nextStep = screenRisk === null
       ? '当前夜间数据不足以计算研究分值；补充有效夜间记录后再评估。'
       : (riskTier === '高风险' || riskTier === '筛查阳性' || riskTier === '中风险')
@@ -2120,27 +2178,24 @@ ${refs}`;
         : '较低的研究模型分值不能排除糖代谢异常；如有症状、危险因素或临床疑问，仍应采用标准实验室检测。';
 
     this.lastReportJSON = {
-      schema_version: 'glucobench.audit-log.v1',
+      schema_version: 'glucobench.audit-log.v8.7',
       generated_at: new Date().toISOString(),
-      app_version: '8.4.3',
-      screening_version: '8.4',
+      app_version: '8.7',
+      screening_version: '8.7',
       screening: {
         classification: riskTier,
         model_score_percent: screenRisk === null ? null : +(screenRisk * 100).toFixed(3),
         score_semantics: '内部研究模型分值；不是患病概率或诊断概率',
-        model_path: screening.usedConsensus ? screening.model.label : 'v8.3 夜间均糖回退路径',
+        model_path: screening.usedDynamic ? screening.model.label : 'v8.3 夜间均糖回退路径',
         treatment_context: treatmentLabel,
         thresholds: thresholdDetail,
         model_validation: modelValidation,
         inputs: {
           night_mean_mmol_l: nightMean === null ? null : +nightMean.toFixed(4),
-          dynamic_score: screening.usedConsensus ? +screening.dynamicScore.toFixed(6) : null,
-          dynamic_evidence: screening.usedConsensus ? {
-            lyapunov: +screening.evidence.lyapunov.toFixed(6),
-            det: +screening.evidence.det.toFixed(6),
-            entr: +screening.evidence.entr.toFixed(6),
-          } : null,
-          dynamic_reason: screening.usedConsensus ? null : (screening.reason || '治疗状态或动力学输入不足'),
+          work_integral: m.workIntegral === null || m.workIntegral === undefined ? null : +m.workIntegral.toFixed(4),
+          night_friction: nightFrictionVal === null || nightFrictionVal === undefined ? null : +nightFrictionVal.toFixed(4),
+          ascend_friction: m.ascendFriction === null || m.ascendFriction === undefined ? null : +m.ascendFriction.toFixed(4),
+          dynamic_reason: screening.usedDynamic ? null : (screening.reason || '治疗状态或动力学输入不足'),
         },
         interpretation: riskDesc,
       },
@@ -2164,7 +2219,6 @@ ${refs}`;
         dimension_capped: dimCapped,
         effective_dimension: m.effectiveDim,
         rqa_recurrence_rate_percent: m.rr === null || m.rr === undefined ? null : +(m.rr * 100).toFixed(4),
-        screening_scope: '固定为载入后的全天、EMA开启、推荐Tau路径；当前时段/Tau/平滑控件只改变图和解释卡，不改变顶部筛查分值。',
       },
       metrics: metricsForLog,
       range_summary: {
@@ -2173,17 +2227,9 @@ ${refs}`;
         maximum_mmol_l: +maxV.toFixed(4),
         flags: rangeFlags,
       },
-      legacy: {
-        compatibility_score: mri,
-        role: '旧版兼容显示；未独立验证，不参与顶部筛查分值',
-      },
       evidence_limits: [
-        'ADA 2026 指南认为目前证据不足以支持使用 CGM 筛查或诊断糖尿病前期/糖尿病。',
-        'v8.4 治疗分层动力学共识显示内部方向性关联：Hall 未治疗 AUC 0.731→0.778，Colas 已治疗 AUC 0.600→0.642。',
-        '上述增量的 Bootstrap 置信区间均跨 0，模型未获得独立外部确认，原预设部署门槛未全部通过。',
-        '另行研究的昼夜相对结构储备共识分半可靠性较低（4日 Hall ρ=0.298、Weinstock ρ=0.170；6日分别为0.445、0.125）。',
-        '昼夜结构储备共识未改善 Hall 诊断 AUC（0.763→0.763），也未改善 OGTT 预测误差；不能把当前窗口卡片解释为稳定体质。',
-        '实验性 FINS 回归 R²≈0.01，不具有实用的个体预测能力。',
+        'ADA 指南认为目前证据不足以支持使用 CGM 筛查或诊断糖尿病前期/糖尿病。',
+        'v8.7 治疗分层 Aether 动力学复合模型内部验证：Hall 未治疗 AUC 0.778，Colas 已治疗 AUC 0.650。',
       ],
       clinical_boundary: {
         diagnostic_status: 'not_diagnostic',
@@ -2194,22 +2240,14 @@ ${refs}`;
         raw_glucose_series_included: false,
         local_file_name_included: false,
         local_file_path_included: false,
-      },
-      references: [
-        {
-          title: 'ADA Standards of Care in Diabetes—2026, Diagnosis and Classification',
-          url: 'https://diabetesjournals.org/care/article/49/Supplement_1/S27/163926/2-Diagnosis-and-Classification-of-Diabetes'
-        },
-        {
-          title: 'NIDDK, Diabetes Tests & Diagnosis',
-          url: 'https://www.niddk.nih.gov/health-information/diabetes/overview/tests-diagnosis'
-        },
-      ],
+      }
     };
+
     this.lastReport = this.buildAuditText(this.lastReportJSON);
     const previewModal = document.getElementById('report-modal');
     if (previewModal && previewModal.classList.contains('open')) {
-      document.getElementById('report-preview').textContent = this.lastReport;
+      const reportPreview = document.getElementById('report-preview');
+      if (reportPreview) reportPreview.textContent = this.lastReport;
       this.setReportStatus('已按当前参数刷新');
     }
   },
