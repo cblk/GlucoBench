@@ -1285,58 +1285,111 @@ function applyDimensionCollapse(parsed) {
   return parsed;
 }
 
+function fixExcelDate(serial) {
+  const t = new Date((serial - 25569) * 86400 * 1000);
+  return new Date(t.getTime() + t.getTimezoneOffset() * 60000);
+}
+
 function parseFlexibleDate(tStr) {
-  if (!tStr) return null;
+  if (!tStr && tStr !== 0) return null;
   let s = String(tStr).trim().replace(/^"|"$/g, '');
   if (!s) return null;
-  let t = new Date(s);
-  if (!isNaN(t.getTime())) return t;
 
-  // Replace dots, dashes, Chinese date chars
+  // Handle Excel serial date numbers passed as string
+  const num = Number(s);
+  if (!isNaN(num) && num > 20000 && num < 100000) {
+    return fixExcelDate(num);
+  }
+
+  let isPM = false, isAM = false;
+  if (s.includes('下午') || /\bpm\b/i.test(s)) isPM = true;
+  if (s.includes('上午') || /\bam\b/i.test(s)) isAM = true;
+  s = s.replace(/下午|上午|AM|PM|am|pm/gi, ' ').trim();
+
   s = s.replace(/年|月/g, '/').replace(/日/g, ' ').replace(/\./g, '/').replace(/-/g, '/');
-  t = new Date(s);
-  if (!isNaN(t.getTime())) return t;
+  let t = new Date(s);
+  if (!isNaN(t.getTime())) {
+    if (isPM && t.getHours() < 12) t.setHours(t.getHours() + 12);
+    if (isAM && t.getHours() === 12) t.setHours(0);
+    return t;
+  }
 
-  // Try DD/MM/YYYY HH:mm:ss format
   const parts = s.split(/\s+/);
   if (parts.length >= 1) {
     const dateParts = parts[0].split('/');
     if (dateParts.length === 3) {
-      const p0 = parseInt(dateParts[0]), p1 = parseInt(dateParts[1]), p2 = parseInt(dateParts[2]);
+      const p0 = parseInt(dateParts[0], 10);
+      const p1 = parseInt(dateParts[1], 10);
+      const p2 = parseInt(dateParts[2], 10);
       if (p0 > 12 && p2 > 1000) {
         const reordered = `${p2}/${p1}/${p0}` + (parts[1] ? ' ' + parts[1] : '');
         t = new Date(reordered);
-        if (!isNaN(t.getTime())) return t;
+        if (!isNaN(t.getTime())) {
+          if (isPM && t.getHours() < 12) t.setHours(t.getHours() + 12);
+          if (isAM && t.getHours() === 12) t.setHours(0);
+          return t;
+        }
       }
     }
   }
   return null;
 }
 
+// Scored column finder for CGM CSV & XLSX sheets
+function findGlucoseAndColumnIndices(cols) {
+  let tCol = -1, vCol = -1;
+  let bestTScore = -1, bestVScore = -1;
+
+  cols.forEach((colCell, i) => {
+    const c = String(colCell || '').trim().toLowerCase();
+    
+    // Time column score
+    let tScore = -1;
+    if (c.includes('时间') || c.includes('time') || c.includes('date') || c.includes('timestamp') || c.includes('日期') || c.includes('时刻')) {
+      tScore = 10;
+      if (c.includes('设备时间') || c.includes('记录时间') || c.includes('device time')) tScore = 20;
+    }
+    if (tScore > bestTScore) {
+      bestTScore = tScore;
+      tCol = i;
+    }
+
+    // Glucose column score
+    let vScore = -1;
+    if (c.includes('血糖') || c.includes('glucose') || c.includes('cgm') || c.includes('bg') || c.includes('数值') || c.includes('value')) {
+      if (!c.includes('id') && !c.includes('编号') && !c.includes('自增') && !c.includes('单位') && !c.includes('unit')) {
+        vScore = 10;
+        if (c.includes('历史') || c.includes('historic') || c.includes('cgm') || c.includes('连续')) {
+          vScore = 30; // High priority: continuous/historic CGM reading (e.g. Abbott 历史血糖)
+        } else if (c.includes('扫描') || c.includes('scan') || c.includes('strip') || c.includes('指血')) {
+          vScore = 5; // Low priority: intermittent scan/strip reading
+        }
+      }
+    }
+    if (vScore > bestVScore) {
+      bestVScore = vScore;
+      vCol = i;
+    }
+  });
+
+  return { tCol, vCol };
+}
+
 function parseCGMFromCSV(text) {
   if (!text) return null;
+  text = text.replace(/^\uFEFF/, '');
   const lines = text.trim().split(/\r?\n/);
   if (lines.length < 2) return null;
 
-  let headerIdx = 0;
+  let headerIdx = -1;
   let delim = ',';
   let timeIdx = -1, valIdx = -1;
 
-  for (let r = 0; r < Math.min(lines.length, 15); r++) {
+  for (let r = 0; r < Math.min(lines.length, 50); r++) {
     const line = lines[r];
     const d = line.includes('\t') ? '\t' : (line.includes(';') ? ';' : ',');
-    const cols = line.split(d).map(c => c.trim().replace(/^"|"$/g, '').toLowerCase());
-    
-    let tCol = -1, vCol = -1;
-    cols.forEach((c, i) => {
-      if (c.includes('时间') || c.includes('time') || c.includes('date') || c.includes('timestamp') || c.includes('日期')) {
-        tCol = i;
-      }
-      if ((c.includes('血糖') || c.includes('glucose') || c.includes('value') || c.includes('cgm') || c.includes('数值') || c.includes('bg'))
-          && !c.includes('id') && !c.includes('编号') && !c.includes('自增')) {
-        vCol = i;
-      }
-    });
+    const cols = line.split(d).map(c => c.trim().replace(/^"|"$/g, ''));
+    const { tCol, vCol } = findGlucoseAndColumnIndices(cols);
 
     if (tCol !== -1 && vCol !== -1) {
       headerIdx = r;
@@ -1347,13 +1400,44 @@ function parseCGMFromCSV(text) {
     }
   }
 
+  // Fallback: search data rows directly
   if (timeIdx === -1 || valIdx === -1) {
-    timeIdx = 0; valIdx = 1;
     delim = lines[0].includes('\t') ? '\t' : (lines[0].includes(';') ? ';' : ',');
+    let bestT = 0, bestV = 1, maxValidPairs = 0;
+    const testLines = lines.slice(0, Math.min(lines.length, 50));
+    const sampleColsCount = testLines[0] ? testLines[0].split(delim).length : 0;
+
+    for (let c1 = 0; c1 < sampleColsCount; c1++) {
+      for (let c2 = 0; c2 < sampleColsCount; c2++) {
+        if (c1 === c2) continue;
+        let validPairs = 0;
+        for (let r = 0; r < testLines.length; r++) {
+          const parts = testLines[r].split(delim);
+          if (parts.length > Math.max(c1, c2)) {
+            const t = parseFlexibleDate(parts[c1]);
+            const v = parseFloat(parts[c2]?.trim().replace(/^"|"$/g, ''));
+            if (t instanceof Date && !isNaN(t.getTime()) && !isNaN(v) && v > 0 && v < 1000) {
+              validPairs++;
+            }
+          }
+        }
+        if (validPairs > maxValidPairs) {
+          maxValidPairs = validPairs;
+          bestT = c1; bestV = c2;
+        }
+      }
+    }
+    if (maxValidPairs > 0) {
+      timeIdx = bestT;
+      valIdx = bestV;
+      headerIdx = 0;
+    }
   }
 
+  if (timeIdx === -1 || valIdx === -1) return null;
+
   const timestamps = [], values = [];
-  for (let i = headerIdx + 1; i < lines.length; i++) {
+  for (let i = headerIdx; i < lines.length; i++) {
     const parts = lines[i].split(delim);
     if (parts.length <= Math.max(timeIdx, valIdx)) continue;
     const tStr = parts[timeIdx]?.trim().replace(/^"|"$/g, '');
@@ -1371,11 +1455,6 @@ function parseCGMFromCSV(text) {
   return applyDimensionCollapse({ timestamps: sorted.map(x => x.t), values: sorted.map(x => x.v) });
 }
 
-function fixExcelDate(serial) {
-  const t = new Date((serial - 25569) * 86400 * 1000);
-  return new Date(t.getTime() + t.getTimezoneOffset() * 60000);
-}
-
 function parseCGMFromXLSX(arrayBuffer) {
   if (typeof XLSX === 'undefined') {
     alert("XLSX 解析库尚未载入，请检查网络连接。");
@@ -1383,71 +1462,89 @@ function parseCGMFromXLSX(arrayBuffer) {
   }
   const wb = XLSX.read(arrayBuffer, { type: 'array', codepage: 65001 });
   if (!wb || !wb.SheetNames || wb.SheetNames.length === 0) return null;
-  const sheet = wb.Sheets[wb.SheetNames[0]];
-  if (!sheet) return null;
-  
-  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-  if (!rows || rows.length === 0) return null;
 
-  let headerIdx = 0;
-  let timeIdx = -1, valIdx = -1;
+  for (const sheetName of wb.SheetNames) {
+    const sheet = wb.Sheets[sheetName];
+    if (!sheet) continue;
 
-  for (let r = 0; r < Math.min(rows.length, 15); r++) {
-    const row = rows[r];
-    if (!Array.isArray(row)) continue;
-    let tCol = -1, vCol = -1;
-    row.forEach((cell, c) => {
-      const s = String(cell).trim().toLowerCase();
-      if (s.includes('时间') || s.includes('time') || s.includes('date') || s.includes('timestamp') || s.includes('日期')) {
-        tCol = c;
-      }
-      if ((s.includes('血糖') || s.includes('glucose') || s.includes('value') || s.includes('cgm') || s.includes('数值') || s.includes('bg'))
-          && !s.includes('id') && !s.includes('编号') && !s.includes('自增')) {
-        vCol = c;
-      }
-    });
-    if (tCol !== -1 && vCol !== -1) {
-      headerIdx = r;
-      timeIdx = tCol;
-      valIdx = vCol;
-      break;
-    }
-  }
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+    if (!rows || rows.length === 0) continue;
 
-  if (timeIdx === -1 || valIdx === -1) {
-    timeIdx = 0; valIdx = 1;
-    for (let r = 0; r < Math.min(rows.length, 15); r++) {
+    let headerIdx = -1;
+    let timeIdx = -1, valIdx = -1;
+
+    for (let r = 0; r < Math.min(rows.length, 50); r++) {
       const row = rows[r];
       if (!Array.isArray(row)) continue;
-      row.forEach((cell, c) => {
-        const s = String(cell).trim().toLowerCase();
-        if (s.includes('时间') || s.includes('time') || s.includes('date')) timeIdx = c;
-        if (s.includes('血糖') || s.includes('glucose') || s.includes('value')) valIdx = c;
-      });
+      const { tCol, vCol } = findGlucoseAndColumnIndices(row);
+      if (tCol !== -1 && vCol !== -1) {
+        headerIdx = r;
+        timeIdx = tCol;
+        valIdx = vCol;
+        break;
+      }
+    }
+
+    if (timeIdx === -1 || valIdx === -1) {
+      let bestT = 0, bestV = 1, maxValidPairs = 0;
+      const testRows = rows.slice(0, Math.min(rows.length, 50));
+      const maxCols = Math.max(...testRows.map(r => Array.isArray(r) ? r.length : 0));
+
+      for (let c1 = 0; c1 < maxCols; c1++) {
+        for (let c2 = 0; c2 < maxCols; c2++) {
+          if (c1 === c2) continue;
+          let validPairs = 0;
+          for (let r = 0; r < testRows.length; r++) {
+            const row = testRows[r];
+            if (Array.isArray(row) && row.length > Math.max(c1, c2)) {
+              let rawT = row[c1], rawV = row[c2];
+              let v = parseFloat(rawV);
+              let t = typeof rawT === 'number' && rawT > 10000 ? fixExcelDate(rawT) : parseFlexibleDate(String(rawT || ''));
+              if (t instanceof Date && !isNaN(t.getTime()) && !isNaN(v) && v > 0 && v < 1000) {
+                validPairs++;
+              }
+            }
+          }
+          if (validPairs > maxValidPairs) {
+            maxValidPairs = validPairs;
+            bestT = c1; bestV = c2;
+          }
+        }
+      }
+      if (maxValidPairs > 0) {
+        timeIdx = bestT;
+        valIdx = bestV;
+        headerIdx = 0;
+      }
+    }
+
+    if (timeIdx === -1 || valIdx === -1) continue;
+
+    const timestamps = [], values = [];
+    for (let r = headerIdx; r < rows.length; r++) {
+      const row = rows[r];
+      if (!Array.isArray(row) || row.length <= Math.max(timeIdx, valIdx)) continue;
+      let rawT = row[timeIdx], rawV = row[valIdx];
+      let v = parseFloat(rawV);
+      let t = null;
+      if (typeof rawT === 'number' && rawT > 10000) {
+        t = fixExcelDate(rawT);
+      } else if (rawT !== null && rawT !== undefined) {
+        t = parseFlexibleDate(String(rawT));
+      }
+      if (t instanceof Date && !isNaN(t.getTime()) && !isNaN(v) && v > 0) {
+        timestamps.push(t);
+        values.push(v);
+      }
+    }
+
+    if (timestamps.length > 0) {
+      const sorted = timestamps.map((t, i) => ({ t, v: values[i] })).sort((a, b) => a.t - b.t);
+      return applyDimensionCollapse({ timestamps: sorted.map(x => x.t), values: sorted.map(x => x.v) });
     }
   }
 
-  const timestamps = [], values = [];
-  for (let r = headerIdx + 1; r < rows.length; r++) {
-    const row = rows[r];
-    if (!Array.isArray(row) || row.length <= Math.max(timeIdx, valIdx)) continue;
-    let rawT = row[timeIdx], rawV = row[valIdx];
-    let v = parseFloat(rawV);
-    let t = null;
-    if (typeof rawT === 'number' && rawT > 10000) {
-      t = fixExcelDate(rawT);
-    } else if (rawT) {
-      t = parseFlexibleDate(String(rawT));
-    }
-    if (t instanceof Date && !isNaN(t.getTime()) && !isNaN(v) && v > 0) {
-      timestamps.push(t);
-      values.push(v);
-    }
-  }
-
-  if (timestamps.length === 0) return null;
-  const sorted = timestamps.map((t, i) => ({ t, v: values[i] })).sort((a, b) => a.t - b.t);
-  return applyDimensionCollapse({ timestamps: sorted.map(x => x.t), values: sorted.map(x => x.v) });
+  return null;
 }
 
 // ============================================================================
@@ -2296,158 +2393,6 @@ function computeAttractorMetrics(shapePoints, rawPoints, smoothPoints, skipRQA =
   };
 }
 
-// Kepler Kinematics (Angular Velocity and Sweep Rate)
-function computeKeplerKinematics(times, vals, core) {
-  if (!vals || !times || vals.length < 3 || core === null) return { angularVelocity: null, sweepRate: null };
-  
-  const X = new Float64Array(vals.length);
-  const Y = new Float64Array(vals.length);
-  const T_hours = new Float64Array(vals.length);
-  
-  for (let i = 0; i < vals.length; i++) {
-    T_hours[i] = times[i].getTime() / (3600 * 1000);
-    X[i] = vals[i] !== null ? vals[i] - core : null;
-  }
-  
-  for (let i = 0; i < vals.length; i++) {
-    if (X[i] === null) { Y[i] = null; continue; }
-    if (i > 0 && i < vals.length - 1 && X[i-1] !== null && X[i+1] !== null) {
-      Y[i] = (X[i+1] - X[i-1]) / (T_hours[i+1] - T_hours[i-1]);
-    } else if (i === 0 && X[i+1] !== null) {
-      Y[i] = (X[i+1] - X[i]) / (T_hours[i+1] - T_hours[i]);
-    } else if (i === vals.length - 1 && X[i-1] !== null) {
-      Y[i] = (X[i] - X[i-1]) / (T_hours[i] - T_hours[i-1]);
-    } else {
-      Y[i] = null;
-    }
-  }
-  
-  const dY = new Float64Array(vals.length);
-  for (let i = 0; i < vals.length; i++) {
-    if (Y[i] === null) { dY[i] = null; continue; }
-    if (i > 0 && i < vals.length - 1 && Y[i-1] !== null && Y[i+1] !== null) {
-      dY[i] = (Y[i+1] - Y[i-1]) / (T_hours[i+1] - T_hours[i-1]);
-    } else {
-       dY[i] = null;
-    }
-  }
-  
-  let sumSweep = 0;
-  let sumR2 = 0;
-  let validCount = 0;
-  
-  for (let i = 1; i < vals.length - 1; i++) {
-    if (X[i] === null || Y[i] === null || dY[i] === null) continue;
-    
-    const r2 = X[i]*X[i] + Y[i]*Y[i];
-    if (r2 < 0.05) continue; // lower noise floor for real data
-    
-    // Cross product magnitude: | X*dY - Y*dX | where dX = Y
-    const sweep = 0.5 * Math.abs(X[i] * dY[i] - Y[i] * Y[i]);
-    
-    sumSweep += sweep;
-    sumR2 += r2;
-    validCount++;
-  }
-  
-  if (validCount < 5 || sumR2 === 0) return { angularVelocity: null, sweepRate: null };
-  
-  const avgSweepRate = sumSweep / validCount;
-  const weightedAngularVel = 2.0 * sumSweep / sumR2; // rad/hour
-  
-  return { angularVelocity: weightedAngularVel, sweepRate: avgSweepRate };
-}
-
-// Unified kinetics function to compute early phase delay and relaxation fatigue
-function computeExcursionKinetics(times, vals) {
-  if (!vals || !times || vals.length < 10) return { earlyDelay: null, relaxationTime: null };
-  
-  let peaks = [];
-  let valleys = [];
-  let dir = 0; // 1 for up, -1 for down
-  
-  // Step 1: Find turning points (peaks and valleys)
-  for (let i = 1; i < vals.length; i++) {
-    if (vals[i] === null || vals[i-1] === null) continue;
-    let diff = vals[i] - vals[i-1];
-    if (Math.abs(diff) < 0.01) continue; // ignore tiny flat spots
-    
-    let newDir = diff > 0 ? 1 : -1;
-    if (dir !== 0 && newDir !== dir) {
-      if (newDir === 1) valleys.push({ idx: i-1, val: vals[i-1] }); // was down, now up -> valley
-      else peaks.push({ idx: i-1, val: vals[i-1] }); // was up, now down -> peak
-    }
-    dir = newDir;
-  }
-  
-  let earlyDelays = [];
-  let relaxTimes = [];
-  
-  for (let p of peaks) {
-    // Find preceding valley
-    let prevValley = null;
-    for (let j = valleys.length - 1; j >= 0; j--) {
-      if (valleys[j].idx < p.idx) { prevValley = valleys[j]; break; }
-    }
-    if (!prevValley && p.idx > 0) prevValley = { idx: 0, val: vals[0] }; // use start if no valley
-    
-    if (!prevValley || p.val - prevValley.val < 1.5) continue; // Excursion threshold > 1.5
-    
-    // Find max dv in the rising phase (Time-to-Deceleration)
-    let maxDv = -Infinity;
-    let maxDvIdx = prevValley.idx;
-    for (let i = prevValley.idx; i < p.idx; i++) {
-      if (vals[i] !== null && vals[i+1] !== null) {
-        let dv = vals[i+1] - vals[i];
-        if (dv > maxDv) { maxDv = dv; maxDvIdx = i; }
-      }
-    }
-    earlyDelays.push((times[maxDvIdx].getTime() - times[prevValley.idx].getTime()) / 60000);
-    
-    // Find relaxation phase (Time to Half-Recovery / 50% amplitude)
-    let targetVal = p.val - 0.5 * (p.val - prevValley.val);
-    let relaxEndIdx = p.idx;
-    let found = false;
-    
-    // Search forward until next valley or end of data
-    let nextValley = null;
-    for (let j = 0; j < valleys.length; j++) {
-      if (valleys[j].idx > p.idx) { nextValley = valleys[j]; break; }
-    }
-    let searchEnd = nextValley ? nextValley.idx : vals.length - 1;
-    
-    for (let i = p.idx; i <= searchEnd; i++) {
-      if (vals[i] !== null && vals[i] <= targetVal) {
-        relaxEndIdx = i;
-        found = true;
-        break;
-      }
-    }
-    
-    if (found) {
-      relaxTimes.push((times[relaxEndIdx].getTime() - times[p.idx].getTime()) / 60000);
-    } else {
-      // Incomplete recovery before next spike or end -> extreme fatigue.
-      // Penalize by taking the full duration to the next valley/end plus a 50% penalty.
-      let duration = (times[searchEnd].getTime() - times[p.idx].getTime()) / 60000;
-      relaxTimes.push(duration * 1.5);
-    }
-  }
-  
-  const getMedian = (arr) => {
-    if (!arr || arr.length === 0) return null;
-    arr.sort((a,b) => a - b);
-    return arr.length % 2 !== 0 
-      ? arr[Math.floor(arr.length / 2)] 
-      : (arr[arr.length / 2 - 1] + arr[arr.length / 2]) / 2;
-  };
-  
-  return {
-    earlyDelay: getMedian(earlyDelays),
-    relaxationTime: getMedian(relaxTimes)
-  };
-}
-
 // ============================================================================
 // S6. CLINICAL TRANSLATION — MRI Score & Insulin Prediction
 // ============================================================================
@@ -2817,15 +2762,16 @@ ${refs}` : ''}
     }
   },
 
-  // Parse uploaded file (CSV with GBK fallback, or XLSX)
+  // Parse uploaded file (CSV/TXT/TSV with GBK fallback, or XLSX/XLS)
   parse(f) {
     if (!f) return;
-    const isCSV = f.name.toLowerCase().endsWith('.csv');
+    const nameLower = f.name.toLowerCase();
+    const isExcel = nameLower.endsWith('.xlsx') || nameLower.endsWith('.xls');
     const r = new FileReader();
 
     r.onload = e => {
       try {
-        if (isCSV) {
+        if (!isExcel) {
           const arr = new Uint8Array(e.target.result);
           const utf8decoder = new TextDecoder('utf-8', { fatal: true });
           let text = '';
@@ -2841,14 +2787,14 @@ ${refs}` : ''}
         }
       } catch (err) {
         console.error('[解析异常]', err);
-        alert(`解析失败: 文件无法识别 (${err.message})\n可能是损坏、加密、或旧版 .xls 格式。`);
+        alert(`解析失败: 文件无法识别 (${err.message})\n可能是损坏、加密、或格式不受支持。`);
         return;
       }
 
-      if (this.rawData) {
+      if (this.rawData && this.rawData.values && this.rawData.values.length > 0) {
         this.onDataReady();
       } else {
-        alert("解析失败: 无法提取 '时间' 和 '血糖' 列");
+        alert("解析失败: 无法在此文件中提取到有效的 '时间' 和 '血糖' 数据。\n支持的列名包括：设备时间/时间/Date/Time、历史血糖/血糖/Glucose/Value。\n支持的格式：CSV、TSV、TXT、XLSX、XLS。");
       }
     };
 
@@ -2986,10 +2932,6 @@ ${refs}` : ''}
     const csd = computeCriticalSlowingDown(timestamps, rawValues);
     const nightMean = this._nightMean;
     const kepler = computeKeplerKinematics(timestamps, smoothValues, nightMean);
-
-    // Night baseline glucose (0:00-6:00, raw grid) — calibrated screening feature (v8.0).
-    // v8.1: invariant across all UI controls → computed once in onDataReady().
-    const nightMean = this._nightMean;
 
     // ---- Pipeline Stage 5: Compute attractor metrics ----
     const metrics = computeAttractorMetrics(points, pointsRaw, pointsSmooth);
