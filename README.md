@@ -61,6 +61,7 @@ Additional datasets collected for the hidden baseline insulin and CGM dynamics r
 | ShanghaiT1DM / ShanghaiT2DM | Complete public download | Figshare package containing CGM, clinical, laboratory, medication, and dietary records |
 | Healthy non-diabetic reference (Dryad) | Public artifacts complete | Two versioned supplemental DOCX files; participant-level raw CGM is not exposed by Dryad |
 | BIG IDEAs PhysioNet v1.1.3 | CGM research subset complete | All 16 Dexcom files, 16 food logs, demographics, license, and official checksums; the incomplete full multimodal ZIP is isolated and must not be used |
+| CGMacros PhysioNet v1.0 | Public tabular subset complete | Read-only `bio.csv` and 45 participant CGM files range-extracted from the public archive; the copied acquisition manifest records the source members and SHA-256 hashes. This is not the complete source ZIP. |
 
 Completed external files are marked read-only. Unfinished downloads are stored only under an explicitly named `incomplete_*` directory and must never be treated as valid data. AI-READI, Human Phenotype Project / 10K, PREDICT 1, Framingham Exam 4, JAEB raw CGM, Singapore, and T2Help remain access-controlled, form-gated, or unpublished; a visible landing page does not mean that participant-level data has been acquired.
 
@@ -164,7 +165,6 @@ dataset_train = SamplingDatasetDual(series['train']['target'],
 ```
 
 **Parts (3) and (4)** are model-specific, so we omit their discussion. For inspiration, we suggest to take a look at the `lib/gluformer/model.py` and `lib/latent_ode/trainer_glunet.py` files.
-
 
 
 
