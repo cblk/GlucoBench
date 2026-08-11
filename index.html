@@ -374,7 +374,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
   <header>
     <div class="header-title-box">
       <h1>CGM 塔肯斯相空间探针</h1>
-      <span class="subtitle">v8.7 / Aether 三变量动力学筛查模型</span>
+      <span class="subtitle">v8.8 / Aether 张量引擎遥测导航</span>
     </div>
     <div class="health-rating" id="health-rating">
       <span class="dot" style="background:var(--text-secondary); box-shadow:none;"></span>
@@ -386,32 +386,28 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar-controls">
       <section>
-        <h2>数据输入</h2>
-        <div class="upload-zone" id="upload-zone">
-          <div class="placeholder">
+        <h2>双周期动力学导航 (Epoch 0 & 1)</h2>
+        
+        <div class="upload-zone" id="upload-zone-0" style="margin-bottom: 8px;">
+          <div class="placeholder" id="placeholder-0">
             <div class="icon">🌌</div>
-            <div class="label">投喂时间序列 (CSV/XLSX)</div>
-            <div class="hint">要求包含时序与血糖两列</div>
+            <div class="label">Epoch 0: 初始基线 (CSV/XLSX)</div>
           </div>
-          <div class="file-info" id="file-info"></div>
-          <input type="file" id="file-input" accept=".xlsx,.csv" style="display:none">
+          <div class="file-info" id="file-info-0"></div>
+          <input type="file" id="file-input-0" accept=".xlsx,.csv" style="display:none">
         </div>
-        <div style="display:flex;gap:8px;margin-top:12px">
-          <button class="btn btn-highlight" id="btn-load-sample" style="flex:1">加载演示数据</button>
-        </div>
-      </section>
 
-      <section>
-        <h2>筛查人群</h2>
-        <div class="control-group">
-          <select id="sel-treatment" aria-label="降糖药治疗状态">
-            <option value="unknown">治疗状态未知（安全回退）</option>
-            <option value="untreated">未使用降糖药</option>
-            <option value="treated">正在使用降糖药</option>
-          </select>
+        <div class="upload-zone" id="upload-zone-1">
+          <div class="placeholder" id="placeholder-1">
+            <div class="icon">🚀</div>
+            <div class="label">Epoch 1: 干预对照 (CSV/XLSX)</div>
+          </div>
+          <div class="file-info" id="file-info-1"></div>
+          <input type="file" id="file-input-1" accept=".xlsx,.csv" style="display:none">
         </div>
-        <div id="treatment-note" style="font-size:11px; color:var(--text-secondary); margin-top:8px; line-height:1.5;">
-          未知状态仅使用夜间均糖；请勿猜测治疗状态。
+
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn btn-highlight" id="btn-load-sample" style="flex:1">加载演示对照数据</button>
         </div>
       </section>
 
@@ -485,37 +481,6 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
       <div class="metrics-panel" id="metrics-panel">
         <div class="metrics-guide">
           <strong>读卡规则：</strong>蓝=参考带，黄=轻度偏离，红/紫=高风险偏离。悬停任意卡片可显示其物理机制与判定标准。
-        </div>
-
-        <!-- 0. Insulin Predictor (Legacy) -->
-        <div class="metric-card" id="metric-insulin-pred">
-          <div class="metric-header">
-            <div class="metric-title">空腹胰岛素基线预判 (F-Insulin)</div>
-            <span class="info-icon">ℹ️</span>
-          </div>
-          <div class="metric-value-box">
-            <div class="metric-value" style="color:var(--text)">-</div>
-          </div>
-          <div class="metric-desc">多尺度吸引子特征预测（仅供参考）。</div>
-          <div class="metric-tooltip">
-            <div class="tooltip-title">空腹胰岛素基线预判</div>
-            <div class="tooltip-section">
-              <div class="tooltip-label">物理与动力学定义</div>
-              <div class="tooltip-text">通过将 τ∈{5,10,15,20} 四种延迟尺度的吸引子特征进行特征提取与 Ridge 回归，粗略还原空腹状态下的胰岛素代偿压力。</div>
-            </div>
-            <div class="tooltip-section">
-              <div class="tooltip-label">参考标准 / 分级</div>
-              <div class="tooltip-standards">
-                • <strong>≤ 10.0 μU/mL</strong>：正常敏感区间<br>
-                • <strong>10.0 ~ 15.0 μU/mL</strong>：早期代偿区间<br>
-                • <strong>> 15.0 μU/mL</strong>：显著抵抗区间
-              </div>
-            </div>
-            <div class="tooltip-section">
-              <div class="tooltip-label">⚠️ 预警与局限性</div>
-              <div class="tooltip-text">此模块系 v8.2 遗留探索模块（R² 极低），最新版本发现基于吸引子的拓扑特征缺乏对胰岛素绝对值的稳定映射。此预判不具备临床有效性，仅展示物理退化的一般趋势。</div>
-            </div>
-          </div>
         </div>
 
         <!-- 0.5 Early Phase Delay -->
@@ -1163,56 +1128,48 @@ const RQA_SAMPLE_PAIRS = 1_000_000;
 
 // v8.4 frozen deployment parameters. Healthy references are full-cohort control
 // medians and robust scales (1.4826*MAD with the validation fallback hierarchy).
-// The Logistic coefficients are expressed on the raw nightMean/DynamicScore scale.
-// v8.6 frozen deployment parameters.
-// Untreated uses workIntegral (Hysteresis Work). Treated uses nightFriction (Circadian Phase-Shift).
-const SCREENING_MODELS_V87 = Object.freeze({
-  untreated: Object.freeze({
-    label: "未治疗 Aether 全维度复合筛查",
-    cohort: "Hall 未治疗队列 (n=57/阳性19)",
-    intercept: -6.772379,
-    nightMeanCoef: 0.701805,
-    workIntegralCoef: 0.008823,
-    ascendFrictionCoef: 0.103079,
-    screeningThreshold: 0.25,
-    validation: Object.freeze({ auc: 0.778 }),
-  }),
-  treated: Object.freeze({
-    label: "已治疗 昼夜相变与形变受迫筛查",
-    cohort: "Colas 已治疗队列 (n=208/阳性17)",
-    intercept: -2.103627,
-    nightMeanCoef: 0.404453,
-    nightFrictionCoef: -0.050432,
-    ascendFrictionCoef: -0.102868,
-    screeningThreshold: 0.06,
-    validation: Object.freeze({ auc: 0.650 }),
-  }),
-});
+// ============================================================================
+// S0. CYBERNETIC NAVIGATOR PROTOCOL - TELEMETRY STATUS
+// ============================================================================
 
-const TREATMENT_NOTES_V87 = Object.freeze({
-  unknown: "未知状态仅使用夜间均糖；请勿猜测治疗状态。",
-  untreated: "未使用降糖药：高磁滞做功 + 高上升阻力（早相丧失）。",
-  treated: "正在使用降糖药：受药物强干扰，基础夜间摩擦力与上升阻力呈逆转特征。",
-});
+// Aether Protocol v8.8: Tensor Telemetry Status (Replaces legacy screening)
+// Based on Wind Tunnel Calibration (N=265)
+function computeTelemetryStatus(workIntegral, ascendFriction, nightFriction, ar1) {
+  let meltdown = false;
+  let meltdownReason = "";
+  let statusTier = "正常弹性";
+  let statusCls = "good";
 
-// Insulin predictor constants — v8.2 re-fit on the ORIGINAL 53-subject training set
-// (data1/, PLOS Biol pbio.2005143: CGM + fasting-insulin labels in clinical table).
-// Features recomputed with the CURRENT pipeline (output/js_fins_features.mjs, mirrors
-// predictInsulinBaseline internals: dim=4, τ∈{5,10,15,20}, TAU_WEIGHTS_V2 aggregation)
-// then Ridge(alpha=1) on raw aggregated features, same procedure as the original fit.
-// Result: in-sample R²=0.013, LOO R²=-0.09, LOO RMSE 4.59 ≈ label SD 4.44 — the
-// current-pipeline attractor features carry NO detectable fasting-insulin signal
-// (the original R²≈0.04 claim was itself noise). Old constants scored R²=-1.39 on these
-// features, confirming the legacy training formula differed. Sign audit of the new fit:
-// lyapunov/shapeRatio/avgRecovery/dimension directions match the old fit; volume's sign
-// was meaningless on the legacy scale (REF 393093 vs actual median 3.54). The card stays
-// explicitly experimental and non-diagnostic; predictions hover at the cohort mean.
-const INSULIN_MEAN = 7.75;
-const INSULIN_STD  = 4.40;
-const REF_MEDIANS = { volume: 3.537, shapeRatio: 2.207, avgRecovery: 0.166, dimension: 1.934, lyapunov: 0.207 };
-const FEATURE_SCALES = { volume: 0.000171, shapeRatio: -0.847, avgRecovery: -1.047, dimension: +0.106, lyapunov: -1.712 };
-const TAU_WEIGHTS_V2 = { 5: 0.15, 10: 0.20, 15: 0.50, 20: 0.15 };
-const DEFAULT_TAUS = [5, 10, 15, 20];
+  // Check for Critical Meltdown (based on Wind Tunnel P90+ thresholds)
+  if (ar1 > 0.994) {
+    meltdown = true;
+    meltdownReason = "临界慢化极值 (AR1 > 0.994)";
+    statusTier = "系统塑性形变";
+    statusCls = "bad";
+  } else if (workIntegral > 90) {
+    meltdown = true;
+    meltdownReason = "不可逆病理废热 (Work Integral > 90)";
+    statusTier = "高代偿做功状态";
+    statusCls = "bad";
+  } else if (nightFriction > 24) {
+    statusTier = "夜间肝脏重置死锁";
+    statusCls = "warn";
+  } else if (ascendFriction > 23) {
+    statusTier = "早相受迫摩擦增加";
+    statusCls = "warn";
+  }
+
+  return {
+    meltdown,
+    meltdownReason,
+    statusTier,
+    statusCls,
+    workIntegral,
+    ascendFriction,
+    nightFriction,
+    ar1
+  };
+}
 
 // Sampling density thresholds for dimension cap (engineering estimates)
 const MIN_POINTS_FOR_DIM = { 4: 150, 5: 600, 6: 1500 };
@@ -1226,51 +1183,6 @@ function getMedian(arr) {
   const s = [...arr].sort((a, b) => a - b);
   const mid = Math.floor(s.length / 2);
   return s.length % 2 !== 0 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
-}
-
-// Frozen white-box v8.7 screening rule
-function computeScreeningRiskV87(nightMean, workIntegral, nightFriction, ascendFriction, treatmentStatus = "unknown") {
-  if (!Number.isFinite(nightMean)) {
-    return { risk: null, mode: "unavailable", usedDynamic: false, reason: "夜间数据不足" };
-  }
-
-  const fallbackZ = 1.064314 * nightMean - 6.746364;
-  const fallback = {
-    risk: 1 / (1 + Math.exp(-fallbackZ)),
-    mode: "night-only",
-    usedDynamic: false,
-    screeningThreshold: 0.30,
-    highThreshold: 0.50,
-    model: null,
-    reason: treatmentStatus === "unknown" ? "治疗状态未知" : "动力学计算失败",
-  };
-
-  const model = SCREENING_MODELS_V87[treatmentStatus];
-  if (!model) return fallback;
-  
-  if (!Number.isFinite(ascendFriction)) {
-    return { ...fallback, mode: "night-only-fallback" };
-  }
-
-  let z = model.intercept + model.nightMeanCoef * nightMean + model.ascendFrictionCoef * ascendFriction;
-  
-  if (treatmentStatus === "untreated") {
-    if (!Number.isFinite(workIntegral)) return { ...fallback, mode: "night-only-fallback" };
-    z += model.workIntegralCoef * workIntegral;
-  } else if (treatmentStatus === "treated") {
-    if (!Number.isFinite(nightFriction)) return { ...fallback, mode: "night-only-fallback" };
-    z += model.nightFrictionCoef * nightFriction;
-  }
-
-  return {
-    risk: 1 / (1 + Math.exp(-z)),
-    mode: treatmentStatus,
-    usedDynamic: true,
-    screeningThreshold: model.screeningThreshold,
-    highThreshold: 0.50,
-    model,
-    reason: null,
-  };
 }
 
 // Auto-detect mg/dL and convert to mmol/L (÷18.0182)
@@ -2450,8 +2362,11 @@ function predictInsulinBaseline(rawValues, dim = 4) {
 // ============================================================================
 
 const UI = {
-  rawData: null,
+  epochs: [null, null],
+  epochMetrics: [null, null],
   plotInit: false, _rpInit: false,
+  _screenTau: 6,
+  _analyzeTimer: null,
   lastReport: null,
   lastReportJSON: null,
   _reportReturnFocus: null,
@@ -2533,17 +2448,15 @@ const UI = {
   },
 
   buildAuditText(log) {
-    const s = log.screening;
+    const t = log.telemetry;
     const d = log.data_quality;
     const statusLabels = {
       reference: '参考/描述', shifted: '偏离参考', extreme: '显著偏离',
       unavailable: '不可用', low_validity: '低效度', good: '正常', warn: '偏高', bad: '异常'
     };
-    const scoreText = s.model_score_percent === null ? '不可估' : `${s.model_score_percent.toFixed(1)}%`;
-    const dynamicText = !s.inputs.work_integral && !s.inputs.ascend_friction && !s.inputs.night_friction
-      ? `未启用（${s.inputs.dynamic_reason || '基线或阻力数据不足'}）`
-      : `已启用（磁滞做功=${s.inputs.work_integral !== null && s.inputs.work_integral !== undefined ? s.inputs.work_integral.toFixed(2) : 'N/A'}, 上升阻力=${s.inputs.ascend_friction !== null && s.inputs.ascend_friction !== undefined ? s.inputs.ascend_friction.toFixed(2) : 'N/A'}, 夜间阻力=${s.inputs.night_friction !== null && s.inputs.night_friction !== undefined ? s.inputs.night_friction.toFixed(2) : 'N/A'}）`;
-    const advancedKinetics = `早相迟滞=${s.inputs.early_delay_min !== null ? s.inputs.early_delay_min.toFixed(1) + 'm' : 'N/A'}, 回落疲劳=${s.inputs.relaxation_time_min !== null ? s.inputs.relaxation_time_min.toFixed(1) + 'm' : 'N/A'}, 夜间AR1=${s.inputs.night_ar1 !== null ? s.inputs.night_ar1.toFixed(3) : 'N/A'}, 角速度=${s.inputs.angular_velocity !== null ? s.inputs.angular_velocity.toFixed(2) + 'rad/h' : 'N/A'}`;
+    
+    const dynamicText = `磁滞做功=${t.inputs.work_integral !== null && t.inputs.work_integral !== undefined ? t.inputs.work_integral.toFixed(2) : 'N/A'}, 上升阻力=${t.inputs.ascend_friction !== null && t.inputs.ascend_friction !== undefined ? t.inputs.ascend_friction.toFixed(2) : 'N/A'}, 夜间阻力=${t.inputs.night_friction !== null && t.inputs.night_friction !== undefined ? t.inputs.night_friction.toFixed(2) : 'N/A'}`;
+    const advancedKinetics = `早相迟滞=${t.inputs.early_delay_min !== null ? t.inputs.early_delay_min.toFixed(1) + 'm' : 'N/A'}, 回落疲劳=${t.inputs.relaxation_time_min !== null ? t.inputs.relaxation_time_min.toFixed(1) + 'm' : 'N/A'}, 夜间AR1=${t.inputs.night_ar1 !== null ? t.inputs.night_ar1.toFixed(3) : 'N/A'}, 角速度=${t.inputs.angular_velocity !== null ? t.inputs.angular_velocity.toFixed(2) + 'rad/h' : 'N/A'}`;
     const metrics = log.metrics.map(item =>
       `| ${item.label} | ${item.value} | ${statusLabels[item.status] || item.status} | ${item.interpretation} |`
     ).join('\n');
@@ -2553,21 +2466,16 @@ const UI = {
     const limits = log.evidence_limits.map(item => `- ${item}`).join('\n');
     const refs = (log.references || []).map((item, index) => `${index + 1}. ${item.title}: ${item.url}`).join('\n');
 
-    return `# GlucoBench CGM Aether 动力学筛查审计日志
+    return `# GlucoBench CGM Aether 张量引擎遥测日志
 
-> 该输出是研究工具的可追溯记录，不是诊断书。模型分值不是患病概率，指标卡颜色也不是疾病标签。
+> 该输出是研究工具的可追溯记录，不是诊断书。指标卡颜色不是疾病标签，仅反映物理摩擦力的相对大小。
 
-## 1. 筛查输出
+## 1. 遥测输出
 
-- 研究筛查分层：${s.classification || '不可估'}
-- 内部模型分值：${scoreText}
-- 实际模型路径：${s.model_path}
-- 治疗语境：${s.treatment_context}
-- 夜间均糖输入：${s.inputs.night_mean_mmol_l === null ? 'N/A' : s.inputs.night_mean_mmol_l.toFixed(2) + ' mmol/L'}
-- 动力学输入：${dynamicText}
+- 张量引擎状态：${t.status || '不可估'}
+- 熔毁预警：${t.meltdown_warning ? '🚨 是 (' + t.meltdown_reason + ')' : '否'}
+- 核心动力学指标：${dynamicText}
 - 高维物理探针：${advancedKinetics}
-- 分层阈值：${s.thresholds}
-- 解释：${s.interpretation}
 
 ## 2. 数据质量与分析语境
 
@@ -2597,12 +2505,11 @@ ${limits}
 
 ## 6. 后续核实
 
-- ${log.clinical_boundary.next_step}
-- 可用于筛查/诊断的标准实验室项目包括 A1C、空腹血浆葡萄糖和 75 g OGTT；无明确高血糖危象时需按专业指南确认异常结果。
+- ${nextStep}
 
 ## 7. 可复现性与隐私
 
-- 日志格式：${log.schema_version}；工具版本：${log.app_version}；筛查逻辑：${log.screening_version}
+- 日志格式：${log.schema_version}；工具版本：${log.app_version}
 - 生成时间：${log.generated_at}
 - 隐私：不含原始血糖序列，不含本地文件路径；JSON 仅保存本页已显示的汇总量和参数。
 ${refs ? `
@@ -2623,47 +2530,50 @@ ${refs}` : ''}
     // Load sample data
     document.getElementById('btn-load-sample').onclick = () => {
       fetch('1.csv').then(r => r.text()).then(t => {
-        this.rawData = parseCGMFromCSV(t);
-        if (this.rawData) this.onDataReady();
+        this.epochs[0] = parseCGMFromCSV(t);
+        document.getElementById('upload-zone-0').classList.add('has-file');
+        document.getElementById('file-info-0').textContent = "1.csv (Epoch 0)";
+        if (this.epochs[0]) this.onDataReady(0);
       }).catch(e => alert("无本地演示文件，请上传数据"));
     };
 
-    // File input
-    document.getElementById('file-input').onchange = e => {
-      if (e.target.files.length) {
-        const file = e.target.files[0];
-        document.getElementById('upload-zone').classList.add('has-file');
-        document.getElementById('file-info').textContent = file.name;
-        this.parse(file);
-      }
-    };
+    // Setup dual upload zones
+    [0, 1].forEach(epochIdx => {
+      const input = document.getElementById(`file-input-${epochIdx}`);
+      const zone = document.getElementById(`upload-zone-${epochIdx}`);
+      const info = document.getElementById(`file-info-${epochIdx}`);
 
-    // Upload zone click & drag-drop
-    const z = document.getElementById('upload-zone');
-    z.onclick = () => document.getElementById('file-input').click();
+      input.onchange = e => {
+        if (e.target.files.length) {
+          const file = e.target.files[0];
+          zone.classList.add('has-file');
+          info.textContent = file.name;
+          this.parse(file, epochIdx);
+        }
+      };
 
-    z.addEventListener('dragover', e => {
-      e.preventDefault();
-      e.stopPropagation();
-      z.classList.add('dragover');
-    });
+      zone.onclick = () => input.click();
 
-    z.addEventListener('dragleave', e => {
-      e.preventDefault();
-      e.stopPropagation();
-      z.classList.remove('dragover');
-    });
+      zone.addEventListener('dragover', e => {
+        e.preventDefault(); e.stopPropagation();
+        zone.classList.add('dragover');
+      });
 
-    z.addEventListener('drop', e => {
-      e.preventDefault();
-      e.stopPropagation();
-      z.classList.remove('dragover');
-      if (e.dataTransfer && e.dataTransfer.files.length) {
-        const file = e.dataTransfer.files[0];
-        z.classList.add('has-file');
-        document.getElementById('file-info').textContent = file.name;
-        this.parse(file);
-      }
+      zone.addEventListener('dragleave', e => {
+        e.preventDefault(); e.stopPropagation();
+        zone.classList.remove('dragover');
+      });
+
+      zone.addEventListener('drop', e => {
+        e.preventDefault(); e.stopPropagation();
+        zone.classList.remove('dragover');
+        if (e.dataTransfer && e.dataTransfer.files.length) {
+          const file = e.dataTransfer.files[0];
+          zone.classList.add('has-file');
+          info.textContent = file.name;
+          this.parse(file, epochIdx);
+        }
+      });
     });
 
     // Also prevent defaults on window to stop browser from opening the file
@@ -2672,10 +2582,6 @@ ${refs}` : ''}
 
     // Control bindings
     document.getElementById('sel-period').onchange = () => this.analyze();
-    document.getElementById('sel-treatment').onchange = e => {
-      document.getElementById('treatment-note').textContent = TREATMENT_NOTES_V87[e.target.value] || '';
-      this.analyze();
-    };
     // v8.1: tau slider debounced — dragging fires analyze() per input event, and each run
     // is an O(n²) RQA + 3 Plotly redraws. Value display updates instantly, pipeline waits.
     document.getElementById('tau-slider').oninput = e => {
@@ -2763,13 +2669,14 @@ ${refs}` : ''}
   },
 
   // Parse uploaded file (CSV/TXT/TSV with GBK fallback, or XLSX/XLS)
-  parse(f) {
+  parse(f, epochIdx) {
     if (!f) return;
     const nameLower = f.name.toLowerCase();
     const isExcel = nameLower.endsWith('.xlsx') || nameLower.endsWith('.xls');
     const r = new FileReader();
 
     r.onload = e => {
+      let parsedData = null;
       try {
         if (!isExcel) {
           const arr = new Uint8Array(e.target.result);
@@ -2781,9 +2688,9 @@ ${refs}` : ''}
             const gbkdecoder = new TextDecoder('gbk');
             text = gbkdecoder.decode(arr);
           }
-          this.rawData = parseCGMFromCSV(text);
+          parsedData = parseCGMFromCSV(text);
         } else {
-          this.rawData = parseCGMFromXLSX(e.target.result);
+          parsedData = parseCGMFromXLSX(e.target.result);
         }
       } catch (err) {
         console.error('[解析异常]', err);
@@ -2791,8 +2698,9 @@ ${refs}` : ''}
         return;
       }
 
-      if (this.rawData && this.rawData.values && this.rawData.values.length > 0) {
-        this.onDataReady();
+      if (parsedData && parsedData.values && parsedData.values.length > 0) {
+        this.epochs[epochIdx] = parsedData;
+        this.onDataReady(epochIdx);
       } else {
         alert("解析失败: 无法在此文件中提取到有效的 '时间' 和 '血糖' 数据。\n支持的列名包括：设备时间/时间/Date/Time、历史血糖/血糖/Glucose/Value。\n支持的格式：CSV、TSV、TXT、XLSX、XLS。");
       }
@@ -2827,35 +2735,31 @@ ${refs}` : ''}
     }
   },
 
-  onDataReady() {
+  onDataReady(epochIdx) {
     // Reset plot state for new data
     this.plotInit = false; this._rpInit = false;
-    this._screenDynamics = null;
 
-    const { timestamps, values: rawValues } = resampleData(this.rawData, false);
-    const acf = computeACF(rawValues, 60);
-    const recTau = recommendTau(acf);
+    const data = this.epochs[epochIdx];
+    if (!data) return;
 
-    const slider = document.getElementById('tau-slider');
-    if (recTau > parseInt(slider.max)) {
-      slider.max = Math.min(60, recTau + 10);
+    const { timestamps, values: rawValues } = resampleData(data, false);
+    
+    // Only recommend tau based on Epoch 0 if available, else Epoch 1
+    if (epochIdx === 0 || (epochIdx === 1 && !this.epochs[0])) {
+      const acf = computeACF(rawValues, 60);
+      const recTau = recommendTau(acf);
+
+      const slider = document.getElementById('tau-slider');
+      if (recTau > parseInt(slider.max)) {
+        slider.max = Math.min(60, recTau + 10);
+      }
+      slider.value = recTau;
+      document.getElementById('tau-display').textContent = slider.value;
+      this._screenTau = recTau;
+
+      document.getElementById('sel-period').value = 'all';
+      document.getElementById('chk-smooth').checked = true;
     }
-    slider.value = recTau;
-    document.getElementById('tau-display').textContent = slider.value;
-    this._screenTau = recTau;
-
-    // A new file starts from the exact validation path. Later visualization controls may
-    // change freely; the screening dynamics cached from this first full/smoothed pass stay
-    // invariant and cannot be altered by period, tau, or smoothing UI controls.
-    document.getElementById('sel-period').value = 'all';
-    document.getElementById('chk-smooth').checked = true;
-
-    const nightRaw = sliceByPeriod(timestamps, rawValues, 'night').values.filter(v => v !== null);
-    this._nightPointCount = nightRaw.length;
-    this._nightMean = nightRaw.length >= 6
-      ? nightRaw.reduce((a, b) => a + b, 0) / nightRaw.length
-      : null;
-    this._insulinPred = predictInsulinBaseline(rawValues, 4);
 
     this.analyze();
   },
@@ -2871,11 +2775,12 @@ ${refs}` : ''}
 
   // ---- Main analysis pipeline ----
   analyze() {
-    if (!this.rawData) return;
+    if (!this.epochs[0] && !this.epochs[1]) return;
     document.getElementById('plot-placeholder').style.display = 'none';
 
     // Unit collapse notice
-    if (this.rawData.collapsed) {
+    const hasCollapsed = (this.epochs[0] && this.epochs[0].collapsed) || (this.epochs[1] && this.epochs[1].collapsed);
+    if (hasCollapsed) {
       if (!document.getElementById('collapse-notice')) {
         const notice = document.createElement('div');
         notice.id = 'collapse-notice';
@@ -2888,17 +2793,27 @@ ${refs}` : ''}
       if (notice) notice.remove();
     }
 
-    // ---- Pipeline Stage 1-2: Preprocess ----
     const smooth = document.getElementById('chk-smooth').checked;
-    const { timestamps, values } = resampleData(this.rawData, smooth);
     const period = document.getElementById('sel-period').value;
     const tau = parseInt(document.getElementById('tau-slider').value);
 
-    // ---- Pipeline Stage 3: Estimate embedding dimension ----
-    // dA probe MUST use raw (unsmoothed) data — independent of UI filter toggle.
-    // This preserves SYC theorem integrity: embedding dimension is a structural property
-    // of the underlying dynamics, not of the measurement filter.
-    const { values: probeRawValues } = resampleData(this.rawData, false);
+    // Process each epoch
+    for (let i = 0; i < 2; i++) {
+      const data = this.epochs[i];
+      if (!data) {
+        this.epochMetrics[i] = null;
+        continue;
+      }
+      this.epochMetrics[i] = this.processEpoch(data, smooth, period, tau);
+    }
+
+    // Render metrics using both epochs
+    this.renderMetricsDual();
+  },
+
+  processEpoch(data, smooth, period, tau) {
+    const { timestamps, values } = resampleData(data, smooth);
+    const { values: probeRawValues } = resampleData(data, false);
     const slicedProbe = sliceByPeriod(timestamps, probeRawValues, period);
     const { dim, dA, calculatedDim, capped: dimCapped, probeN } = estimateEmbeddingDimension(slicedProbe.values, tau);
 
@@ -2922,15 +2837,17 @@ ${refs}` : ''}
     }
 
     // Raw & smooth pathways (anchored: Recovery→raw, Lyapunov/RQA→smooth)
-    const { values: rawValues } = resampleData(this.rawData, false);
-    const { values: smoothValues } = resampleData(this.rawData, true);
+    const { values: rawValues } = resampleData(data, false);
+    const { values: smoothValues } = resampleData(data, true);
     const pointsRaw = takensEmbedding(sliceByPeriod(timestamps, rawValues, period).values, tau, dim);
     const pointsSmooth = takensEmbedding(sliceByPeriod(timestamps, smoothValues, period).values, tau, dim);
     
+    const nightRaw = sliceByPeriod(timestamps, rawValues, 'night').values.filter(v => v !== null);
+    const nightMean = nightRaw.length >= 6 ? nightRaw.reduce((a, b) => a + b, 0) / nightRaw.length : null;
+
     // Aether Protocol v8.7: Kinetics (Time-to-Deceleration & Relaxation Fatigue)
     const kinetics = computeExcursionKinetics(timestamps, smoothValues);
     const csd = computeCriticalSlowingDown(timestamps, rawValues);
-    const nightMean = this._nightMean;
     const kepler = computeKeplerKinematics(timestamps, smoothValues, nightMean);
 
     // ---- Pipeline Stage 5: Compute attractor metrics ----
@@ -2973,24 +2890,40 @@ ${refs}` : ''}
     const nightCore3D = nightCore ? nightCore.slice(0, 3) : null;
     const gravityCore3D = metrics.gravityCore.slice(0, 3);
 
-    // ---- Pipeline Stage 7: Render ----
-    this.renderMetrics(
-      metrics, displacement, tau, validVs, smooth, insulinPred, dA, dim, dimCapped,
+    // ---- Pipeline Stage 7: Return ----
+    return {
+      metrics, displacement, tau, validVs, smooth, dA, dim, dimCapped,
       calculatedDim, nightMean,
-      { period, probeN, nightPointCount: this._nightPointCount || 0, nightFriction }
-    );
-    this.renderPlots(sliced.timestamps, sliced.values, points3D, tau, gravityCore3D, nightCore3D, metrics);
+      logContext: { period, probeN, nightPointCount: nightRaw.length, nightFriction },
+      plotData: { timestamps: sliced.timestamps, values: sliced.values, points3D, gravityCore3D, nightCore3D }
+    };
+  },
 
+  renderMetricsDual() {
+    const m0 = this.epochMetrics[0];
+    const m1 = this.epochMetrics[1];
+    if (!m0 && !m1) return;
+
+    // Use m1 if available, otherwise m0 for base rendering
+    const base = m1 || m0;
+    
     // Update dimension display
     const dimEl = document.getElementById('dim-display');
-    if (dimEl) dimEl.textContent = `m=${dim} (dA=${dA.toFixed(2)})` + (dimCapped ? ` ⚠️理论${calculatedDim}维,密度熔断` : '');
+    if (dimEl) dimEl.textContent = `m=${base.dim} (dA=${base.dA.toFixed(2)})` + (base.dimCapped ? ` ⚠️理论${base.calculatedDim}维,密度熔断` : '');
+
+    // Render plots (we can overlay them later, for now just render the latest or both if we upgrade plotting)
+    this.renderPlots(base.plotData.timestamps, base.plotData.values, base.plotData.points3D, base.tau, base.plotData.gravityCore3D, base.plotData.nightCore3D, base.metrics);
+
+    // Now render the dual metrics
+    this.renderMetrics(m0, m1);
   },
 
   // ---- Metric card rendering ----
   setCard(id, val, desc, cls) {
     const card = document.getElementById(id);
+    if (!card) return { val, desc, band: cls };
     card.className = `metric-card ${cls}`;
-    card.querySelector('.metric-value').textContent = val;
+    card.querySelector('.metric-value').innerHTML = val;
     const colorByClass = {
       reference: 'primary-light', shifted: 'yellow', extreme: 'purple', unavailable: 'text-secondary',
       good: 'green', warn: 'yellow', bad: 'red'
@@ -3000,70 +2933,86 @@ ${refs}` : ''}
     return { val, desc, band: cls };
   },
 
-  renderMetrics(m, disp, tau, validVs, smooth, insulinPred, dA, dim, dimCapped, calculatedDim, nightMean, logContext = {}) {
+  formatDualMetric(val0, val1, isLowerBetter = true) {
+    if (val0 === null || val0 === undefined || !Number.isFinite(val0)) {
+      if (val1 !== null && val1 !== undefined && Number.isFinite(val1)) return val1.toFixed(2);
+      return 'N/A';
+    }
+    if (val1 === null || val1 === undefined || !Number.isFinite(val1)) {
+      return `${val0.toFixed(2)} <span style="font-size:12px;color:var(--text-secondary)">-> N/A</span>`;
+    }
+    
+    const delta = val1 - val0;
+    const pct = val0 !== 0 ? (delta / Math.abs(val0)) * 100 : 0;
+    
+    let color = 'var(--text-secondary)';
+    let arrow = '';
+    if (Math.abs(pct) > 1.0) {
+      if (isLowerBetter) {
+        color = delta < 0 ? 'var(--green)' : 'var(--red)';
+      } else {
+        color = delta > 0 ? 'var(--green)' : 'var(--red)';
+      }
+      arrow = delta > 0 ? '↑' : '↓';
+    }
+    
+    return `${val0.toFixed(2)} <span style="font-size:14px;color:${color}">-> ${val1.toFixed(2)} (${arrow}${Math.abs(pct).toFixed(1)}%)</span>`;
+  },
+
+  renderMetrics(epoch0, epoch1) {
+    const base = epoch1 || epoch0;
+    const m = base.metrics;
+    const logContext = base.logContext;
+    const nightMean = base.nightMean;
+    const validVs = base.validVs;
+    const disp = base.displacement;
+    
     let baseScore = 1000;
     let rData = {};
 
-    const treatmentStatus = document.getElementById('sel-treatment').value;
     const nightFrictionVal = logContext.nightFriction !== undefined ? logContext.nightFriction : (m.nightFriction || null);
-    const screening = computeScreeningRiskV87(nightMean, m.workIntegral, nightFrictionVal, m.ascendFriction, treatmentStatus);
-    const screenRisk = screening.risk;
-    let riskTier = null, riskCls = 'warn', riskDesc = screening.reason || '数据不足';
-    if (screenRisk !== null) {
-      if (screening.usedDynamic) {
-        const validation = screening.model.validation;
-        if (screenRisk >= screening.highThreshold) {
-          riskTier = '高风险'; riskCls = 'bad';
-        } else if (screenRisk >= screening.screeningThreshold) {
-          riskTier = '筛查阳性'; riskCls = 'warn';
-        } else {
-          riskTier = '筛查阴性'; riskCls = 'good';
-        }
-        riskDesc = `${screening.model.label}（内部验证 AUC=${validation.auc.toFixed(3)}）`;
-      } else {
-        if (screenRisk >= 0.50) { riskTier = '高风险'; riskCls = 'bad'; }
-        else if (screenRisk >= 0.30) { riskTier = '中风险'; riskCls = 'warn'; }
-        else { riskTier = '低风险'; riskCls = 'good'; }
-        riskDesc = `v8.3夜间均糖安全回退（${screening.reason}）`;
-      }
-    }
-
-    // 0. Fasting Insulin Prediction
-    if (insulinPred && insulinPred.predicted !== null && Number.isFinite(insulinPred.predicted)) {
-      let insCls = 'reference', insDesc = '多尺度拓扑特征回归估计的空腹胰岛素水平。';
-      if (insulinPred.predicted > 15) { insCls = 'bad'; insDesc = '显著升高（>15）｜高度胰岛素抵抗与代偿特征。'; }
-      else if (insulinPred.predicted > 10) { insCls = 'warn'; insDesc = '轻度偏高（10–15）｜可能存在隐性代偿压力。'; }
-      rData.ins = this.setCard('metric-insulin-pred', insulinPred.predicted.toFixed(1) + ' μU/mL', insDesc, insCls);
-    } else {
-      rData.ins = this.setCard('metric-insulin-pred', 'N/A', '数据量不足或模型未就绪。', 'unavailable');
-    }
+    
+    // Compute Telemetry Status (Replaces Screening)
+    const telemetry = computeTelemetryStatus(m.workIntegral, m.ascendFriction, nightFrictionVal, m.nightAR1);
 
     // 0.5 Early Phase Delay
-    if (m.earlyDelay !== null && m.earlyDelay !== undefined && Number.isFinite(m.earlyDelay)) {
+    const ed0 = epoch0 ? epoch0.metrics.earlyDelay : null;
+    const ed1 = epoch1 ? epoch1.metrics.earlyDelay : null;
+    const edVal = epoch1 ? ed1 : ed0;
+    if (edVal !== null && edVal !== undefined && Number.isFinite(edVal)) {
       let edCls = 'reference', edDesc = '原生敏锐早相；系统二阶动力学无延迟。';
-      if (m.earlyDelay > 45) { edCls = 'bad'; edDesc = '早相实质性枯竭（>45min）｜高危物理残差，动力学失控。'; }
-      else if (m.earlyDelay > 30) { edCls = 'warn'; edDesc = '早期阻尼钝化（30-45min）｜第一时相分泌开始代偿。'; }
-      rData.earlyDelay = this.setCard('metric-early-delay', m.earlyDelay.toFixed(1) + ' min', edDesc, edCls);
+      if (edVal > 45) { edCls = 'bad'; edDesc = '早相实质性枯竭（>45min）｜高危物理残差，动力学失控。'; }
+      else if (edVal > 30) { edCls = 'warn'; edDesc = '早期阻尼钝化（30-45min）｜第一时相分泌开始代偿。'; }
+      const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(ed0, ed1, true) : edVal.toFixed(1) + ' min';
+      rData.earlyDelay = this.setCard('metric-early-delay', displayStr, edDesc, edCls);
     } else {
       rData.earlyDelay = this.setCard('metric-early-delay', 'N/A', '未检测到有效受迫上升段。', 'unavailable');
     }
 
     // 0.6 Relaxation Time
-    if (m.relaxationTime !== null && m.relaxationTime !== undefined && Number.isFinite(m.relaxationTime)) {
+    const rt0 = epoch0 ? epoch0.metrics.relaxationTime : null;
+    const rt1 = epoch1 ? epoch1.metrics.relaxationTime : null;
+    const rtVal = epoch1 ? rt1 : rt0;
+    if (rtVal !== null && rtVal !== undefined && Number.isFinite(rtVal)) {
       let rtCls = 'reference', rtDesc = '理想弹性回弹；代谢弹簧无塑性形变。';
-      if (m.relaxationTime > 90) { rtCls = 'bad'; rtDesc = '严重塑性形变（>90min）｜失去热力学弹性，极度死锁。'; }
-      else if (m.relaxationTime > 45) { rtCls = 'warn'; rtDesc = '外周受体弹性疲劳（45-90min）｜清除效率显著降级。'; }
-      rData.relaxTime = this.setCard('metric-relax-time', m.relaxationTime.toFixed(1) + ' min', rtDesc, rtCls);
+      if (rtVal > 90) { rtCls = 'bad'; rtDesc = '严重塑性形变（>90min）｜失去热力学弹性，极度死锁。'; }
+      else if (rtVal > 45) { rtCls = 'warn'; rtDesc = '外周受体弹性疲劳（45-90min）｜清除效率显著降级。'; }
+      const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(rt0, rt1, true) : rtVal.toFixed(1) + ' min';
+      rData.relaxTime = this.setCard('metric-relax-time', displayStr, rtDesc, rtCls);
     } else {
       rData.relaxTime = this.setCard('metric-relax-time', 'N/A', '缺少足够降幅的完整回落段。', 'unavailable');
     }
 
     // 0.7 Night AR1 (Critical Slowing Down)
-    if (m.nightAR1 !== null && m.nightAR1 !== undefined && Number.isFinite(m.nightAR1)) {
+    const ar0 = epoch0 ? epoch0.metrics.nightAR1 : null;
+    const ar1 = epoch1 ? epoch1.metrics.nightAR1 : null;
+    const arVal = epoch1 ? ar1 : ar0;
+    if (arVal !== null && arVal !== undefined && Number.isFinite(arVal)) {
       let ar1Cls = 'reference', ar1Desc = '高频敏锐对抗；未出现临界慢化。';
-      if (m.nightAR1 > 0.988) { ar1Cls = 'bad'; ar1Desc = '极度慢化（>0.988）｜系统自我纠错能力丧失，崩溃前兆。'; }
-      else if (m.nightAR1 > 0.983) { ar1Cls = 'warn'; ar1Desc = '低频游荡（0.983-0.988）｜夜间基础相调控开始变慢。'; }
-      rData.nightAR1 = this.setCard('metric-night-ar1', m.nightAR1.toFixed(3), ar1Desc, ar1Cls);
+      if (arVal > 0.994) { ar1Cls = 'bad'; ar1Desc = '极度慢化（>0.994）｜系统自我纠错能力丧失，崩溃前兆。'; }
+      else if (arVal > 0.985) { ar1Cls = 'warn'; ar1Desc = '低频游荡（0.985-0.994）｜夜间基础相调控开始变慢。'; }
+      const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(ar0, ar1, true) : arVal.toFixed(3);
+      rData.nightAR1 = this.setCard('metric-night-ar1', displayStr, ar1Desc, ar1Cls);
     } else {
       rData.nightAR1 = this.setCard('metric-night-ar1', 'N/A', '缺少足够的夜间波动数据。', 'unavailable');
     }
@@ -3078,11 +3027,15 @@ ${refs}` : ''}
     }
 
     // 1. Work Integral
-    if (m.workIntegral !== null && m.workIntegral !== undefined && Number.isFinite(m.workIntegral)) {
+    const w0 = epoch0 ? epoch0.metrics.workIntegral : null;
+    const w1 = epoch1 ? epoch1.metrics.workIntegral : null;
+    const wVal = epoch1 ? w1 : w0;
+    if (wVal !== null && wVal !== undefined && Number.isFinite(wVal)) {
       let wCls = 'reference', wDesc = '极低做功耗散；系统处于最小作用量物理区间。';
-      if (m.workIntegral > 80.0) { wCls = 'bad'; wDesc = '不可逆病理性废热（>80）｜磁滞面积过大，高度代谢负荷。'; }
-      else if (m.workIntegral > 45.0) { wCls = 'warn'; wDesc = '代偿性做功（45-80）｜热力学废热开始淤积。'; }
-      rData.work = this.setCard('metric-workintegral', m.workIntegral.toFixed(2), wDesc, wCls);
+      if (wVal > 80.0) { wCls = 'bad'; wDesc = '不可逆病理性废热（>80）｜磁滞面积过大，高度代谢负荷。'; }
+      else if (wVal > 45.0) { wCls = 'warn'; wDesc = '代偿性做功（45-80）｜热力学废热开始淤积。'; }
+      const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(w0, w1, true) : wVal.toFixed(2);
+      rData.work = this.setCard('metric-workintegral', displayStr, wDesc, wCls);
     } else {
       rData.work = this.setCard('metric-workintegral', 'N/A', '磁滞做功不可用。', 'unavailable');
     }
@@ -3156,30 +3109,28 @@ ${refs}` : ''}
       rData.entr = this.setCard('metric-entr', 'N/A', '对角线不足。', 'unavailable');
     }
 
-    // 9. Work Integral
-    if (m.workIntegral !== null && m.workIntegral !== undefined && Number.isFinite(m.workIntegral)) {
-      let wCls = 'reference', wDesc = '磁滞环绝对做功面积；未治疗组高做功表示不可逆代偿废热积累。';
-      if (m.workIntegral > 100) { wCls = 'bad'; wDesc = '显著偏高（>100）｜磁滞面积过大，不可逆做功代偿显著。'; }
-      else if (m.workIntegral > 60) { wCls = 'warn'; wDesc = '轻度偏高（60–100）｜代偿做功有所增加。'; }
-      rData.work = this.setCard('metric-workintegral', m.workIntegral.toFixed(2), wDesc, wCls);
-    } else {
-      rData.work = this.setCard('metric-workintegral', 'N/A', '磁滞做功不可用。', 'unavailable');
-    }
-
     // 10. Night Friction
-    if (nightFrictionVal !== null && nightFrictionVal !== undefined && Number.isFinite(nightFrictionVal)) {
+    const nf0 = epoch0 && epoch0.logContext.nightFriction !== undefined ? epoch0.logContext.nightFriction : null;
+    const nf1 = epoch1 && epoch1.logContext.nightFriction !== undefined ? epoch1.logContext.nightFriction : null;
+    const nfVal = epoch1 ? nf1 : nf0;
+    if (nfVal !== null && nfVal !== undefined && Number.isFinite(nfVal)) {
       let nfCls = 'reference', nfDesc = '夜间基础相阻力；未治疗组高阻力代表代偿，已治疗组受药物调整。';
-      if (nightFrictionVal > 20) nfCls = 'warn';
-      rData.nightFric = this.setCard('metric-nightfriction', nightFrictionVal.toFixed(2), nfDesc, nfCls);
+      if (nfVal > 24) nfCls = 'warn';
+      const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(nf0, nf1, true) : nfVal.toFixed(2);
+      rData.nightFric = this.setCard('metric-nightfriction', displayStr, nfDesc, nfCls);
     } else {
       rData.nightFric = this.setCard('metric-nightfriction', 'N/A', '缺少夜间核心。', 'unavailable');
     }
 
     // 11. Ascend Friction
-    if (m.ascendFriction !== null && m.ascendFriction !== undefined && Number.isFinite(m.ascendFriction)) {
+    const af0 = epoch0 ? epoch0.metrics.ascendFriction : null;
+    const af1 = epoch1 ? epoch1.metrics.ascendFriction : null;
+    const afVal = epoch1 ? af1 : af0;
+    if (afVal !== null && afVal !== undefined && Number.isFinite(afVal)) {
       let afCls = 'reference', afDesc = '受迫上升相阻力；反映血糖飙升时的向心拉扯刚度（早相分泌）。';
-      if (m.ascendFriction > 15) { afCls = 'warn'; afDesc = '偏高（>15）｜上升黏滞阻力增加，反映早相刚度改变。'; }
-      rData.ascendFric = this.setCard('metric-ascendfriction', m.ascendFriction.toFixed(2), afDesc, afCls);
+      if (afVal > 23) { afCls = 'warn'; afDesc = '偏高（>23）｜上升黏滞阻力增加，反映早相刚度改变。'; }
+      const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(af0, af1, true) : afVal.toFixed(2);
+      rData.ascendFric = this.setCard('metric-ascendfriction', displayStr, afDesc, afCls);
     } else {
       rData.ascendFric = this.setCard('metric-ascendfriction', 'N/A', '上升相轨迹点不足。', 'unavailable');
     }
@@ -3207,29 +3158,26 @@ ${refs}` : ''}
     const hr = document.getElementById('health-rating');
     const suffix = boundaryWarning ? ` | ⚠️ ${boundaryWarning}` : '';
     if (hr) {
-      if (riskTier) {
-        hr.className = `health-rating ${riskCls}`;
-        hr.innerHTML = `<span class="dot"></span>筛查风险: ${riskTier} (P=${(screenRisk * 100).toFixed(1)}%)${suffix}`;
-        hr.title = riskDesc;
+      if (telemetry.meltdown) {
+        hr.className = `health-rating bad`;
+        hr.innerHTML = `🚨 [CRITICAL MELTDOWN WARNING] ${telemetry.meltdownReason} - 强制建议退回幺元静默阶段！${suffix}`;
+        hr.title = "系统交感神经带宽耗尽或发生塑性形变";
       } else {
-        hr.className = 'health-rating warn';
-        hr.innerHTML = `<span class="dot"></span>风险不可估 (夜间数据不足)<span>${suffix}</span>`;
+        hr.className = `health-rating ${telemetry.statusCls}`;
+        hr.innerHTML = `<span class="dot"></span>张量引擎遥测状态: ${telemetry.statusTier}${suffix}`;
+        hr.title = "基于物理摩擦力的动力学状态测度";
       }
     }
 
     const copyBtn = document.getElementById('btn-copy-oracle');
     if (copyBtn) copyBtn.style.display = 'block';
 
-    const treatmentLabel = {
-      unknown: '治疗状态未知', untreated: '未使用降糖药', treated: '正在使用降糖药',
-    }[treatmentStatus] || '未选择';
-    const thresholdDetail = screening.usedDynamic
-      ? `≥${(screening.screeningThreshold * 100).toFixed(1)}% 筛查阳性，≥50% 高风险`
-      : '≥50% 高风险，30-50% 中风险，<30% 低风险';
-
     // Build log
-    const rawTimestamps = Array.isArray(this.rawData.timestamps)
-      ? this.rawData.timestamps.filter(value => value && typeof value.getTime === 'function' && !Number.isNaN(value.getTime()))
+    const baseEpoch = epoch1 || epoch0;
+    const baseData = this.epochs[epoch1 ? 1 : 0];
+    
+    const rawTimestamps = Array.isArray(baseData.timestamps)
+      ? baseData.timestamps.filter(value => value && typeof value.getTime === 'function' && !Number.isNaN(value.getTime()))
       : [];
     const formatLocal = value => {
       if (!value) return null;
@@ -3240,12 +3188,8 @@ ${refs}` : ''}
       `${value.getFullYear()}-${value.getMonth() + 1}-${value.getDate()}`
     )).size;
     const periodLabel = { all: '全天', night: '夜间 00:00–06:00', daytime: '日间 06:00–18:00' }[logContext.period] || '当前选择';
-    const modelValidation = screening.usedDynamic ? {
-      auc: screening.model.validation.auc
-    } : null;
 
     const metricsForLog = [
-      { id: 'insulin_pred', label: '预测空腹胰岛素 (F-Ins)', value: rData.ins.val, status: rData.ins.band, interpretation: rData.ins.desc },
       { id: 'early_delay', label: '早相加速度迟滞 (Time-to-Deceleration)', value: rData.earlyDelay.val, status: rData.earlyDelay.band, interpretation: rData.earlyDelay.desc },
       { id: 'relaxation_time', label: '弛豫衰减疲劳度 (Relaxation Time)', value: rData.relaxTime.val, status: rData.relaxTime.band, interpretation: rData.relaxTime.desc },
       { id: 'night_ar1', label: '夜间临界慢化 (AR1)', value: rData.nightAR1.val, status: rData.nightAR1.band, interpretation: rData.nightAR1.desc },
@@ -3262,25 +3206,19 @@ ${refs}` : ''}
       { id: 'ascend_friction', label: '受迫上升相阻力', value: rData.ascendFric.val, status: rData.ascendFric.band, interpretation: rData.ascendFric.desc },
     ];
 
-    const nextStep = screenRisk === null
-      ? '当前夜间数据不足以计算研究分值；补充有效夜间记录后再评估。'
-      : (riskTier === '高风险' || riskTier === '筛查阳性' || riskTier === '中风险')
-        ? '若希望核实该研究筛查信号，应由专业人员结合症状与标准实验室检测评估；不要仅凭本日志自行诊断或调整治疗。'
-        : '较低的研究模型分值不能排除糖代谢异常；如有症状、危险因素或临床疑问，仍应采用标准实验室检测。';
+    const nextStep = telemetry.meltdown 
+      ? '系统处于严重塑性形变或交感神经带宽耗尽状态，请立即停止高强度物理干预，退回幺元静默阶段。'
+      : '系统动力学指标反映了当前的物理摩擦力，可用于指导 14 天周期的干预对比。';
 
     this.lastReportJSON = {
-      schema_version: 'glucobench.audit-log.v8.7',
+      schema_version: 'glucobench.audit-log.v8.8',
       generated_at: new Date().toISOString(),
-      app_version: '8.7',
-      screening_version: '8.7',
-      screening: {
-        classification: riskTier,
-        model_score_percent: screenRisk === null ? null : +(screenRisk * 100).toFixed(3),
-        score_semantics: '内部研究模型分值；不是患病概率或诊断概率',
-        model_path: screening.usedDynamic ? screening.model.label : 'v8.3 夜间均糖回退路径',
-        treatment_context: treatmentLabel,
-        thresholds: thresholdDetail,
-        model_validation: modelValidation,
+      app_version: '8.8',
+      telemetry: {
+        status: telemetry.statusTier,
+        meltdown_warning: telemetry.meltdown,
+        meltdown_reason: telemetry.meltdownReason,
+        score_semantics: '纯粹的物理摩擦力状态测度，非医疗诊断',
         inputs: {
           night_mean_mmol_l: Number.isFinite(nightMean) ? +nightMean.toFixed(4) : null,
           work_integral: Number.isFinite(m.workIntegral) ? +m.workIntegral.toFixed(4) : null,
@@ -3291,21 +3229,19 @@ ${refs}` : ''}
           night_ar1: Number.isFinite(m.nightAR1) ? +m.nightAR1.toFixed(3) : null,
           angular_velocity: Number.isFinite(m.angularVelocity) ? +m.angularVelocity.toFixed(3) : null,
           night_variance: Number.isFinite(m.nightVariance) ? +m.nightVariance.toFixed(3) : null,
-          dynamic_reason: screening.usedDynamic ? null : (screening.reason || '治疗状态或动力学输入不足'),
-        },
-        interpretation: riskDesc,
+        }
       },
       data_quality: {
         observed_start: rawTimestamps.length ? formatLocal(rawTimestamps[0]) : null,
         observed_end: rawTimestamps.length ? formatLocal(rawTimestamps[rawTimestamps.length - 1]) : null,
         calendar_days: calendarDays,
-        raw_records: Array.isArray(this.rawData.values) ? this.rawData.values.length : validVs.length,
+        raw_records: Array.isArray(baseData.values) ? baseData.values.length : validVs.length,
         selected_valid_values: validVs.length,
         night_valid_values: logContext.nightPointCount || 0,
         valid_phase_points: m.validPoints.length,
         dimension_probe_points: logContext.probeN || null,
         metric_view: periodLabel,
-        unit_handling: this.rawData.collapsed ? '检测到 mg/dL 并转换为 mmol/L' : '原生 mmol/L',
+        unit_handling: baseData.collapsed ? '检测到 mg/dL 并转换为 mmol/L' : '原生 mmol/L',
         smoothing: smooth,
         tau_steps: tau,
         tau_minutes: tau * 3,
