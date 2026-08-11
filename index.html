@@ -535,11 +535,11 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
               <div class="tooltip-text">从进食（血糖急速上升起点）到升糖速度最大化（二阶导数由正转负）的时间跨度。直接测量系统动力学刹车的迟滞时间。</div>
             </div>
             <div class="tooltip-section">
-              <div class="tooltip-label">参考标准 / 分级</div>
+              <div class="tooltip-label">绝对物理基准 / 分级</div>
               <div class="tooltip-standards">
-                • <strong>≤ 40 分钟</strong>：早相响应敏锐<br>
-                • <strong>40 ~ 60 分钟</strong>：早相延迟（初级抵抗）<br>
-                • <strong>> 60 分钟</strong>：早相丧失（二阶动力学失控）
+                • <strong>≤ 30 分钟</strong>：绝对安全包络（原生敏锐早相）<br>
+                • <strong>30 ~ 45 分钟</strong>：早期阻尼钝化（开始代偿）<br>
+                • <strong>> 45 分钟</strong>：早相实质性枯竭（高危物理残差）
               </div>
             </div>
             <div class="tooltip-section">
@@ -566,11 +566,11 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
               <div class="tooltip-text">在一次受迫升糖达到峰值后，系统向心弛豫（回落至振幅50%位置）所需的绝对时间。代表维持系统稳态的“代谢弹簧”阻尼与金属疲劳度。</div>
             </div>
             <div class="tooltip-section">
-              <div class="tooltip-label">参考标准 / 分级</div>
+              <div class="tooltip-label">绝对物理基准 / 分级</div>
               <div class="tooltip-standards">
-                • <strong>≤ 60 分钟</strong>：弹性良好（迅速回落）<br>
-                • <strong>60 ~ 120 分钟</strong>：代偿拖尾（弹性疲劳）<br>
-                • <strong>> 120 分钟</strong>：严重代偿疲劳（热力学废热淤积）
+                • <strong>≤ 45 分钟</strong>：理想弹性回弹<br>
+                • <strong>45 ~ 90 分钟</strong>：外周受体弹性疲劳（胰岛素抵抗显现）<br>
+                • <strong>> 90 分钟</strong>：代谢弹簧严重塑性形变（死锁）
               </div>
             </div>
             <div class="tooltip-section">
@@ -597,11 +597,11 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
               <div class="tooltip-text">相空间中系统偏离与弛豫归位全过程构成的磁滞环封闭做功面积（∮ dG·dĠ），定量评估受迫与弛豫不对称性。</div>
             </div>
             <div class="tooltip-section">
-              <div class="tooltip-label">参考标准 / 分级</div>
+              <div class="tooltip-label">绝对物理基准 / 分级</div>
               <div class="tooltip-standards">
-                • <strong>≤ 60.0</strong>：低做功代偿（正常）<br>
-                • <strong>60.0 ~ 100.0</strong>：轻度代偿做功（偏高）<br>
-                • <strong>> 100.0</strong>：显著不可逆废热代偿（高风险）
+                • <strong>≤ 45.0</strong>：极低做功耗散（处于最小作用量区间）<br>
+                • <strong>45.0 ~ 80.0</strong>：代偿性做功（废热淤积）<br>
+                • <strong>> 80.0</strong>：不可逆病理性废热（高度代谢负荷）
               </div>
             </div>
             <div class="tooltip-section">
@@ -2864,9 +2864,9 @@ ${refs}` : ''}
 
     // 0.5 Early Phase Delay
     if (m.earlyDelay !== null && m.earlyDelay !== undefined && Number.isFinite(m.earlyDelay)) {
-      let edCls = 'reference', edDesc = '早相响应系统刹车敏锐。';
-      if (m.earlyDelay > 60) { edCls = 'bad'; edDesc = '显著延迟（>60min）｜早相胰岛素响应极度钝化或丧失。'; }
-      else if (m.earlyDelay > 40) { edCls = 'warn'; edDesc = '轻度延迟（40-60min）｜早相分泌存在初级代偿。'; }
+      let edCls = 'reference', edDesc = '原生敏锐早相；系统二阶动力学无延迟。';
+      if (m.earlyDelay > 45) { edCls = 'bad'; edDesc = '早相实质性枯竭（>45min）｜高危物理残差，动力学失控。'; }
+      else if (m.earlyDelay > 30) { edCls = 'warn'; edDesc = '早期阻尼钝化（30-45min）｜第一时相分泌开始代偿。'; }
       rData.earlyDelay = this.setCard('metric-early-delay', m.earlyDelay.toFixed(1) + ' min', edDesc, edCls);
     } else {
       rData.earlyDelay = this.setCard('metric-early-delay', 'N/A', '未检测到有效受迫上升段。', 'unavailable');
@@ -2874,20 +2874,23 @@ ${refs}` : ''}
 
     // 0.6 Relaxation Time
     if (m.relaxationTime !== null && m.relaxationTime !== undefined && Number.isFinite(m.relaxationTime)) {
-      let rtCls = 'reference', rtDesc = '代谢弹簧弹性良好，可迅速回落。';
-      if (m.relaxationTime > 120) { rtCls = 'bad'; rtDesc = '严重代偿疲劳（>120min）｜失去热力学弹性，极度拖尾。'; }
-      else if (m.relaxationTime > 60) { rtCls = 'warn'; rtDesc = '代偿拖尾（60-120min）｜弹性疲劳初现。'; }
+      let rtCls = 'reference', rtDesc = '理想弹性回弹；代谢弹簧无塑性形变。';
+      if (m.relaxationTime > 90) { rtCls = 'bad'; rtDesc = '严重塑性形变（>90min）｜失去热力学弹性，极度死锁。'; }
+      else if (m.relaxationTime > 45) { rtCls = 'warn'; rtDesc = '外周受体弹性疲劳（45-90min）｜清除效率显著降级。'; }
       rData.relaxTime = this.setCard('metric-relax-time', m.relaxationTime.toFixed(1) + ' min', rtDesc, rtCls);
     } else {
       rData.relaxTime = this.setCard('metric-relax-time', 'N/A', '缺少足够降幅的完整回落段。', 'unavailable');
     }
 
-    // 1. Volume
-    const logVolume = Math.log(Math.max(m.volume || 1e-6, 1e-6));
-    let vCls = 'reference', vDesc = '较集中（logV≤2）｜当前窗离散尺度较小。';
-    if (logVolume > 3.0) { vCls = 'extreme'; vDesc = '高度展开（logV>3）｜多维离散尺度显著增大。'; }
-    else if (logVolume > 2.0) { vCls = 'shifted'; vDesc = '较展开（2<logV≤3）｜高于内部参考带。'; }
-    rData.vol = this.setCard('metric-volume', m.volume ? m.volume.toFixed(2) : 'N/A', vDesc, vCls);
+    // 1. Work Integral
+    if (m.workIntegral !== null && m.workIntegral !== undefined && Number.isFinite(m.workIntegral)) {
+      let wCls = 'reference', wDesc = '极低做功耗散；系统处于最小作用量物理区间。';
+      if (m.workIntegral > 80.0) { wCls = 'bad'; wDesc = '不可逆病理性废热（>80）｜磁滞面积过大，高度代谢负荷。'; }
+      else if (m.workIntegral > 45.0) { wCls = 'warn'; wDesc = '代偿性做功（45-80）｜热力学废热开始淤积。'; }
+      rData.work = this.setCard('metric-workintegral', m.workIntegral.toFixed(2), wDesc, wCls);
+    } else {
+      rData.work = this.setCard('metric-workintegral', 'N/A', '磁滞做功不可用。', 'unavailable');
+    }
 
     // 2. Recovery
     let velCls = 'reference', velDesc = '较快（≥0.14）｜接近核心时向心速度相对较快。';
@@ -2900,6 +2903,13 @@ ${refs}` : ''}
     if (m.shapeRatio < 1.2) { sDesc = '近各向同性（<1.2）｜前两主轴尺度接近。'; }
     else if (m.shapeRatio < 1.8) { sDesc = '轻度拉伸（1.2–1.8）｜前两主轴差异有限。'; }
     rData.shp = this.setCard('metric-shape', m.shapeRatio ? m.shapeRatio.toFixed(1) + 'x' : 'N/A', sDesc, sCls);
+
+    // 12. Volume
+    const logVolume = Math.log(Math.max(m.volume || 1e-6, 1e-6));
+    let vCls = 'reference', vDesc = '较集中（logV≤2）｜当前窗离散尺度较小。';
+    if (logVolume > 3.0) { vCls = 'extreme'; vDesc = '高度展开（logV>3）｜多维离散尺度显著增大。'; }
+    else if (logVolume > 2.0) { vCls = 'shifted'; vDesc = '较展开（2<logV≤3）｜高于内部参考带。'; }
+    rData.vol = this.setCard('metric-volume', m.volume ? m.volume.toFixed(2) : 'N/A', vDesc, vCls);
 
     // 4. Core distance
     if (disp !== null && Number.isFinite(disp)) {
@@ -3116,7 +3126,7 @@ ${refs}` : ''}
       },
       evidence_limits: [
         'ADA 指南认为目前证据不足以支持使用 CGM 筛查或诊断糖尿病前期/糖尿病。',
-        'v8.7 治疗分层 Aether 动力学复合模型内部验证：Hall 未治疗 AUC 0.778，Colas 已治疗 AUC 0.650。',
+        '本输出基于 Aether 动力学协议的理想物理包络。超越安全界限即提示热力学代偿，不等同于临床糖代谢异常诊断。',
       ],
       clinical_boundary: {
         diagnostic_status: 'not_diagnostic',
