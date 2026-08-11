@@ -599,9 +599,9 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
             <div class="tooltip-section">
               <div class="tooltip-label">绝对物理基准 / 分级</div>
               <div class="tooltip-standards">
-                • <strong>≤ 0.85</strong>：高频白噪声（敏锐对抗）<br>
-                • <strong>0.85 ~ 0.95</strong>：低频游荡（纠错变慢）<br>
-                • <strong>> 0.95</strong>：极度慢化（崩溃前兆）
+                • <strong>≤ 0.983</strong>：高频微调（敏锐对抗）<br>
+                • <strong>0.983 ~ 0.988</strong>：低频游荡（纠错变慢）<br>
+                • <strong>> 0.988</strong>：极度慢化（崩溃前兆）
               </div>
             </div>
             <div class="tooltip-section">
@@ -2958,8 +2958,8 @@ ${refs}` : ''}
     // 0.7 Night AR1 (Critical Slowing Down)
     if (m.nightAR1 !== null && m.nightAR1 !== undefined && Number.isFinite(m.nightAR1)) {
       let ar1Cls = 'reference', ar1Desc = '高频敏锐对抗；未出现临界慢化。';
-      if (m.nightAR1 > 0.95) { ar1Cls = 'bad'; ar1Desc = '极度慢化（>0.95）｜系统自我纠错能力丧失，崩溃前兆。'; }
-      else if (m.nightAR1 > 0.85) { ar1Cls = 'warn'; ar1Desc = '低频游荡（0.85-0.95）｜夜间基础相调控开始变慢。'; }
+      if (m.nightAR1 > 0.988) { ar1Cls = 'bad'; ar1Desc = '极度慢化（>0.988）｜系统自我纠错能力丧失，崩溃前兆。'; }
+      else if (m.nightAR1 > 0.983) { ar1Cls = 'warn'; ar1Desc = '低频游荡（0.983-0.988）｜夜间基础相调控开始变慢。'; }
       rData.nightAR1 = this.setCard('metric-night-ar1', m.nightAR1.toFixed(3), ar1Desc, ar1Cls);
     } else {
       rData.nightAR1 = this.setCard('metric-night-ar1', 'N/A', '缺少足够的夜间波动数据。', 'unavailable');
