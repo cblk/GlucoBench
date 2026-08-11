@@ -1134,8 +1134,13 @@ function computeAsymmetricFriction(points, core) {
   let frictionSum = 0;
   let count = 0;
   let workIntegral = 0;
+
+  let ascFrictionSum = 0;
+  let ascCount = 0;
+  let descDistances = [];
+  let descFrictions = [];
   
-  if (!points || points.length < 3 || !core) return { asymFriction: null, workIntegral: null };
+  if (!points || points.length < 3 || !core) return { asymFriction: null, workIntegral: null, ascendFriction: null, frictionGradient: null };
   
   let dim = 3;
   for (const p of points) {
@@ -1168,17 +1173,59 @@ function computeAsymmetricFriction(points, core) {
         workIntegral += (rx * dy - ry * dx);
       }
       
-      if (v_g < -0.01 && lenV > 1e-6) {
+      if (lenV > 1e-6) {
         const currentFric = lenDist / lenV;
-        frictionSum += currentFric;
-        count++;
+        if (v_g < -0.01) {
+          // Descending phase
+          frictionSum += currentFric;
+          count++;
+          descDistances.push(lenDist);
+          descFrictions.push(currentFric);
+        } else if (v_g > 0.01) {
+          // Ascending phase
+          ascFrictionSum += currentFric;
+          ascCount++;
+        }
+      }
+    }
+  }
+
+  let asymFriction = count > 0 ? frictionSum / count : null;
+  let ascendFriction = ascCount > 0 ? ascFrictionSum / ascCount : null;
+  
+  let frictionGradient = null;
+  if (count >= 4) {
+    const sortedDists = [...descDistances].sort((a, b) => a - b);
+    const mid = Math.floor(sortedDists.length / 2);
+    const medianDist = sortedDists.length % 2 !== 0 ? sortedDists[mid] : (sortedDists[mid - 1] + sortedDists[mid]) / 2.0;
+
+    let innerSum = 0, innerCount = 0;
+    let outerSum = 0, outerCount = 0;
+
+    for (let i = 0; i < count; i++) {
+      if (descDistances[i] < medianDist) {
+        innerSum += descFrictions[i];
+        innerCount++;
+      } else {
+        outerSum += descFrictions[i];
+        outerCount++;
+      }
+    }
+
+    if (innerCount > 0 && outerCount > 0) {
+      const innerFric = innerSum / innerCount;
+      const outerFric = outerSum / outerCount;
+      if (innerFric > 1e-6) {
+        frictionGradient = outerFric / innerFric;
       }
     }
   }
   
   return {
-    asymFriction: count > 0 ? frictionSum / count : null,
-    workIntegral: Math.abs(workIntegral) / 2.0
+    asymFriction,
+    workIntegral: Math.abs(workIntegral) / 2.0,
+    ascendFriction,
+    frictionGradient
   };
 }
 
@@ -1275,6 +1322,8 @@ function computeAttractorMetrics(shapePoints, rawPoints, smoothPoints, skipRQA =
   const fricObj = computeAsymmetricFriction(rawPoints, gravityCore);
   const asymFriction = fricObj ? fricObj.asymFriction : null;
   const workIntegral = fricObj ? fricObj.workIntegral : null;
+  const ascendFriction = fricObj ? fricObj.ascendFriction : null;
+  const frictionGradient = fricObj ? fricObj.frictionGradient : null;
   const dimension = boxCountingDimension(points);
   const lyapunov = lyapunovProxy(smoothPoints);
 
@@ -1285,7 +1334,7 @@ function computeAttractorMetrics(shapePoints, rawPoints, smoothPoints, skipRQA =
 
   return {
     volume, shapeRatio, avgRecovery: normalizedRecovery,
-    asymFriction, workIntegral,
+    asymFriction, workIntegral, ascendFriction, frictionGradient,
     dimension, lyapunov,
     det: rqa.det, entr: rqa.entr, rr: rqa.rr, rpMatrix: rqa.rpMatrix,
     mean: arithMean, gravityCore, validPoints: valid, effectiveDim, embeddingDim: dim

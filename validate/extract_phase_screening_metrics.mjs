@@ -117,6 +117,8 @@ function analyzeSubject(subject) {
     avgRecovery: metrics.avgRecovery,
     asymFriction: metrics.asymFriction,
     workIntegral: metrics.workIntegral,
+    ascendFriction: metrics.ascendFriction,
+    frictionGradient: metrics.frictionGradient,
     dayFriction,
     nightFriction,
     dimension: metrics.dimension,
