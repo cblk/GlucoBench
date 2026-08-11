@@ -31,13 +31,13 @@ const context = vm.createContext({
   clearTimeout,
 });
 const expose = `
-globalThis.__pipeline = {
-  resampleData, computeACF, recommendTau, sliceByPeriod, takensEmbedding,
-  estimateEmbeddingDimension, computeAttractorMetrics, computeRQA,
-  computeAsymmetricFriction, calcDistance, getMedian, RQA_TARGET_RR
-};`;
-vm.runInContext(`${inline}\n${expose}`, context, { filename: "index-inline.js" });
-const pipeline = context.__pipeline;
+  globalThis.__pipeline = {
+    resampleData, computeACF, recommendTau, sliceByPeriod, takensEmbedding,
+    estimateEmbeddingDimension, computeAttractorMetrics, computeExcursionKinetics, computeRQA,
+    computeAsymmetricFriction, calcDistance, getMedian, RQA_TARGET_RR
+  };`;
+  vm.runInContext(`${inline}\n${expose}`, context, { filename: "index-inline.js" });
+  const pipeline = context.__pipeline;
 
 const sourcePath = process.argv[2]
   ? path.resolve(root, process.argv[2])
@@ -59,6 +59,10 @@ function analyzeSubject(subject) {
   const pointsSmooth = pipeline.takensEmbedding(smooth.values, tau, dimInfo.dim);
   const metrics = pipeline.computeAttractorMetrics(pointsShape, pointsRaw, pointsSmooth, true);
   if (!metrics) throw new Error(`Insufficient phase points for ${subject.cohort}/${subject.id}`);
+  
+  const kinetics = pipeline.computeExcursionKinetics(raw.timestamps, smooth.values);
+  metrics.earlyDelay = kinetics.earlyDelay;
+  metrics.relaxationTime = kinetics.relaxationTime;
 
   const validSmooth = pointsSmooth.filter(point => point !== null);
   const rqa = pipeline.computeRQA(validSmooth, pipeline.RQA_TARGET_RR, true);
@@ -119,6 +123,8 @@ function analyzeSubject(subject) {
     workIntegral: metrics.workIntegral,
     ascendFriction: metrics.ascendFriction,
     frictionGradient: metrics.frictionGradient,
+    earlyDelay: metrics.earlyDelay,
+    relaxationTime: metrics.relaxationTime,
     dayFriction,
     nightFriction,
     dimension: metrics.dimension,

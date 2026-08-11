@@ -185,14 +185,55 @@ body.report-open { overflow: hidden; }
   .metrics-panel { width: 100%; border-left: none; border-top: 1px solid var(--border); overflow-y: visible; }
 }
 
-#plotly-rp-div {
-  width: 320px;
-  max-width: 35%;
+.plot-tabs-bar {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  z-index: 20;
+  display: flex;
+  gap: 4px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.plot-tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plot-tab-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.plot-tab-btn.active {
+  background: var(--primary);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
+}
+
+#plotly-div, #plotly-rp-div {
+  width: 100%;
   height: 100%;
-  flex: 0 0 auto;
-  border-left: 1px solid var(--border);
+  position: relative;
+}
+
+#plotly-rp-div {
   background: var(--bg);
-  display: none;
 }
 
 .metric-card { 
@@ -230,6 +271,44 @@ body.report-open { overflow: hidden; }
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 
+/* --- ADVANCED METRICS FOLD --- */
+.advanced-metrics-group {
+  margin-top: 8px;
+  border-top: 1px dashed var(--border);
+  padding-top: 12px;
+}
+.advanced-metrics-group summary {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+  transition: color 0.2s;
+  padding: 4px 0;
+}
+.advanced-metrics-group summary::-webkit-details-marker { display: none; }
+.advanced-metrics-group summary:hover { color: var(--primary-light); }
+.advanced-metrics-group summary::before {
+  content: '▶';
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+.advanced-metrics-group[open] summary::before {
+  transform: rotate(90deg);
+}
+.advanced-metrics-group[open] summary {
+  margin-bottom: 12px;
+}
+.advanced-metrics-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .metric-card::before { content:''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--border); border-radius: 10px 0 0 10px; }
 .metric-card.good::before { background: var(--green); }
 .metric-card.warn::before { background: var(--yellow); }
@@ -239,50 +318,44 @@ body.report-open { overflow: hidden; }
 .metric-card.extreme::before { background: var(--purple); }
 .metric-card.unavailable::before { background: var(--text-secondary); }
 
-/* --- HOVER TOOLTIP --- */
-.metric-card .metric-tooltip {
-  position: absolute;
-  right: calc(100% + 12px);
-  top: -4px;
-  width: 290px;
+/* --- GLOBAL HOVER TOOLTIP (Prevents clipping by overflow container) --- */
+.metric-card .metric-tooltip { display: none !important; }
+
+.metric-global-tooltip {
+  position: fixed;
+  width: 300px;
   background: #091121;
   border: 1px solid var(--primary);
   border-radius: 10px;
   padding: 14px;
-  box-shadow: 0 12px 32px rgba(0,0,0,0.85), 0 0 16px rgba(59,130,246,0.3);
+  box-shadow: 0 12px 36px rgba(0,0,0,0.9), 0 0 20px rgba(59,130,246,0.35);
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transform: translateX(8px);
-  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
-  z-index: 999;
+  transform: scale(0.98);
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+  z-index: 9999;
+  color: var(--text);
 }
-@media (max-width: 1200px) {
-  .metric-card .metric-tooltip {
-    right: 0; top: calc(100% + 6px); transform: translateY(-4px);
-  }
-}
-
-.metric-card:hover .metric-tooltip {
+.metric-global-tooltip.visible {
   opacity: 1;
   visibility: visible;
-  transform: translateX(0) translateY(0);
+  transform: scale(1);
 }
-
-.metric-tooltip .tooltip-title {
+.metric-global-tooltip .tooltip-title {
   font-size: 12.5px; font-weight: 700; color: var(--primary-light); margin-bottom: 6px;
   border-bottom: 1px solid var(--border); padding-bottom: 4px;
 }
-.metric-tooltip .tooltip-section {
+.metric-global-tooltip .tooltip-section {
   margin-top: 8px;
 }
-.metric-tooltip .tooltip-label {
+.metric-global-tooltip .tooltip-label {
   font-size: 10px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;
 }
-.metric-tooltip .tooltip-text {
+.metric-global-tooltip .tooltip-text {
   font-size: 11px; color: var(--text); line-height: 1.45; margin-top: 2px;
 }
-.metric-tooltip .tooltip-standards {
+.metric-global-tooltip .tooltip-standards {
   font-size: 11px; color: #cbd5e1; line-height: 1.5; margin-top: 4px; background: rgba(30,41,59,0.7);
   padding: 6px 8px; border-radius: 6px; border-left: 2px solid var(--primary-light);
 }
@@ -386,9 +459,17 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
     <!-- Content -->
     <div class="content-area">
       <div class="plot-container">
-        <div class="plot-3d-wrapper" style="display: flex; flex-direction: row;">
-          <div id="plotly-div" style="flex: 2;"></div>
-          <div id="plotly-rp-div" style="flex: 1; border-left: 1px solid var(--border); background: var(--bg); display: none;"></div>
+        <div class="plot-3d-wrapper">
+          <div class="plot-tabs-bar" id="plot-tabs-bar" style="display:none;">
+            <button class="plot-tab-btn active" id="tab-btn-3d" type="button">
+              <span>🌌</span> 3D 相空间吸引子
+            </button>
+            <button class="plot-tab-btn" id="tab-btn-rp" type="button">
+              <span>🌀</span> 递归图 (Recurrence Plot)
+            </button>
+          </div>
+          <div id="plotly-div" style="display:block;"></div>
+          <div id="plotly-rp-div" style="display:none;"></div>
           <div class="plot-placeholder" id="plot-placeholder">
             <div class="icon">⚛️</div>
             <div class="text" style="font-size:18px; font-weight:600; color:#fff;">等待数据输入</div>
@@ -404,6 +485,99 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
       <div class="metrics-panel" id="metrics-panel">
         <div class="metrics-guide">
           <strong>读卡规则：</strong>蓝=参考带，黄=轻度偏离，红/紫=高风险偏离。悬停任意卡片可显示其物理机制与判定标准。
+        </div>
+
+        <!-- 0. Insulin Predictor (Legacy) -->
+        <div class="metric-card" id="metric-insulin-pred">
+          <div class="metric-header">
+            <div class="metric-title">空腹胰岛素基线预判 (F-Insulin)</div>
+            <span class="info-icon">ℹ️</span>
+          </div>
+          <div class="metric-value-box">
+            <div class="metric-value" style="color:var(--text)">-</div>
+          </div>
+          <div class="metric-desc">多尺度吸引子特征预测（仅供参考）。</div>
+          <div class="metric-tooltip">
+            <div class="tooltip-title">空腹胰岛素基线预判</div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">物理与动力学定义</div>
+              <div class="tooltip-text">通过将 τ∈{5,10,15,20} 四种延迟尺度的吸引子特征进行特征提取与 Ridge 回归，粗略还原空腹状态下的胰岛素代偿压力。</div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">参考标准 / 分级</div>
+              <div class="tooltip-standards">
+                • <strong>≤ 10.0 μU/mL</strong>：正常敏感区间<br>
+                • <strong>10.0 ~ 15.0 μU/mL</strong>：早期代偿区间<br>
+                • <strong>> 15.0 μU/mL</strong>：显著抵抗区间
+              </div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">⚠️ 预警与局限性</div>
+              <div class="tooltip-text">此模块系 v8.2 遗留探索模块（R² 极低），最新版本发现基于吸引子的拓扑特征缺乏对胰岛素绝对值的稳定映射。此预判不具备临床有效性，仅展示物理退化的一般趋势。</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 0.5 Early Phase Delay -->
+        <div class="metric-card" id="metric-early-delay">
+          <div class="metric-header">
+            <div class="metric-title">早相加速度迟滞 (Time-to-Decel)</div>
+            <span class="info-icon">ℹ️</span>
+          </div>
+          <div class="metric-value-box">
+            <div class="metric-value" style="color:var(--text)">-</div>
+          </div>
+          <div class="metric-desc">受迫升糖段从起点到加速度衰减为0（速度达峰）的中位时间。</div>
+          <div class="metric-tooltip">
+            <div class="tooltip-title">早相加速度迟滞 (Time-to-Deceleration)</div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">物理与动力学定义</div>
+              <div class="tooltip-text">从进食（血糖急速上升起点）到升糖速度最大化（二阶导数由正转负）的时间跨度。直接测量系统动力学刹车的迟滞时间。</div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">参考标准 / 分级</div>
+              <div class="tooltip-standards">
+                • <strong>≤ 40 分钟</strong>：早相响应敏锐<br>
+                • <strong>40 ~ 60 分钟</strong>：早相延迟（初级抵抗）<br>
+                • <strong>> 60 分钟</strong>：早相丧失（二阶动力学失控）
+              </div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">生理与临床意义</div>
+              <div class="tooltip-text">精确定量第一时相胰岛素分泌的缺失程度。时间越长，代表身体越缺乏“及时刹车”的能力，只能依赖后期胰岛素的超量堆积（高废热）来降糖。</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 0.6 Relaxation Fatigue -->
+        <div class="metric-card" id="metric-relax-time">
+          <div class="metric-header">
+            <div class="metric-title">弛豫衰减疲劳度 (Relaxation Time)</div>
+            <span class="info-icon">ℹ️</span>
+          </div>
+          <div class="metric-value-box">
+            <div class="metric-value" style="color:var(--text)">-</div>
+          </div>
+          <div class="metric-desc">血糖峰值回落至50%振幅的中位耗时；度量系统恢复稳态的热力学弹性。</div>
+          <div class="metric-tooltip">
+            <div class="tooltip-title">弛豫衰减疲劳度 (Relaxation Time)</div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">物理与动力学定义</div>
+              <div class="tooltip-text">在一次受迫升糖达到峰值后，系统向心弛豫（回落至振幅50%位置）所需的绝对时间。代表维持系统稳态的“代谢弹簧”阻尼与金属疲劳度。</div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">参考标准 / 分级</div>
+              <div class="tooltip-standards">
+                • <strong>≤ 60 分钟</strong>：弹性良好（迅速回落）<br>
+                • <strong>60 ~ 120 分钟</strong>：代偿拖尾（弹性疲劳）<br>
+                • <strong>> 120 分钟</strong>：严重代偿疲劳（热力学废热淤积）
+              </div>
+            </div>
+            <div class="tooltip-section">
+              <div class="tooltip-label">生理与临床意义</div>
+              <div class="tooltip-text">评估晚相胰岛素的作用效率与外周细胞的胰岛素抵抗程度。疲劳度极高通常意味着受体敏感性严重下降，清除多余血糖极为困难。</div>
+            </div>
+          </div>
         </div>
 
         <!-- 1. Work Integral (v8.7 Core) -->
@@ -497,7 +671,42 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
           </div>
         </div>
 
-        <!-- 4. Volume -->
+        <details class="advanced-metrics-group">
+          <summary>查看拓扑与混沌指标 (Advanced/Legacy)</summary>
+          <div class="advanced-metrics-content">
+
+            <!-- 0. Insulin Predictor (Legacy) -->
+            <div class="metric-card" id="metric-insulin-pred">
+              <div class="metric-header">
+                <div class="metric-title">空腹胰岛素基线预判 (F-Insulin)</div>
+                <span class="info-icon">ℹ️</span>
+              </div>
+              <div class="metric-value-box">
+                <div class="metric-value" style="color:var(--text)">-</div>
+              </div>
+              <div class="metric-desc">多尺度吸引子特征预测（仅供参考）。</div>
+              <div class="metric-tooltip">
+                <div class="tooltip-title">空腹胰岛素基线预判</div>
+                <div class="tooltip-section">
+                  <div class="tooltip-label">物理与动力学定义</div>
+                  <div class="tooltip-text">通过将 τ∈{5,10,15,20} 四种延迟尺度的吸引子特征进行特征提取与 Ridge 回归，粗略还原空腹状态下的胰岛素代偿压力。</div>
+                </div>
+                <div class="tooltip-section">
+                  <div class="tooltip-label">参考标准 / 分级</div>
+                  <div class="tooltip-standards">
+                    • <strong>≤ 10.0 μU/mL</strong>：正常敏感区间<br>
+                    • <strong>10.0 ~ 15.0 μU/mL</strong>：早期代偿区间<br>
+                    • <strong>> 15.0 μU/mL</strong>：显著抵抗区间
+                  </div>
+                </div>
+                <div class="tooltip-section">
+                  <div class="tooltip-label">⚠️ 预警与局限性</div>
+                  <div class="tooltip-text">此模块系 v8.2 遗留探索模块（R² 极低），最新版本发现基于吸引子的拓扑特征缺乏对胰岛素绝对值的稳定映射。此预判不具备临床有效性，仅展示物理退化的一般趋势。</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. Volume -->
         <div class="metric-card" id="metric-volume">
           <div class="metric-header">
             <div class="metric-title">相空间展开体积 (Volume)</div>
@@ -714,41 +923,45 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
           </div>
         </div>
 
-        <!-- 11. ENTR -->
-        <div class="metric-card" id="metric-entr">
-          <div class="metric-header">
-            <div class="metric-title">RQA 线长熵 (ENTR)</div>
-            <span class="info-icon">ℹ️</span>
-          </div>
-          <div class="metric-value-box">
-            <div class="metric-value" style="color:var(--text)">-</div>
-          </div>
-          <div class="metric-desc">轨迹重复持续时间多样性的熵；描述结构复杂度。</div>
-          <div class="metric-tooltip">
-            <div class="tooltip-title">RQA 线长熵 (ENTR)</div>
-            <div class="tooltip-section">
-              <div class="tooltip-label">物理与动力学定义</div>
-              <div class="tooltip-text">递归图对角线段长度分布的香农熵（Shannon Entropy of Diagonal Line Lengths）。</div>
-            </div>
-            <div class="tooltip-section">
-              <div class="tooltip-label">参考标准 / 分级</div>
-              <div class="tooltip-standards">
-                • <strong>2.00 ~ 3.00</strong>：正常复杂熵带<br>
-                • <strong>> 3.00</strong>：高线长多样性<br>
-                • <strong>< 2.00</strong>：重复结构单一
+            <!-- 11. ENTR -->
+            <div class="metric-card" id="metric-entr">
+              <div class="metric-header">
+                <div class="metric-title">RQA 线长熵 (ENTR)</div>
+                <span class="info-icon">ℹ️</span>
+              </div>
+              <div class="metric-value-box">
+                <div class="metric-value" style="color:var(--text)">-</div>
+              </div>
+              <div class="metric-desc">轨迹重复持续时间多样性的熵；描述结构复杂度。</div>
+              <div class="metric-tooltip">
+                <div class="tooltip-title">RQA 线长熵 (ENTR)</div>
+                <div class="tooltip-section">
+                  <div class="tooltip-label">物理与动力学定义</div>
+                  <div class="tooltip-text">递归图对角线段长度分布的香农熵（Shannon Entropy of Diagonal Line Lengths）。</div>
+                </div>
+                <div class="tooltip-section">
+                  <div class="tooltip-label">参考标准 / 分级</div>
+                  <div class="tooltip-standards">
+                    • <strong>2.00 ~ 3.00</strong>：正常复杂熵带<br>
+                    • <strong>> 3.00</strong>：高线长多样性<br>
+                    • <strong>< 2.00</strong>：重复结构单一
+                  </div>
+                </div>
+                <div class="tooltip-section">
+                  <div class="tooltip-label">生理与临床意义</div>
+                  <div class="tooltip-text">度量调控轨迹在相空间中重复持续时间的多样性与复杂结构。</div>
+                </div>
               </div>
             </div>
-            <div class="tooltip-section">
-              <div class="tooltip-label">生理与临床意义</div>
-              <div class="tooltip-text">度量调控轨迹在相空间中重复持续时间的多样性与复杂结构。</div>
-            </div>
-          </div>
-        </div>
 
+          </div>
+        </details>
       </div>
     </div>
   </div>
 </div>
+
+<div id="metric-global-tooltip" class="metric-global-tooltip"></div>
 
 <div class="report-modal" id="report-modal" aria-hidden="true">
   <div class="report-dialog" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -1751,6 +1964,97 @@ function computeNormalizedRecovery(points) {
 // rawPoints: for recovery (always unsmoothed)
 // smoothPoints: for Lyapunov and RQA (always smoothed)
 // skipRQA: skip RQA computation when only shape metrics are needed
+
+// Unified kinetics function to compute early phase delay and relaxation fatigue
+function computeExcursionKinetics(times, vals) {
+  if (!vals || !times || vals.length < 10) return { earlyDelay: null, relaxationTime: null };
+  
+  let peaks = [];
+  let valleys = [];
+  let dir = 0; // 1 for up, -1 for down
+  
+  // Step 1: Find turning points (peaks and valleys)
+  for (let i = 1; i < vals.length; i++) {
+    if (vals[i] === null || vals[i-1] === null) continue;
+    let diff = vals[i] - vals[i-1];
+    if (Math.abs(diff) < 0.01) continue; // ignore tiny flat spots
+    
+    let newDir = diff > 0 ? 1 : -1;
+    if (dir !== 0 && newDir !== dir) {
+      if (newDir === 1) valleys.push({ idx: i-1, val: vals[i-1] }); // was down, now up -> valley
+      else peaks.push({ idx: i-1, val: vals[i-1] }); // was up, now down -> peak
+    }
+    dir = newDir;
+  }
+  
+  let earlyDelays = [];
+  let relaxTimes = [];
+  
+  for (let p of peaks) {
+    // Find preceding valley
+    let prevValley = null;
+    for (let j = valleys.length - 1; j >= 0; j--) {
+      if (valleys[j].idx < p.idx) { prevValley = valleys[j]; break; }
+    }
+    if (!prevValley && p.idx > 0) prevValley = { idx: 0, val: vals[0] }; // use start if no valley
+    
+    if (!prevValley || p.val - prevValley.val < 1.5) continue; // Excursion threshold > 1.5
+    
+    // Find max dv in the rising phase (Time-to-Deceleration)
+    let maxDv = -Infinity;
+    let maxDvIdx = prevValley.idx;
+    for (let i = prevValley.idx; i < p.idx; i++) {
+      if (vals[i] !== null && vals[i+1] !== null) {
+        let dv = vals[i+1] - vals[i];
+        if (dv > maxDv) { maxDv = dv; maxDvIdx = i; }
+      }
+    }
+    earlyDelays.push((times[maxDvIdx].getTime() - times[prevValley.idx].getTime()) / 60000);
+    
+    // Find relaxation phase (Time to Half-Recovery / 50% amplitude)
+    let targetVal = p.val - 0.5 * (p.val - prevValley.val);
+    let relaxEndIdx = p.idx;
+    let found = false;
+    
+    // Search forward until next valley or end of data
+    let nextValley = null;
+    for (let j = 0; j < valleys.length; j++) {
+      if (valleys[j].idx > p.idx) { nextValley = valleys[j]; break; }
+    }
+    let searchEnd = nextValley ? nextValley.idx : vals.length - 1;
+    
+    for (let i = p.idx; i <= searchEnd; i++) {
+      if (vals[i] !== null && vals[i] <= targetVal) {
+        relaxEndIdx = i;
+        found = true;
+        break;
+      }
+    }
+    
+    if (found) {
+      relaxTimes.push((times[relaxEndIdx].getTime() - times[p.idx].getTime()) / 60000);
+    } else {
+      // Incomplete recovery before next spike or end -> extreme fatigue.
+      // Penalize by taking the full duration to the next valley/end plus a 50% penalty.
+      let duration = (times[searchEnd].getTime() - times[p.idx].getTime()) / 60000;
+      relaxTimes.push(duration * 1.5);
+    }
+  }
+  
+  const getMedian = (arr) => {
+    if (!arr || arr.length === 0) return null;
+    arr.sort((a,b) => a - b);
+    return arr.length % 2 !== 0 
+      ? arr[Math.floor(arr.length / 2)] 
+      : (arr[arr.length / 2 - 1] + arr[arr.length / 2]) / 2;
+  };
+  
+  return {
+    earlyDelay: getMedian(earlyDelays),
+    relaxationTime: getMedian(relaxTimes)
+  };
+}
+
 function computeAttractorMetrics(shapePoints, rawPoints, smoothPoints, skipRQA = false) {
   const points = shapePoints;
   const valid = points.filter(p => p !== null);
@@ -1826,6 +2130,96 @@ function computeAttractorMetrics(shapePoints, rawPoints, smoothPoints, skipRQA =
     dimension, lyapunov,
     det: rqa.det, entr: rqa.entr, rr: rqa.rr, rpMatrix: rqa.rpMatrix,
     mean: arithMean, gravityCore, validPoints: valid, effectiveDim, embeddingDim: dim
+  };
+}
+
+// Unified kinetics function to compute early phase delay and relaxation fatigue
+function computeExcursionKinetics(times, vals) {
+  if (!vals || !times || vals.length < 10) return { earlyDelay: null, relaxationTime: null };
+  
+  let peaks = [];
+  let valleys = [];
+  let dir = 0; // 1 for up, -1 for down
+  
+  // Step 1: Find turning points (peaks and valleys)
+  for (let i = 1; i < vals.length; i++) {
+    if (vals[i] === null || vals[i-1] === null) continue;
+    let diff = vals[i] - vals[i-1];
+    if (Math.abs(diff) < 0.01) continue; // ignore tiny flat spots
+    
+    let newDir = diff > 0 ? 1 : -1;
+    if (dir !== 0 && newDir !== dir) {
+      if (newDir === 1) valleys.push({ idx: i-1, val: vals[i-1] }); // was down, now up -> valley
+      else peaks.push({ idx: i-1, val: vals[i-1] }); // was up, now down -> peak
+    }
+    dir = newDir;
+  }
+  
+  let earlyDelays = [];
+  let relaxTimes = [];
+  
+  for (let p of peaks) {
+    // Find preceding valley
+    let prevValley = null;
+    for (let j = valleys.length - 1; j >= 0; j--) {
+      if (valleys[j].idx < p.idx) { prevValley = valleys[j]; break; }
+    }
+    if (!prevValley && p.idx > 0) prevValley = { idx: 0, val: vals[0] }; // use start if no valley
+    
+    if (!prevValley || p.val - prevValley.val < 1.5) continue; // Excursion threshold > 1.5
+    
+    // Find max dv in the rising phase (Time-to-Deceleration)
+    let maxDv = -Infinity;
+    let maxDvIdx = prevValley.idx;
+    for (let i = prevValley.idx; i < p.idx; i++) {
+      if (vals[i] !== null && vals[i+1] !== null) {
+        let dv = vals[i+1] - vals[i];
+        if (dv > maxDv) { maxDv = dv; maxDvIdx = i; }
+      }
+    }
+    earlyDelays.push((times[maxDvIdx].getTime() - times[prevValley.idx].getTime()) / 60000);
+    
+    // Find relaxation phase (Time to Half-Recovery / 50% amplitude)
+    let targetVal = p.val - 0.5 * (p.val - prevValley.val);
+    let relaxEndIdx = p.idx;
+    let found = false;
+    
+    // Search forward until next valley or end of data
+    let nextValley = null;
+    for (let j = 0; j < valleys.length; j++) {
+      if (valleys[j].idx > p.idx) { nextValley = valleys[j]; break; }
+    }
+    let searchEnd = nextValley ? nextValley.idx : vals.length - 1;
+    
+    for (let i = p.idx; i <= searchEnd; i++) {
+      if (vals[i] !== null && vals[i] <= targetVal) {
+        relaxEndIdx = i;
+        found = true;
+        break;
+      }
+    }
+    
+    if (found) {
+      relaxTimes.push((times[relaxEndIdx].getTime() - times[p.idx].getTime()) / 60000);
+    } else {
+      // Incomplete recovery before next spike or end -> extreme fatigue.
+      // Penalize by taking the full duration to the next valley/end plus a 50% penalty.
+      let duration = (times[searchEnd].getTime() - times[p.idx].getTime()) / 60000;
+      relaxTimes.push(duration * 1.5);
+    }
+  }
+  
+  const getMedian = (arr) => {
+    if (!arr || arr.length === 0) return null;
+    arr.sort((a,b) => a - b);
+    return arr.length % 2 !== 0 
+      ? arr[Math.floor(arr.length / 2)] 
+      : (arr[arr.length / 2 - 1] + arr[arr.length / 2]) / 2;
+  };
+  
+  return {
+    earlyDelay: getMedian(earlyDelays),
+    relaxationTime: getMedian(relaxTimes)
   };
 }
 
@@ -2138,6 +2532,62 @@ ${refs}` : ''}
         this.closeReportModal();
       }
     });
+
+    // Tab switcher for 3D Phase Space vs Recurrence Plot
+    this.activeTab = '3d';
+    document.getElementById('tab-btn-3d').onclick = () => this.switchTab('3d');
+    document.getElementById('tab-btn-rp').onclick = () => this.switchTab('rp');
+
+    // Global metric tooltip listener (floats on body to avoid clipping by metrics-panel scroll)
+    const metricsPanel = document.getElementById('metrics-panel');
+    const globalTooltip = document.getElementById('metric-global-tooltip');
+
+    if (metricsPanel && globalTooltip) {
+      metricsPanel.addEventListener('mouseover', e => {
+        const card = e.target.closest('.metric-card');
+        if (!card) return;
+        const tTpl = card.querySelector('.metric-tooltip');
+        if (!tTpl) return;
+
+        globalTooltip.innerHTML = tTpl.innerHTML;
+
+        const rect = card.getBoundingClientRect();
+        const tooltipWidth = 300;
+
+        // Default: position to the left of the card
+        let left = rect.left - tooltipWidth - 12;
+        let top = rect.top;
+
+        // If overflowing left (small screens), place below card
+        if (left < 10) {
+          left = Math.max(10, rect.left);
+          top = rect.bottom + 8;
+        }
+
+        globalTooltip.style.left = `${left}px`;
+        globalTooltip.style.top = `${top}px`;
+
+        // Adjust top if overflowing window bottom
+        const ttHeight = globalTooltip.offsetHeight || 240;
+        if (top + ttHeight > window.innerHeight - 10) {
+          top = Math.max(10, window.innerHeight - ttHeight - 10);
+          globalTooltip.style.top = `${top}px`;
+        }
+
+        globalTooltip.classList.add('visible');
+      });
+
+      metricsPanel.addEventListener('mouseout', e => {
+        const card = e.target.closest('.metric-card');
+        if (card && (!e.relatedTarget || !card.contains(e.relatedTarget))) {
+          globalTooltip.classList.remove('visible');
+        }
+      });
+
+      metricsPanel.addEventListener('scroll', () => {
+        globalTooltip.classList.remove('visible');
+      }, { passive: true });
+    }
   },
 
   // Parse uploaded file (CSV with GBK fallback, or XLSX)
@@ -2182,6 +2632,28 @@ ${refs}` : ''}
   // not influenced by UI toggles) plus the two results that are invariant across ALL UI
   // controls: night baseline mean and the insulin predictor (dim fixed at 4). Computing them
   // once per file instead of per analyze() tick removes 4 attractor-metric passes per tick.
+  switchTab(tab) {
+    this.activeTab = tab;
+    const btn3d = document.getElementById('tab-btn-3d');
+    const btnRp = document.getElementById('tab-btn-rp');
+    const div3d = document.getElementById('plotly-div');
+    const divRp = document.getElementById('plotly-rp-div');
+
+    if (tab === '3d') {
+      btn3d.classList.add('active');
+      btnRp.classList.remove('active');
+      div3d.style.display = 'block';
+      divRp.style.display = 'none';
+      try { if (window.Plotly) Plotly.Plots.resize('plotly-div'); } catch (_) {}
+    } else {
+      btnRp.classList.add('active');
+      btn3d.classList.remove('active');
+      div3d.style.display = 'none';
+      divRp.style.display = 'block';
+      try { if (window.Plotly) Plotly.Plots.resize('plotly-rp-div'); } catch (_) {}
+    }
+  },
+
   onDataReady() {
     // Reset plot state for new data
     this.plotInit = false; this._rpInit = false;
@@ -2281,6 +2753,9 @@ ${refs}` : ''}
     const { values: smoothValues } = resampleData(this.rawData, true);
     const pointsRaw = takensEmbedding(sliceByPeriod(timestamps, rawValues, period).values, tau, dim);
     const pointsSmooth = takensEmbedding(sliceByPeriod(timestamps, smoothValues, period).values, tau, dim);
+    
+    // Aether Protocol v8.7: Kinetics (Time-to-Deceleration & Relaxation Fatigue)
+    const kinetics = computeExcursionKinetics(timestamps, smoothValues);
 
     // Night baseline glucose (0:00-6:00, raw grid) — calibrated screening feature (v8.0).
     // v8.1: invariant across all UI controls → computed once in onDataReady().
@@ -2289,6 +2764,8 @@ ${refs}` : ''}
     // ---- Pipeline Stage 5: Compute attractor metrics ----
     const metrics = computeAttractorMetrics(points, pointsRaw, pointsSmooth);
     if (!metrics) return;
+    metrics.earlyDelay = kinetics.earlyDelay;
+    metrics.relaxationTime = kinetics.relaxationTime;
 
     if (!this._screenDynamics && period === 'all' && smooth && tau === this._screenTau) {
       this._screenDynamics = {
@@ -2324,7 +2801,7 @@ ${refs}` : ''}
     this.renderMetrics(
       metrics, displacement, tau, validVs, smooth, insulinPred, dA, dim, dimCapped,
       calculatedDim, nightMean,
-      { period, probeN, nightPointCount: this._nightPointCount || 0 }
+      { period, probeN, nightPointCount: this._nightPointCount || 0, nightFriction }
     );
     this.renderPlots(sliced.timestamps, sliced.values, points3D, tau, gravityCore3D, nightCore3D, metrics);
 
@@ -2373,6 +2850,36 @@ ${refs}` : ''}
         else { riskTier = '低风险'; riskCls = 'good'; }
         riskDesc = `v8.3夜间均糖安全回退（${screening.reason}）`;
       }
+    }
+
+    // 0. Fasting Insulin Prediction
+    if (insulinPred && insulinPred.predicted !== null && Number.isFinite(insulinPred.predicted)) {
+      let insCls = 'reference', insDesc = '多尺度拓扑特征回归估计的空腹胰岛素水平。';
+      if (insulinPred.predicted > 15) { insCls = 'bad'; insDesc = '显著升高（>15）｜高度胰岛素抵抗与代偿特征。'; }
+      else if (insulinPred.predicted > 10) { insCls = 'warn'; insDesc = '轻度偏高（10–15）｜可能存在隐性代偿压力。'; }
+      rData.ins = this.setCard('metric-insulin-pred', insulinPred.predicted.toFixed(1) + ' μU/mL', insDesc, insCls);
+    } else {
+      rData.ins = this.setCard('metric-insulin-pred', 'N/A', '数据量不足或模型未就绪。', 'unavailable');
+    }
+
+    // 0.5 Early Phase Delay
+    if (m.earlyDelay !== null && m.earlyDelay !== undefined && Number.isFinite(m.earlyDelay)) {
+      let edCls = 'reference', edDesc = '早相响应系统刹车敏锐。';
+      if (m.earlyDelay > 60) { edCls = 'bad'; edDesc = '显著延迟（>60min）｜早相胰岛素响应极度钝化或丧失。'; }
+      else if (m.earlyDelay > 40) { edCls = 'warn'; edDesc = '轻度延迟（40-60min）｜早相分泌存在初级代偿。'; }
+      rData.earlyDelay = this.setCard('metric-early-delay', m.earlyDelay.toFixed(1) + ' min', edDesc, edCls);
+    } else {
+      rData.earlyDelay = this.setCard('metric-early-delay', 'N/A', '未检测到有效受迫上升段。', 'unavailable');
+    }
+
+    // 0.6 Relaxation Time
+    if (m.relaxationTime !== null && m.relaxationTime !== undefined && Number.isFinite(m.relaxationTime)) {
+      let rtCls = 'reference', rtDesc = '代谢弹簧弹性良好，可迅速回落。';
+      if (m.relaxationTime > 120) { rtCls = 'bad'; rtDesc = '严重代偿疲劳（>120min）｜失去热力学弹性，极度拖尾。'; }
+      else if (m.relaxationTime > 60) { rtCls = 'warn'; rtDesc = '代偿拖尾（60-120min）｜弹性疲劳初现。'; }
+      rData.relaxTime = this.setCard('metric-relax-time', m.relaxationTime.toFixed(1) + ' min', rtDesc, rtCls);
+    } else {
+      rData.relaxTime = this.setCard('metric-relax-time', 'N/A', '缺少足够降幅的完整回落段。', 'unavailable');
     }
 
     // 1. Volume
@@ -2533,6 +3040,9 @@ ${refs}` : ''}
     } : null;
 
     const metricsForLog = [
+      { id: 'insulin_pred', label: '预测空腹胰岛素 (F-Ins)', value: rData.ins.val, status: rData.ins.band, interpretation: rData.ins.desc },
+      { id: 'early_delay', label: '早相加速度迟滞 (Time-to-Deceleration)', value: rData.earlyDelay.val, status: rData.earlyDelay.band, interpretation: rData.earlyDelay.desc },
+      { id: 'relaxation_time', label: '弛豫衰减疲劳度 (Relaxation Time)', value: rData.relaxTime.val, status: rData.relaxTime.band, interpretation: rData.relaxTime.desc },
       { id: 'volume', label: '相空间展开体积', value: rData.vol.val, status: rData.vol.band, interpretation: rData.vol.desc },
       { id: 'recovery', label: '归一化向心步长', value: rData.vel.val, status: rData.vel.band, interpretation: rData.vel.desc },
       { id: 'shape_ratio', label: '主轴各向异性 λ₁/λ₂', value: rData.shp.val, status: rData.shp.band, interpretation: rData.shp.desc },
@@ -2566,10 +3076,12 @@ ${refs}` : ''}
         thresholds: thresholdDetail,
         model_validation: modelValidation,
         inputs: {
-          night_mean_mmol_l: nightMean === null ? null : +nightMean.toFixed(4),
-          work_integral: m.workIntegral === null || m.workIntegral === undefined ? null : +m.workIntegral.toFixed(4),
-          night_friction: nightFrictionVal === null || nightFrictionVal === undefined ? null : +nightFrictionVal.toFixed(4),
-          ascend_friction: m.ascendFriction === null || m.ascendFriction === undefined ? null : +m.ascendFriction.toFixed(4),
+          night_mean_mmol_l: Number.isFinite(nightMean) ? +nightMean.toFixed(4) : null,
+          work_integral: Number.isFinite(m.workIntegral) ? +m.workIntegral.toFixed(4) : null,
+          night_friction: Number.isFinite(nightFrictionVal) ? +nightFrictionVal.toFixed(4) : null,
+          ascend_friction: Number.isFinite(m.ascendFriction) ? +m.ascendFriction.toFixed(4) : null,
+          early_delay_min: Number.isFinite(m.earlyDelay) ? +m.earlyDelay.toFixed(2) : null,
+          relaxation_time_min: Number.isFinite(m.relaxationTime) ? +m.relaxationTime.toFixed(2) : null,
           dynamic_reason: screening.usedDynamic ? null : (screening.reason || '治疗状态或动力学输入不足'),
         },
         interpretation: riskDesc,
@@ -2589,17 +3101,17 @@ ${refs}` : ''}
         tau_steps: tau,
         tau_minutes: tau * 3,
         embedding_dimension: dim,
-        attractor_dimension_estimate: +dA.toFixed(4),
+        attractor_dimension_estimate: Number.isFinite(dA) ? +dA.toFixed(4) : null,
         calculated_dimension: calculatedDim,
         dimension_capped: dimCapped,
         effective_dimension: m.effectiveDim,
-        rqa_recurrence_rate_percent: m.rr === null || m.rr === undefined ? null : +(m.rr * 100).toFixed(4),
+        rqa_recurrence_rate_percent: Number.isFinite(m.rr) ? +(m.rr * 100).toFixed(4) : null,
       },
       metrics: metricsForLog,
       range_summary: {
-        minimum_mmol_l: +minV.toFixed(4),
-        median_mmol_l: +medianVal.toFixed(4),
-        maximum_mmol_l: +maxV.toFixed(4),
+        minimum_mmol_l: Number.isFinite(minV) ? +minV.toFixed(4) : null,
+        median_mmol_l: Number.isFinite(medianVal) ? +medianVal.toFixed(4) : null,
+        maximum_mmol_l: Number.isFinite(maxV) ? +maxV.toFixed(4) : null,
         flags: rangeFlags,
       },
       evidence_limits: [
@@ -2711,10 +3223,23 @@ ${refs}` : ''}
       console.error('Plotly render error:', err);
     }
 
-    // --- Recurrence Plot (rendered after 3D/2D, only if data available) ---
-    const rpDiv = document.getElementById('plotly-rp-div');
+    // Show tab switcher
+    const tabsBar = document.getElementById('plot-tabs-bar');
+    if (tabsBar) tabsBar.style.display = 'flex';
+
+    // Apply active tab visibility
+    const div3d = document.getElementById('plotly-div');
+    const divRp = document.getElementById('plotly-rp-div');
+    if (this.activeTab === 'rp') {
+      div3d.style.display = 'none';
+      divRp.style.display = 'block';
+    } else {
+      div3d.style.display = 'block';
+      divRp.style.display = 'none';
+    }
+
+    // --- Recurrence Plot ---
     if (m.rpMatrix && m.rpMatrix.x && m.rpMatrix.x.length > 0) {
-      rpDiv.style.display = 'block';
       const traceRP = {
         x: m.rpMatrix.x, y: m.rpMatrix.y,
         mode: 'markers',
@@ -2722,8 +3247,8 @@ ${refs}` : ''}
         marker: { color: '#3b82f6', size: 2, symbol: 'square' }
       };
       const layoutRP = {
-        title: { text: '递归图 (Recurrence Plot)', font: { color: '#94a3b8', size: 12 } },
-        margin: { l: 30, r: 20, b: 30, t: 30 },
+        title: { text: '递归图 (Recurrence Plot - RQA)', font: { color: '#94a3b8', size: 13 } },
+        margin: { l: 40, r: 40, b: 40, t: 40 },
         paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
         xaxis: { showgrid: false, zeroline: false, showticklabels: false, constrain: 'domain' },
         yaxis: { showgrid: false, zeroline: false, showticklabels: false, autorange: 'reversed', scaleanchor: 'x', scaleratio: 1 },
@@ -2738,10 +3263,7 @@ ${refs}` : ''}
         }
       } catch (err) {
         console.error('RP render error:', err);
-        rpDiv.style.display = 'none';
       }
-    } else {
-      rpDiv.style.display = 'none';
     }
   }
 };

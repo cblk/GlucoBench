@@ -60,6 +60,8 @@ def evaluate_features():
         "nightFriction",
         "ascendFriction",
         "frictionGradient",
+        "earlyDelay",
+        "relaxationTime",
     ]
 
     print("=== Next-Gen Aether Metrics Evaluation ===")
