@@ -20,8 +20,11 @@ const scriptMatches = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script
 const inline = scriptMatches.map(match => match[1]).filter(text => text.trim()).at(-1);
 if (!inline) throw new Error("Unable to locate index.html inline pipeline script");
 
+const pipelineConsole = process.env.GLUCOBENCH_PIPELINE_SILENT === "1"
+  ? { log() {}, warn() {}, error: console.error }
+  : console;
 const context = vm.createContext({
-  console,
+  console: pipelineConsole,
   document: { addEventListener() {} },
   window: {},
   setTimeout,
