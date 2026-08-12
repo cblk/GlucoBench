@@ -2466,6 +2466,8 @@ const UI = {
     const limits = log.evidence_limits.map(item => `- ${item}`).join('\n');
     const refs = (log.references || []).map((item, index) => `${index + 1}. ${item.title}: ${item.url}`).join('\n');
 
+    const ssvsJsonStr = log.ssvs ? JSON.stringify(log.ssvs, null, 2) : '';
+
     return `# GlucoBench CGM Aether 张量引擎遥测日志
 
 > 该输出是研究工具的可追溯记录，不是诊断书。指标卡颜色不是疾病标签，仅反映物理摩擦力的相对大小。
@@ -2505,9 +2507,17 @@ ${limits}
 
 ## 6. 后续核实
 
-- ${nextStep}
+- ${log.clinical_boundary ? log.clinical_boundary.next_step : ''}
 
-## 7. 可复现性与隐私
+## 7. 肉身状态张量序列化协议 (SSVS)
+
+> 请将以下 JSON 复制给装载了 Cybernetic Navigator Protocol 的 LLM，以获取张量引擎的干预重定向指令。
+
+\`\`\`json
+${ssvsJsonStr}
+\`\`\`
+
+## 8. 可复现性与隐私
 
 - 日志格式：${log.schema_version}；工具版本：${log.app_version}
 - 生成时间：${log.generated_at}
@@ -2966,6 +2976,12 @@ ${refs}` : ''}
     const nightMean = base.nightMean;
     const validVs = base.validVs;
     const disp = base.displacement;
+    const smooth = base.smooth;
+    const tau = base.tau;
+    const dim = base.dim;
+    const dA = base.dA;
+    const calculatedDim = base.calculatedDim;
+    const dimCapped = base.dimCapped;
     
     let baseScore = 1000;
     let rData = {};
@@ -3190,30 +3206,100 @@ ${refs}` : ''}
     const periodLabel = { all: '全天', night: '夜间 00:00–06:00', daytime: '日间 06:00–18:00' }[logContext.period] || '当前选择';
 
     const metricsForLog = [
-      { id: 'early_delay', label: '早相加速度迟滞 (Time-to-Deceleration)', value: rData.earlyDelay.val, status: rData.earlyDelay.band, interpretation: rData.earlyDelay.desc },
-      { id: 'relaxation_time', label: '弛豫衰减疲劳度 (Relaxation Time)', value: rData.relaxTime.val, status: rData.relaxTime.band, interpretation: rData.relaxTime.desc },
-      { id: 'night_ar1', label: '夜间临界慢化 (AR1)', value: rData.nightAR1.val, status: rData.nightAR1.band, interpretation: rData.nightAR1.desc },
-      { id: 'volume', label: '相空间展开体积', value: rData.vol.val, status: rData.vol.band, interpretation: rData.vol.desc },
-      { id: 'recovery', label: '归一化向心步长', value: rData.vel.val, status: rData.vel.band, interpretation: rData.vel.desc },
-      { id: 'shape_ratio', label: '主轴各向异性 λ₁/λ₂', value: rData.shp.val, status: rData.shp.band, interpretation: rData.shp.desc },
-      { id: 'core_distance', label: '当前–夜间核心距离', value: rData.disp.val, status: rData.disp.band, interpretation: rData.disp.desc },
-      { id: 'box_dimension', label: '盒计数几何维度', value: rData.dim.val, status: rData.dim.band, interpretation: rData.dim.desc },
-      { id: 'lyapunov_proxy', label: '一步近邻发散代理', value: rData.ly.val, status: rData.ly.band, interpretation: rData.ly.desc },
-      { id: 'rqa_det', label: 'RQA 确定性率 DET', value: rData.det.val, status: rData.det.band, interpretation: rData.det.desc },
-      { id: 'rqa_entr', label: 'RQA 线长熵 ENTR', value: rData.entr.val, status: rData.entr.band, interpretation: rData.entr.desc },
-      { id: 'work_integral', label: '相空间磁滞做功', value: rData.work.val, status: rData.work.band, interpretation: rData.work.desc },
-      { id: 'night_friction', label: '夜间相变阻力', value: rData.nightFric.val, status: rData.nightFric.band, interpretation: rData.nightFric.desc },
-      { id: 'ascend_friction', label: '受迫上升相阻力', value: rData.ascendFric.val, status: rData.ascendFric.band, interpretation: rData.ascendFric.desc },
+      { id: 'early_delay', label: '早相加速度迟滞 (Time-to-Deceleration)', value: rData.earlyDelay?.val || 'N/A', status: rData.earlyDelay?.band || 'unavailable', interpretation: rData.earlyDelay?.desc || '' },
+      { id: 'relaxation_time', label: '弛豫衰减疲劳度 (Relaxation Time)', value: rData.relaxTime?.val || 'N/A', status: rData.relaxTime?.band || 'unavailable', interpretation: rData.relaxTime?.desc || '' },
+      { id: 'night_ar1', label: '夜间临界慢化 (AR1)', value: rData.nightAR1?.val || 'N/A', status: rData.nightAR1?.band || 'unavailable', interpretation: rData.nightAR1?.desc || '' },
+      { id: 'volume', label: '相空间展开体积', value: rData.vol?.val || 'N/A', status: rData.vol?.band || 'unavailable', interpretation: rData.vol?.desc || '' },
+      { id: 'recovery', label: '归一化向心步长', value: rData.vel?.val || 'N/A', status: rData.vel?.band || 'unavailable', interpretation: rData.vel?.desc || '' },
+      { id: 'shape_ratio', label: '主轴各向异性 λ₁/λ₂', value: rData.shp?.val || 'N/A', status: rData.shp?.band || 'unavailable', interpretation: rData.shp?.desc || '' },
+      { id: 'core_distance', label: '当前–夜间核心距离', value: rData.disp?.val || 'N/A', status: rData.disp?.band || 'unavailable', interpretation: rData.disp?.desc || '' },
+      { id: 'box_dimension', label: '盒计数几何维度', value: rData.dim?.val || 'N/A', status: rData.dim?.band || 'unavailable', interpretation: rData.dim?.desc || '' },
+      { id: 'lyapunov_proxy', label: '一步近邻发散代理', value: rData.ly?.val || 'N/A', status: rData.ly?.band || 'unavailable', interpretation: rData.ly?.desc || '' },
+      { id: 'rqa_det', label: 'RQA 确定性率 DET', value: rData.det?.val || 'N/A', status: rData.det?.band || 'unavailable', interpretation: rData.det?.desc || '' },
+      { id: 'rqa_entr', label: 'RQA 线长熵 ENTR', value: rData.entr?.val || 'N/A', status: rData.entr?.band || 'unavailable', interpretation: rData.entr?.desc || '' },
+      { id: 'work_integral', label: '相空间磁滞做功', value: rData.work?.val || 'N/A', status: rData.work?.band || 'unavailable', interpretation: rData.work?.desc || '' },
+      { id: 'night_friction', label: '夜间相变阻力', value: rData.nightFric?.val || 'N/A', status: rData.nightFric?.band || 'unavailable', interpretation: rData.nightFric?.desc || '' },
+      { id: 'ascend_friction', label: '受迫上升相阻力', value: rData.ascendFric?.val || 'N/A', status: rData.ascendFric?.band || 'unavailable', interpretation: rData.ascendFric?.desc || '' },
     ];
 
     const nextStep = telemetry.meltdown 
       ? '系统处于严重塑性形变或交感神经带宽耗尽状态，请立即停止高强度物理干预，退回幺元静默阶段。'
       : '系统动力学指标反映了当前的物理摩擦力，可用于指导 14 天周期的干预对比。';
 
+    const calcDelta = (v0, v1) => {
+      if (v0 === null || v0 === undefined || v1 === null || v1 === undefined || v0 === 0) return null;
+      return +(((v1 - v0) / Math.abs(v0)) * 100).toFixed(2);
+    };
+
+    const getMetric = (ep, key) => ep && ep.metrics && ep.metrics[key] !== undefined ? ep.metrics[key] : null;
+    const getNightFric = (ep) => ep && ep.logContext && ep.logContext.nightFriction !== undefined ? ep.logContext.nightFriction : null;
+
+    const ssvs_w0 = getMetric(epoch0, 'workIntegral');
+    const ssvs_w1 = getMetric(epoch1, 'workIntegral');
+    const ssvs_af0 = getMetric(epoch0, 'ascendFriction');
+    const ssvs_af1 = getMetric(epoch1, 'ascendFriction');
+    const ssvs_nf0 = getNightFric(epoch0);
+    const ssvs_nf1 = getNightFric(epoch1);
+    const ssvs_ar0 = getMetric(epoch0, 'nightAR1');
+    const ssvs_ar1 = getMetric(epoch1, 'nightAR1');
+
+    const isDual = !!(epoch0 && epoch1);
+    const ssvs = {
+      subject_id: "Somatic-Node-Alpha",
+      analysis_mode: isDual ? "Cybernetic_Differential" : "Cybernetic_Baseline",
+      epochs: {
+        epoch_0: epoch0 ? { type: "baseline", duration_days: new Set(epoch0.plotData.timestamps.filter(t => t && !Number.isNaN(t.getTime())).map(t => `${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`)).size } : null,
+        epoch_1: epoch1 ? { type: "intervention", duration_days: new Set(epoch1.plotData.timestamps.filter(t => t && !Number.isNaN(t.getTime())).map(t => `${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`)).size, intervention_vectors: ["V2_Biochem", "V3_Mechanical", "V4_Thermodynamic"] } : null
+      },
+      tensor_metrics: {
+        work_integral: {
+          metric_name: "相空间磁滞做功 (Hysteresis Work)",
+          epoch_0: ssvs_w0 !== null ? +ssvs_w0.toFixed(4) : null,
+          epoch_1: ssvs_w1 !== null ? +ssvs_w1.toFixed(4) : null,
+          delta_pct: isDual ? calcDelta(ssvs_w0, ssvs_w1) : null,
+          semantic_tag: "Energy_Compensation"
+        },
+        ascend_friction: {
+          metric_name: "上升相阻力 (Ascend Friction)",
+          epoch_0: ssvs_af0 !== null ? +ssvs_af0.toFixed(4) : null,
+          epoch_1: ssvs_af1 !== null ? +ssvs_af1.toFixed(4) : null,
+          delta_pct: isDual ? calcDelta(ssvs_af0, ssvs_af1) : null,
+          semantic_tag: "External_Shock_Resistance"
+        },
+        night_friction: {
+          metric_name: "夜间相变阻力 (Night Friction)",
+          epoch_0: ssvs_nf0 !== null ? +ssvs_nf0.toFixed(4) : null,
+          epoch_1: ssvs_nf1 !== null ? +ssvs_nf1.toFixed(4) : null,
+          delta_pct: isDual ? calcDelta(ssvs_nf0, ssvs_nf1) : null,
+          semantic_tag: "Internal_Reset_Resistance"
+        },
+        critical_slowing_ar1: {
+          metric_name: "夜间临界慢化 (CSD: AR1)",
+          epoch_0: ssvs_ar0 !== null ? +ssvs_ar0.toFixed(4) : null,
+          epoch_1: ssvs_ar1 !== null ? +ssvs_ar1.toFixed(4) : null,
+          delta_pct: isDual ? calcDelta(ssvs_ar0, ssvs_ar1) : null,
+          semantic_tag: "System_Meltdown_Risk"
+        }
+      }
+    };
+
+    if (!epoch1 && epoch0) {
+      delete ssvs.epochs.epoch_1;
+      delete ssvs.tensor_metrics.work_integral.epoch_1;
+      delete ssvs.tensor_metrics.work_integral.delta_pct;
+      delete ssvs.tensor_metrics.ascend_friction.epoch_1;
+      delete ssvs.tensor_metrics.ascend_friction.delta_pct;
+      delete ssvs.tensor_metrics.night_friction.epoch_1;
+      delete ssvs.tensor_metrics.night_friction.delta_pct;
+      delete ssvs.tensor_metrics.critical_slowing_ar1.epoch_1;
+      delete ssvs.tensor_metrics.critical_slowing_ar1.delta_pct;
+    }
+
     this.lastReportJSON = {
       schema_version: 'glucobench.audit-log.v8.8',
       generated_at: new Date().toISOString(),
       app_version: '8.8',
+      ssvs: ssvs,
       telemetry: {
         status: telemetry.statusTier,
         meltdown_warning: telemetry.meltdown,
