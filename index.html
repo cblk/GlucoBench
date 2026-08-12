@@ -1134,11 +1134,30 @@ const RQA_SAMPLE_PAIRS = 1_000_000;
 
 // Aether Protocol v8.8: Tensor Telemetry Status (Replaces legacy screening)
 // Based on Wind Tunnel Calibration (N=265)
-function computeTelemetryStatus(workIntegral, ascendFriction, nightFriction, ar1) {
+function computeTelemetryStatus(workIntegral, ascendFriction, nightFriction, ar1, prevAr1 = null, prevWork = null, prevAscend = null, nightSkewness = null) {
   let meltdown = false;
   let meltdownReason = "";
   let statusTier = "正常弹性";
   let statusCls = "good";
+  
+  // Kairos Oracle: Phase State & Intervention Fulcrum
+  let phaseState = "未知";
+  let interventionFulcrum = "保持观测，积累塔肯斯时间债。";
+
+  // Calculate Kairos Velocity & Leverage if dual epoch
+  let kairosVelocity = null;
+  let currentLeverage = null;
+  let prevLeverage = null;
+  
+  if (prevAr1 !== null && ar1 !== null) {
+    kairosVelocity = ar1 - prevAr1; // Absolute acceleration towards 1.0
+  }
+  if (workIntegral !== null && ascendFriction !== null && ascendFriction > 0) {
+    currentLeverage = workIntegral / ascendFriction;
+  }
+  if (prevWork !== null && prevAscend !== null && prevAscend > 0) {
+    prevLeverage = prevWork / prevAscend;
+  }
 
   // Check for Critical Meltdown (based on Wind Tunnel P90+ thresholds)
   if (ar1 > 0.994) {
@@ -1146,17 +1165,46 @@ function computeTelemetryStatus(workIntegral, ascendFriction, nightFriction, ar1
     meltdownReason = "临界慢化极值 (AR1 > 0.994)";
     statusTier = "系统塑性形变";
     statusCls = "bad";
+    phaseState = "鞍点边缘 (Approaching Saddle)";
+    interventionFulcrum = "🚨 绝对熔毁预警。系统已丧失恢复力。必须立即引入 Vector 4 (热力学倾泻 - 冰浴/深度冷暴露) 强制打破夜间代谢死锁，遏制临界慢化。严禁任何增加代谢负担的干预。";
+  } else if (kairosVelocity !== null && kairosVelocity > 0.008 && ar1 > 0.980) {
+    meltdown = true;
+    meltdownReason = `奇点逼近加速度极高 (ΔAR1 = +${kairosVelocity.toFixed(3)})`;
+    statusTier = "动力学雪崩前兆";
+    statusCls = "bad";
+    phaseState = "混沌边缘 (Edge of Chaos)";
+    interventionFulcrum = "🚨 动态熔毁预警！系统正以自由落体速度丧失弹性。立即启动 Vector 4 (冰浴) 与 Vector 1 (绝对断食) 联合干预，强行阻断相变。";
+  } else if (nightSkewness !== null && nightSkewness > 1.5 && ar1 > 0.980) {
+    // Single-Epoch Early Warning based on Skewness
+    statusTier = "势能井非对称畸变";
+    statusCls = "warn";
+    phaseState = "鞍点逼近 (Asymmetric Potential Well)";
+    interventionFulcrum = "夜间波动呈现极度正偏态（Skewness > 1.5），表明系统在抵抗低血糖时极其吃力，势能井已发生严重非对称畸变。建议引入 Vector 4 (热力学倾泻) 修复肝脏重置能力。";
   } else if (workIntegral > 90) {
     meltdown = true;
     meltdownReason = "不可逆病理废热 (Work Integral > 90)";
     statusTier = "高代偿做功状态";
     statusCls = "bad";
+    phaseState = "代偿游荡 (Compensatory Wandering)";
+    interventionFulcrum = "系统正在付出高昂的热力学代价维持表象稳态。建议引入 Vector 1 & 2 (光与生化注资 - 严格对齐昼夜节律光照，清理高熵食物)，目标是缩小相空间磁滞面积。";
+  } else if (currentLeverage !== null && prevLeverage !== null && currentLeverage > prevLeverage * 1.5 && currentLeverage > 5.0) {
+    statusTier = "拓扑杠杆断裂";
+    statusCls = "warn";
+    phaseState = "代偿游荡 (Compensatory Wandering)";
+    interventionFulcrum = "拓扑杠杆率急剧飙升，系统克服单位阻力的能量代价失控。建议引入 Vector 2 (生化注资 - 极低碳水) 卸载代谢压力。";
   } else if (nightFriction > 24) {
     statusTier = "夜间肝脏重置死锁";
     statusCls = "warn";
+    phaseState = "深谷边缘 (Edge of Deep Attractor)";
+    interventionFulcrum = "夜间废热排空受阻。可尝试温和的 Vector 4 (热力学倾泻) 或调整最后一餐的时间，降低夜间相变阻力。";
   } else if (ascendFriction > 23) {
     statusTier = "早相受迫摩擦增加";
     statusCls = "warn";
+    phaseState = "深谷 (Deep Attractor - 强拓扑刚性)";
+    interventionFulcrum = "骨骼肌代谢缓冲池受限，对抗外源冲击时展现出强拓扑刚性。建议引入 Vector 3 (机械拉扯 - 大重量/高强度阻力训练)，强行撑开骨骼肌代谢容量，降低上升阻力。";
+  } else {
+    phaseState = "健康吸引子 (Healthy Attractor)";
+    interventionFulcrum = "系统处于最小作用量区间，弹性良好。无需特殊干预，保持当前生活方式。";
   }
 
   return {
@@ -1167,7 +1215,12 @@ function computeTelemetryStatus(workIntegral, ascendFriction, nightFriction, ar1
     workIntegral,
     ascendFriction,
     nightFriction,
-    ar1
+    ar1,
+    phaseState,
+    interventionFulcrum,
+    kairosVelocity,
+    currentLeverage,
+    prevLeverage
   };
 }
 
@@ -2203,11 +2256,15 @@ function computeCriticalSlowingDown(times, vals) {
     }
   }
   
-  if (nightVals.length < 30) return { ar1: null, variance: null };
+  if (nightVals.length < 30) return { ar1: null, variance: null, skewness: null };
 
   // Calculate Mean and Variance
   let mean = nightVals.reduce((a, b) => a + b, 0) / nightVals.length;
   let variance = nightVals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (nightVals.length - 1);
+  
+  // Calculate Skewness (Asymmetry of fluctuations)
+  let m3 = nightVals.reduce((a, b) => a + Math.pow(b - mean, 3), 0) / nightVals.length;
+  let skewness = variance > 0 ? m3 / Math.pow(variance, 1.5) : 0;
   
   // Calculate Lag-1 Autocorrelation (AR1)
   let num = 0;
@@ -2223,7 +2280,8 @@ function computeCriticalSlowingDown(times, vals) {
   
   return { 
     ar1: ar1, 
-    variance: variance 
+    variance: variance,
+    skewness: skewness
   };
 }
 
@@ -2457,6 +2515,8 @@ const UI = {
     
     const dynamicText = `磁滞做功=${t.inputs.work_integral !== null && t.inputs.work_integral !== undefined ? t.inputs.work_integral.toFixed(2) : 'N/A'}, 上升阻力=${t.inputs.ascend_friction !== null && t.inputs.ascend_friction !== undefined ? t.inputs.ascend_friction.toFixed(2) : 'N/A'}, 夜间阻力=${t.inputs.night_friction !== null && t.inputs.night_friction !== undefined ? t.inputs.night_friction.toFixed(2) : 'N/A'}`;
     const advancedKinetics = `早相迟滞=${t.inputs.early_delay_min !== null ? t.inputs.early_delay_min.toFixed(1) + 'm' : 'N/A'}, 回落疲劳=${t.inputs.relaxation_time_min !== null ? t.inputs.relaxation_time_min.toFixed(1) + 'm' : 'N/A'}, 夜间AR1=${t.inputs.night_ar1 !== null ? t.inputs.night_ar1.toFixed(3) : 'N/A'}, 角速度=${t.inputs.angular_velocity !== null ? t.inputs.angular_velocity.toFixed(2) + 'rad/h' : 'N/A'}`;
+    const dynamicDerivatives = isDual ? `\n- 奇点逼近加速度: ΔAR1 = ${kairos_vel > 0 ? '+' : ''}${kairos_vel !== null ? kairos_vel.toFixed(4) : 'N/A'}\n- 拓扑杠杆率: ${leverage0 !== null ? leverage0.toFixed(2) : 'N/A'} -> ${leverage1 !== null ? leverage1.toFixed(2) : 'N/A'}` : '';
+    const kairosText = `当前相态: ${t.phase_state || '未知'}\n- 干预支点: ${t.intervention_fulcrum || '保持观测'}`;
     const metrics = log.metrics.map(item =>
       `| ${item.label} | ${item.value} | ${statusLabels[item.status] || item.status} | ${item.interpretation} |`
     ).join('\n');
@@ -2477,7 +2537,11 @@ const UI = {
 - 张量引擎状态：${t.status || '不可估'}
 - 熔毁预警：${t.meltdown_warning ? '🚨 是 (' + t.meltdown_reason + ')' : '否'}
 - 核心动力学指标：${dynamicText}
-- 高维物理探针：${advancedKinetics}
+- 高维物理探针：${advancedKinetics}${dynamicDerivatives}
+
+## 1.5 Kairos 拓扑分岔雷达 (战术干预建议)
+
+- ${kairosText}
 
 ## 2. 数据质量与分析语境
 
@@ -2867,6 +2931,7 @@ ${refs}` : ''}
     metrics.relaxationTime = kinetics.relaxationTime;
     metrics.nightAR1 = csd.ar1;
     metrics.nightVariance = csd.variance;
+    metrics.nightSkewness = csd.skewness;
     metrics.angularVelocity = kepler.angularVelocity;
     metrics.sweepRate = kepler.sweepRate;
 
@@ -2988,8 +3053,13 @@ ${refs}` : ''}
 
     const nightFrictionVal = logContext.nightFriction !== undefined ? logContext.nightFriction : (m.nightFriction || null);
     
+    const prevAr1 = epoch0 && epoch1 ? epoch0.metrics.nightAR1 : null;
+    const prevWork = epoch0 && epoch1 ? epoch0.metrics.workIntegral : null;
+    const prevAscend = epoch0 && epoch1 ? epoch0.metrics.ascendFriction : null;
+    const nightSkewness = m.nightSkewness || null;
+
     // Compute Telemetry Status (Replaces Screening)
-    const telemetry = computeTelemetryStatus(m.workIntegral, m.ascendFriction, nightFrictionVal, m.nightAR1);
+    const telemetry = computeTelemetryStatus(m.workIntegral, m.ascendFriction, nightFrictionVal, m.nightAR1, prevAr1, prevWork, prevAscend, nightSkewness);
 
     // 0.5 Early Phase Delay
     const ed0 = epoch0 ? epoch0.metrics.earlyDelay : null;
@@ -3243,6 +3313,10 @@ ${refs}` : ''}
     const ssvs_ar0 = getMetric(epoch0, 'nightAR1');
     const ssvs_ar1 = getMetric(epoch1, 'nightAR1');
 
+    const leverage0 = (ssvs_w0 !== null && ssvs_af0 !== null && ssvs_af0 > 0) ? ssvs_w0 / ssvs_af0 : null;
+    const leverage1 = (ssvs_w1 !== null && ssvs_af1 !== null && ssvs_af1 > 0) ? ssvs_w1 / ssvs_af1 : null;
+    const kairos_vel = (ssvs_ar0 !== null && ssvs_ar1 !== null) ? ssvs_ar1 - ssvs_ar0 : null;
+
     const isDual = !!(epoch0 && epoch1);
     const ssvs = {
       subject_id: "Somatic-Node-Alpha",
@@ -3279,6 +3353,13 @@ ${refs}` : ''}
           epoch_1: ssvs_ar1 !== null ? +ssvs_ar1.toFixed(4) : null,
           delta_pct: isDual ? calcDelta(ssvs_ar0, ssvs_ar1) : null,
           semantic_tag: "System_Meltdown_Risk"
+        },
+        kairos_kinematics: {
+          metric_name: "奇点逼近动力学 (Kairos Kinematics)",
+          velocity_ar1: kairos_vel !== null ? +kairos_vel.toFixed(4) : null,
+          topological_leverage_0: leverage0 !== null ? +leverage0.toFixed(4) : null,
+          topological_leverage_1: leverage1 !== null ? +leverage1.toFixed(4) : null,
+          semantic_tag: "Phase_Transition_Momentum"
         }
       }
     };
@@ -3293,6 +3374,8 @@ ${refs}` : ''}
       delete ssvs.tensor_metrics.night_friction.delta_pct;
       delete ssvs.tensor_metrics.critical_slowing_ar1.epoch_1;
       delete ssvs.tensor_metrics.critical_slowing_ar1.delta_pct;
+      delete ssvs.tensor_metrics.kairos_kinematics.velocity_ar1;
+      delete ssvs.tensor_metrics.kairos_kinematics.topological_leverage_1;
     }
 
     this.lastReportJSON = {
@@ -3304,6 +3387,8 @@ ${refs}` : ''}
         status: telemetry.statusTier,
         meltdown_warning: telemetry.meltdown,
         meltdown_reason: telemetry.meltdownReason,
+        phase_state: telemetry.phaseState,
+        intervention_fulcrum: telemetry.interventionFulcrum,
         score_semantics: '纯粹的物理摩擦力状态测度，非医疗诊断',
         inputs: {
           night_mean_mmol_l: Number.isFinite(nightMean) ? +nightMean.toFixed(4) : null,
@@ -3315,6 +3400,9 @@ ${refs}` : ''}
           night_ar1: Number.isFinite(m.nightAR1) ? +m.nightAR1.toFixed(3) : null,
           angular_velocity: Number.isFinite(m.angularVelocity) ? +m.angularVelocity.toFixed(3) : null,
           night_variance: Number.isFinite(m.nightVariance) ? +m.nightVariance.toFixed(3) : null,
+          night_skewness: Number.isFinite(m.nightSkewness) ? +m.nightSkewness.toFixed(3) : null,
+          kairos_velocity: Number.isFinite(telemetry.kairosVelocity) ? +telemetry.kairosVelocity.toFixed(4) : null,
+          current_leverage: Number.isFinite(telemetry.currentLeverage) ? +telemetry.currentLeverage.toFixed(4) : null
         }
       },
       data_quality: {
