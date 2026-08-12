@@ -2513,9 +2513,15 @@ const UI = {
       unavailable: '不可用', low_validity: '低效度', good: '正常', warn: '偏高', bad: '异常'
     };
     
+    const isDual = log.ssvs && log.ssvs.analysis_mode === 'Cybernetic_Differential';
+    const kin = log.ssvs && log.ssvs.tensor_metrics && log.ssvs.tensor_metrics.kairos_kinematics;
+    const kairos_vel = kin ? kin.velocity_ar1 : null;
+    const leverage0 = kin ? kin.topological_leverage_0 : null;
+    const leverage1 = kin ? kin.topological_leverage_1 : null;
+
     const dynamicText = `磁滞做功=${t.inputs.work_integral !== null && t.inputs.work_integral !== undefined ? t.inputs.work_integral.toFixed(2) : 'N/A'}, 上升阻力=${t.inputs.ascend_friction !== null && t.inputs.ascend_friction !== undefined ? t.inputs.ascend_friction.toFixed(2) : 'N/A'}, 夜间阻力=${t.inputs.night_friction !== null && t.inputs.night_friction !== undefined ? t.inputs.night_friction.toFixed(2) : 'N/A'}`;
     const advancedKinetics = `早相迟滞=${t.inputs.early_delay_min !== null ? t.inputs.early_delay_min.toFixed(1) + 'm' : 'N/A'}, 回落疲劳=${t.inputs.relaxation_time_min !== null ? t.inputs.relaxation_time_min.toFixed(1) + 'm' : 'N/A'}, 夜间AR1=${t.inputs.night_ar1 !== null ? t.inputs.night_ar1.toFixed(3) : 'N/A'}, 角速度=${t.inputs.angular_velocity !== null ? t.inputs.angular_velocity.toFixed(2) + 'rad/h' : 'N/A'}`;
-    const dynamicDerivatives = isDual ? `\n- 奇点逼近加速度: ΔAR1 = ${kairos_vel > 0 ? '+' : ''}${kairos_vel !== null ? kairos_vel.toFixed(4) : 'N/A'}\n- 拓扑杠杆率: ${leverage0 !== null ? leverage0.toFixed(2) : 'N/A'} -> ${leverage1 !== null ? leverage1.toFixed(2) : 'N/A'}` : '';
+    const dynamicDerivatives = isDual ? `\n- 奇点逼近加速度: ΔAR1 = ${kairos_vel !== null && kairos_vel > 0 ? '+' : ''}${kairos_vel !== null ? kairos_vel.toFixed(4) : 'N/A'}\n- 拓扑杠杆率: ${leverage0 !== null ? leverage0.toFixed(2) : 'N/A'} -> ${leverage1 !== null ? leverage1.toFixed(2) : 'N/A'}` : '';
     const kairosText = `当前相态: ${t.phase_state || '未知'}\n- 干预支点: ${t.intervention_fulcrum || '保持观测'}`;
     const metrics = log.metrics.map(item =>
       `| ${item.label} | ${item.value} | ${statusLabels[item.status] || item.status} | ${item.interpretation} |`
