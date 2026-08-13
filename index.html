@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CGM Aether相空间探针 v8.7</title>
+<title>CGM Aether相空间探针 v8.8</title>
 <!-- SheetJS for Excel parsing -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Plotly.js for 3D visualization -->
@@ -480,7 +480,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
       <!-- Metrics Panel -->
       <div class="metrics-panel" id="metrics-panel">
         <div class="metrics-guide">
-          <strong>读卡规则：</strong>蓝=参考带，黄=轻度偏离，红/紫=高风险偏离。悬停任意卡片可显示其物理机制与判定标准。
+          <strong>读卡规则：</strong>蓝=基线游荡，黄=高代偿做功，红/紫=拓扑死锁/临界慢化。指标仅反映物理摩擦力，非医疗诊断。
         </div>
 
         <!-- 0.5 Early Phase Delay -->
@@ -564,9 +564,9 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
             <div class="tooltip-section">
               <div class="tooltip-label">绝对物理基准 / 分级</div>
               <div class="tooltip-standards">
-                • <strong>≤ 0.983</strong>：高频微调（敏锐对抗）<br>
-                • <strong>0.983 ~ 0.988</strong>：低频游荡（纠错变慢）<br>
-                • <strong>> 0.988</strong>：极度慢化（崩溃前兆）
+                • <strong>≤ 0.990</strong>：高频微调（敏锐对抗）<br>
+                • <strong>0.990 ~ 0.995</strong>：低频游荡（纠错变慢）<br>
+                • <strong>> 0.995</strong>：极度慢化（崩溃前兆）
               </div>
             </div>
             <div class="tooltip-section">
@@ -657,8 +657,8 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
             <div class="tooltip-section">
               <div class="tooltip-label">参考标准 / 分级</div>
               <div class="tooltip-standards">
-                • <strong>≤ 15.0</strong>：上升弹性正常（正常）<br>
-                • <strong>> 15.0</strong>：升糖向心黏滞阻力偏高（高刚度代偿）
+                • <strong>≤ 23.0</strong>：上升弹性正常（正常）<br>
+                • <strong>> 23.0</strong>：升糖向心黏滞阻力偏高（高刚度代偿）
               </div>
             </div>
             <div class="tooltip-section">
@@ -687,8 +687,8 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
             <div class="tooltip-section">
               <div class="tooltip-label">参考标准 / 分级</div>
               <div class="tooltip-standards">
-                • <strong>≤ 20.0</strong>：基础相正常（正常）<br>
-                • <strong>> 20.0</strong>：基础相代偿阻力抬升（高代偿）
+                • <strong>≤ 24.0</strong>：基础相正常（正常）<br>
+                • <strong>> 24.0</strong>：基础相代偿阻力抬升（高代偿）
               </div>
             </div>
             <div class="tooltip-section">
@@ -738,14 +738,6 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
               <div class="tooltip-text">重构相空间中状态轨迹充盈的超体积包络（log V），刻画系统在多维空间的离散发散尺度。</div>
             </div>
             <div class="tooltip-section">
-              <div class="tooltip-label">参考标准 / 分级</div>
-              <div class="tooltip-standards">
-                • <strong>≤ 2.0</strong>：集中（参考带）<br>
-                • <strong>2.0 ~ 3.0</strong>：较展开（偏离）<br>
-                • <strong>> 3.0</strong>：高度展开（显著偏离）
-              </div>
-            </div>
-            <div class="tooltip-section">
               <div class="tooltip-label">生理与临床意义</div>
               <div class="tooltip-text">定量描述整体血糖系统的多维散布程度。受时段与观察天数影响，单项不独立决定病理方向。</div>
             </div>
@@ -769,14 +761,6 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
               <div class="tooltip-text">轨迹接近自身中位核心时的平均步长 ÷ 血糖 SD，度量扰动后向核心弛豫的平均速率。</div>
             </div>
             <div class="tooltip-section">
-              <div class="tooltip-label">参考标准 / 分级</div>
-              <div class="tooltip-standards">
-                • <strong>≥ 0.14</strong>：向心速度较快（正常）<br>
-                • <strong>0.10 ~ 0.14</strong>：中等弛豫（偏离）<br>
-                • <strong>< 0.10</strong>：显著偏慢（低向心步长）
-              </div>
-            </div>
-            <div class="tooltip-section">
               <div class="tooltip-label">生理与临床意义</div>
               <div class="tooltip-text">反映血糖受到扰动后恢复至平衡态的动态收敛速率。</div>
             </div>
@@ -798,14 +782,6 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
             <div class="tooltip-section">
               <div class="tooltip-label">物理与动力学定义</div>
               <div class="tooltip-text">相空间协方差矩阵第一与第二主特征值之比（λ₁/λ₂），描述吸引子包络主轴拉伸形状。</div>
-            </div>
-            <div class="tooltip-section">
-              <div class="tooltip-label">参考标准 / 分级</div>
-              <div class="tooltip-standards">
-                • <strong>< 1.2</strong>：近各向同性球状<br>
-                • <strong>1.2 ~ 1.8</strong>：轻度椭球拉伸<br>
-                • <strong>≥ 1.8</strong>：明显单轴拉伸形态
-              </div>
             </div>
             <div class="tooltip-section">
               <div class="tooltip-label">生理与临床意义</div>
@@ -863,13 +839,6 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
               <div class="tooltip-text">利用 Box-Counting 算法在四个尺度下估计相轨迹在相空间中的有限分形维度。</div>
             </div>
             <div class="tooltip-section">
-              <div class="tooltip-label">参考标准 / 分级</div>
-              <div class="tooltip-standards">
-                • <strong>1.81 ~ 2.01</strong>：内部参考带<br>
-                • <strong>< 1.80 或 > 2.02</strong>：几何分形充盈度明显偏离
-              </div>
-            </div>
-            <div class="tooltip-section">
               <div class="tooltip-label">生理与临床意义</div>
               <div class="tooltip-text">度量相轨迹在相空间中的几何充盈复杂度与非线性自由度。</div>
             </div>
@@ -891,14 +860,6 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
             <div class="tooltip-section">
               <div class="tooltip-label">物理与动力学定义</div>
               <div class="tooltip-text">相轨迹上局部近邻相点在下一个时间步的发散或收缩速率代理（Lyapunov Exponent Proxy）。</div>
-            </div>
-            <div class="tooltip-section">
-              <div class="tooltip-label">参考标准 / 分级</div>
-              <div class="tooltip-standards">
-                • <strong>< 0.15</strong>：轨迹局部收敛好<br>
-                • <strong>0.15 ~ 0.25</strong>：适度发散（正常带）<br>
-                • <strong>> 0.25</strong>：显著发散（不稳定）
-              </div>
             </div>
             <div class="tooltip-section">
               <div class="tooltip-label">生理与临床意义</div>
@@ -924,14 +885,6 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
               <div class="tooltip-text">递归定量分析（RQA）中构成平行于对角线的递归点占总递归点的比例。</div>
             </div>
             <div class="tooltip-section">
-              <div class="tooltip-label">参考标准 / 分级</div>
-              <div class="tooltip-standards">
-                • <strong>98.0% ~ 99.2%</strong>：正常重复带<br>
-                • <strong>> 99.2%</strong>：强确定性/周期僵化<br>
-                • <strong>< 98.0%</strong>：随机性增高
-              </div>
-            </div>
-            <div class="tooltip-section">
               <div class="tooltip-label">生理与临床意义</div>
               <div class="tooltip-text">度量血糖轨迹重复片段与内在确定性调控结构的比例。</div>
             </div>
@@ -955,14 +908,6 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
                   <div class="tooltip-text">递归图对角线段长度分布的香农熵（Shannon Entropy of Diagonal Line Lengths）。</div>
                 </div>
                 <div class="tooltip-section">
-                  <div class="tooltip-label">参考标准 / 分级</div>
-                  <div class="tooltip-standards">
-                    • <strong>2.00 ~ 3.00</strong>：正常复杂熵带<br>
-                    • <strong>> 3.00</strong>：高线长多样性<br>
-                    • <strong>< 2.00</strong>：重复结构单一
-                  </div>
-                </div>
-                <div class="tooltip-section">
                   <div class="tooltip-label">生理与临床意义</div>
                   <div class="tooltip-text">度量调控轨迹在相空间中重复持续时间的多样性与复杂结构。</div>
                 </div>
@@ -982,8 +927,8 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
   <div class="report-dialog" role="dialog" aria-modal="true" aria-labelledby="report-title">
     <div class="report-header">
       <div>
-        <h2 id="report-title">CGM 研究筛查审计日志</h2>
-        <p>先呈现筛查路径与数据质量，再呈现探索性结构指标；不包含原始血糖序列或本地文件路径。</p>
+        <h2 id="report-title">CGM 张量引擎遥测日志</h2>
+        <p>先呈现遥测路径与数据质量，再呈现探索性结构指标；不包含原始血糖序列或本地文件路径。</p>
       </div>
       <button class="report-close" id="btn-close-report" type="button" aria-label="关闭日志预览">×</button>
     </div>
@@ -1148,21 +1093,21 @@ function computeTelemetryStatus(workIntegral, ascendFriction, nightFriction, ar1
   }
 
   // Check for Critical Meltdown (based on Wind Tunnel P90+ thresholds)
-  if (ar1 > 0.994) {
+  if (ar1 > 0.995) {
     meltdown = true;
-    meltdownReason = "临界慢化极值 (AR1 > 0.994)";
+    meltdownReason = "临界慢化极值 (AR1 > 0.995)";
     statusTier = "系统塑性形变";
     statusCls = "bad";
     phaseState = "鞍点边缘 (Approaching Saddle)";
     interventionFulcrum = "🚨 绝对熔毁预警。系统已丧失恢复力。必须立即引入 Vector 4 (热力学倾泻 - 冰浴/深度冷暴露) 强制打破夜间代谢死锁，遏制临界慢化。严禁任何增加代谢负担的干预。";
-  } else if (kairosVelocity !== null && kairosVelocity > 0.008 && ar1 > 0.980) {
+  } else if (kairosVelocity !== null && kairosVelocity > 0.008 && ar1 > 0.985) {
     meltdown = true;
     meltdownReason = `奇点逼近加速度极高 (ΔAR1 = +${kairosVelocity.toFixed(3)})`;
     statusTier = "动力学雪崩前兆";
     statusCls = "bad";
     phaseState = "混沌边缘 (Edge of Chaos)";
     interventionFulcrum = "🚨 动态熔毁预警！系统正以自由落体速度丧失弹性。立即启动 Vector 4 (冰浴) 与 Vector 1 (绝对断食) 联合干预，强行阻断相变。";
-  } else if (nightSkewness !== null && nightSkewness > 1.5 && ar1 > 0.980) {
+  } else if (nightSkewness !== null && nightSkewness > 1.5 && ar1 > 0.985) {
     // Single-Epoch Early Warning based on Skewness
     statusTier = "势能井非对称畸变";
     statusCls = "warn";
@@ -3003,7 +2948,7 @@ ${refs}` : ''}
     return { val, desc, band: cls };
   },
 
-  formatDualMetric(val0, val1, isLowerBetter = true) {
+  formatDualMetric(val0, val1) {
     if (val0 === null || val0 === undefined || !Number.isFinite(val0)) {
       if (val1 !== null && val1 !== undefined && Number.isFinite(val1)) return val1.toFixed(2);
       return 'N/A';
@@ -3018,11 +2963,7 @@ ${refs}` : ''}
     let color = 'var(--text-secondary)';
     let arrow = '';
     if (Math.abs(pct) > 1.0) {
-      if (isLowerBetter) {
-        color = delta < 0 ? 'var(--green)' : 'var(--red)';
-      } else {
-        color = delta > 0 ? 'var(--green)' : 'var(--red)';
-      }
+      color = 'var(--purple)';
       arrow = delta > 0 ? '↑' : '↓';
     }
     
@@ -3093,9 +3034,9 @@ ${refs}` : ''}
     const arVal = epoch1 ? ar1 : ar0;
     if (arVal !== null && arVal !== undefined && Number.isFinite(arVal)) {
       let ar1Cls = 'reference', ar1Desc = '高频敏锐对抗；未出现临界慢化。';
-      if (arVal > 0.994) { ar1Cls = 'bad'; ar1Desc = '极度慢化（>0.994）｜系统自我纠错能力丧失，崩溃前兆。'; }
-      else if (arVal > 0.985) { ar1Cls = 'warn'; ar1Desc = '低频游荡（0.985-0.994）｜夜间基础相调控开始变慢。'; }
-      const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(ar0, ar1, true) : arVal.toFixed(3);
+      if (arVal > 0.995) { ar1Cls = 'bad'; ar1Desc = '极度慢化（>0.995）｜系统自我纠错能力丧失，崩溃前兆。'; }
+      else if (arVal > 0.990) { ar1Cls = 'warn'; ar1Desc = '低频游荡（0.990-0.995）｜夜间基础相调控开始变慢。'; }
+      const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(ar0, ar1) : arVal.toFixed(3);
       rData.nightAR1 = this.setCard('metric-night-ar1', displayStr, ar1Desc, ar1Cls);
     } else {
       rData.nightAR1 = this.setCard('metric-night-ar1', 'N/A', '缺少足够的夜间波动数据。', 'unavailable');
@@ -3125,29 +3066,21 @@ ${refs}` : ''}
     }
 
     // 2. Recovery
-    let velCls = 'reference', velDesc = '较快（≥0.14）｜接近核心时向心速度相对较快。';
-    if (m.avgRecovery < 0.10) { velCls = 'extreme'; velDesc = '偏低（<0.10）｜轨迹向心恢复速度较慢。'; }
-    else if (m.avgRecovery < 0.14) { velCls = 'shifted'; velDesc = '中等（0.10–0.14）｜向心恢复步长正常。'; }
+    let velCls = 'reference', velDesc = '接近核心时向心速度。';
     rData.vel = this.setCard('metric-velocity', m.avgRecovery ? m.avgRecovery.toFixed(3) : 'N/A', velDesc, velCls);
 
     // 3. Shape ratio
     let sCls = 'reference', sDesc = `主轴拉伸比 ≈ ${(m.shapeRatio || 0).toFixed(1)}x；反映协方差特征值比例。`;
-    if (m.shapeRatio < 1.2) { sDesc = '近各向同性（<1.2）｜前两主轴尺度接近。'; }
-    else if (m.shapeRatio < 1.8) { sDesc = '轻度拉伸（1.2–1.8）｜前两主轴差异有限。'; }
     rData.shp = this.setCard('metric-shape', m.shapeRatio ? m.shapeRatio.toFixed(1) + 'x' : 'N/A', sDesc, sCls);
 
     // 12. Volume
     const logVolume = Math.log(Math.max(m.volume || 1e-6, 1e-6));
-    let vCls = 'reference', vDesc = '较集中（logV≤2）｜当前窗离散尺度较小。';
-    if (logVolume > 3.0) { vCls = 'extreme'; vDesc = '高度展开（logV>3）｜多维离散尺度显著增大。'; }
-    else if (logVolume > 2.0) { vCls = 'shifted'; vDesc = '较展开（2<logV≤3）｜高于内部参考带。'; }
+    let vCls = 'reference', vDesc = '当前窗离散尺度。';
     rData.vol = this.setCard('metric-volume', m.volume ? m.volume.toFixed(2) : 'N/A', vDesc, vCls);
 
     // 4. Core distance
     if (disp !== null && Number.isFinite(disp)) {
       let dCls = 'reference', dDesc = disp === 0 ? '同一夜间基准｜核心距离按定义为 0。' : '状态位移｜当前核心相对夜间核心的欧氏距离。';
-      if (disp > 1.5) dCls = 'extreme';
-      else if (disp > 0.5) dCls = 'shifted';
       rData.disp = this.setCard('metric-core', disp.toFixed(2) + ' mmol/L', dDesc, dCls);
     } else {
       rData.disp = this.setCard('metric-core', 'N/A', '缺少可用夜间核心。', 'unavailable');
@@ -3156,8 +3089,6 @@ ${refs}` : ''}
     // 5. Dimension
     if (m.dimension !== null && m.dimension !== undefined && Number.isFinite(m.dimension)) {
       let dimCls = 'reference', dimDesc = '盒计数估计的几何充盈维度。';
-      if (m.dimension < 1.80 || m.dimension > 2.02) dimCls = 'extreme';
-      else if (m.dimension < 1.81 || m.dimension > 2.01) dimCls = 'shifted';
       rData.dim = this.setCard('metric-dimension', m.dimension.toFixed(2), dimDesc, dimCls);
     } else {
       rData.dim = this.setCard('metric-dimension', 'N/A', '有效连续相点过短。', 'unavailable');
@@ -3166,8 +3097,6 @@ ${refs}` : ''}
     // 6. Lyapunov
     if (m.lyapunov !== null && m.lyapunov !== undefined && Number.isFinite(m.lyapunov)) {
       let lyCls = 'reference', lyDesc = '一步近邻发散代理；反映相轨迹局部扩散速率。';
-      if (m.lyapunov > 0.25) lyCls = 'extreme';
-      else if (m.lyapunov < 0.15) lyCls = 'shifted';
       rData.ly = this.setCard('metric-lyapunov', m.lyapunov.toFixed(3), lyDesc, lyCls);
     } else {
       rData.ly = this.setCard('metric-lyapunov', 'N/A', '近邻点不足。', 'unavailable');
@@ -3176,8 +3105,6 @@ ${refs}` : ''}
     // 7. DET
     if (m.det !== null && m.det !== undefined && Number.isFinite(m.det)) {
       let detCls = 'reference', detDesc = 'RQA 确定性率；重复轨迹片段比例。';
-      if (m.det > 0.992) detCls = 'shifted';
-      else if (m.det < 0.980) detCls = 'shifted';
       rData.det = this.setCard('metric-det', (m.det * 100).toFixed(1) + '%', detDesc, detCls);
     } else {
       rData.det = this.setCard('metric-det', 'N/A', '递归点不足。', 'unavailable');
@@ -3186,8 +3113,6 @@ ${refs}` : ''}
     // 8. ENTR
     if (m.entr !== null && m.entr !== undefined && Number.isFinite(m.entr)) {
       let entrCls = 'reference', entrDesc = 'RQA 线长熵；重复片段长度多样性。';
-      if (m.entr > 3.0) entrCls = 'shifted';
-      else if (m.entr < 2.0) entrCls = 'shifted';
       rData.entr = this.setCard('metric-entr', m.entr.toFixed(2), entrDesc, entrCls);
     } else {
       rData.entr = this.setCard('metric-entr', 'N/A', '对角线不足。', 'unavailable');
