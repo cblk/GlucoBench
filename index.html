@@ -607,7 +607,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
           </div>
         </div>
 
-        <!-- 1. Work Integral (v8.7 Core) -->
+        <!-- 1. Work Integral (v8.8 Core) -->
         <div class="metric-card" id="metric-workintegral">
           <div class="metric-header">
             <div class="metric-title">相空间磁滞做功积分 (Work Integral)</div>
@@ -633,12 +633,12 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
             </div>
             <div class="tooltip-section">
               <div class="tooltip-label">生理与临床意义</div>
-              <div class="tooltip-text">度量升降过程中的耗散与滞后。高做功代表系统为维持表象稳态付出的热力学不可逆代偿（v8.7 最强核心特征，未治疗组 AUC=0.778）。</div>
+              <div class="tooltip-text">度量升降过程中的耗散与滞后。高做功代表系统为维持表象稳态付出的热力学不可逆代偿（风洞校准 N=265：P50≈15.6，P90≈92.9）。</div>
             </div>
           </div>
         </div>
 
-        <!-- 2. Ascend Friction (v8.7 Core) -->
+        <!-- 2. Ascend Friction (v8.8 Core) -->
         <div class="metric-card" id="metric-ascendfriction">
           <div class="metric-header">
             <div class="metric-title">上升相阻力 (Ascend Friction)</div>
@@ -668,7 +668,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
           </div>
         </div>
 
-        <!-- 3. Night Friction (v8.7 Core) -->
+        <!-- 3. Night Friction (v8.8 Core) -->
         <div class="metric-card" id="metric-nightfriction">
           <div class="metric-header">
             <div class="metric-title">夜间相变阻力 (Night Friction)</div>
@@ -693,7 +693,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
             </div>
             <div class="tooltip-section">
               <div class="tooltip-label">生理与临床意义</div>
-              <div class="tooltip-text">剥离干预噪音，直接捕捉基础胰岛素分泌的隐性代偿抬升（已治疗组 AUC=0.650 核心特征）。</div>
+              <div class="tooltip-text">剥离干预噪音，直接捕捉基础相的隐性代偿阻力抬升（风洞校准 N=265：P50≈14.0，P90≈24.2）。</div>
             </div>
           </div>
         </div>
@@ -3008,7 +3008,7 @@ ${refs}` : ''}
       let edCls = 'reference', edDesc = '原生敏锐早相；系统二阶动力学无延迟。';
       if (edVal > 45) { edCls = 'bad'; edDesc = '早相实质性枯竭（>45min）｜高危物理残差，动力学失控。'; }
       else if (edVal > 30) { edCls = 'warn'; edDesc = '早期阻尼钝化（30-45min）｜第一时相分泌开始代偿。'; }
-      const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(ed0, ed1, true) : edVal.toFixed(1) + ' min';
+      const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(ed0, ed1) : edVal.toFixed(1) + ' min';
       rData.earlyDelay = this.setCard('metric-early-delay', displayStr, edDesc, edCls);
     } else {
       rData.earlyDelay = this.setCard('metric-early-delay', 'N/A', '未检测到有效受迫上升段。', 'unavailable');
@@ -3022,7 +3022,7 @@ ${refs}` : ''}
       let rtCls = 'reference', rtDesc = '理想弹性回弹；代谢弹簧无塑性形变。';
       if (rtVal > 90) { rtCls = 'bad'; rtDesc = '严重塑性形变（>90min）｜失去热力学弹性，极度死锁。'; }
       else if (rtVal > 45) { rtCls = 'warn'; rtDesc = '外周受体弹性疲劳（45-90min）｜清除效率显著降级。'; }
-      const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(rt0, rt1, true) : rtVal.toFixed(1) + ' min';
+      const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(rt0, rt1) : rtVal.toFixed(1) + ' min';
       rData.relaxTime = this.setCard('metric-relax-time', displayStr, rtDesc, rtCls);
     } else {
       rData.relaxTime = this.setCard('metric-relax-time', 'N/A', '缺少足够降幅的完整回落段。', 'unavailable');
@@ -3059,7 +3059,7 @@ ${refs}` : ''}
       let wCls = 'reference', wDesc = '极低做功耗散；系统处于最小作用量物理区间。';
       if (wVal > 80.0) { wCls = 'bad'; wDesc = '不可逆病理性废热（>80）｜磁滞面积过大，高度代谢负荷。'; }
       else if (wVal > 45.0) { wCls = 'warn'; wDesc = '代偿性做功（45-80）｜热力学废热开始淤积。'; }
-      const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(w0, w1, true) : wVal.toFixed(2);
+      const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(w0, w1) : wVal.toFixed(2);
       rData.work = this.setCard('metric-workintegral', displayStr, wDesc, wCls);
     } else {
       rData.work = this.setCard('metric-workintegral', 'N/A', '磁滞做功不可用。', 'unavailable');
@@ -3074,7 +3074,6 @@ ${refs}` : ''}
     rData.shp = this.setCard('metric-shape', m.shapeRatio ? m.shapeRatio.toFixed(1) + 'x' : 'N/A', sDesc, sCls);
 
     // 12. Volume
-    const logVolume = Math.log(Math.max(m.volume || 1e-6, 1e-6));
     let vCls = 'reference', vDesc = '当前窗离散尺度。';
     rData.vol = this.setCard('metric-volume', m.volume ? m.volume.toFixed(2) : 'N/A', vDesc, vCls);
 
@@ -3123,9 +3122,9 @@ ${refs}` : ''}
     const nf1 = epoch1 && epoch1.logContext.nightFriction !== undefined ? epoch1.logContext.nightFriction : null;
     const nfVal = epoch1 ? nf1 : nf0;
     if (nfVal !== null && nfVal !== undefined && Number.isFinite(nfVal)) {
-      let nfCls = 'reference', nfDesc = '夜间基础相阻力；未治疗组高阻力代表代偿，已治疗组受药物调整。';
-      if (nfVal > 24) nfCls = 'warn';
-      const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(nf0, nf1, true) : nfVal.toFixed(2);
+      let nfCls = 'reference', nfDesc = '夜间基础相向心归位阻力；剥离进食干预噪音的纯基础相摩擦力。';
+      if (nfVal > 24) { nfCls = 'warn'; nfDesc = '偏高（>24）｜夜间基础相代偿阻力抬升，肝脏重置摩擦增加。'; }
+      const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(nf0, nf1) : nfVal.toFixed(2);
       rData.nightFric = this.setCard('metric-nightfriction', displayStr, nfDesc, nfCls);
     } else {
       rData.nightFric = this.setCard('metric-nightfriction', 'N/A', '缺少夜间核心。', 'unavailable');
@@ -3138,7 +3137,7 @@ ${refs}` : ''}
     if (afVal !== null && afVal !== undefined && Number.isFinite(afVal)) {
       let afCls = 'reference', afDesc = '受迫上升相阻力；反映血糖飙升时的向心拉扯刚度（早相分泌）。';
       if (afVal > 23) { afCls = 'warn'; afDesc = '偏高（>23）｜上升黏滞阻力增加，反映早相刚度改变。'; }
-      const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(af0, af1, true) : afVal.toFixed(2);
+      const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(af0, af1) : afVal.toFixed(2);
       rData.ascendFric = this.setCard('metric-ascendfriction', displayStr, afDesc, afCls);
     } else {
       rData.ascendFric = this.setCard('metric-ascendfriction', 'N/A', '上升相轨迹点不足。', 'unavailable');
