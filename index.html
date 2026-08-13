@@ -2002,8 +2002,11 @@ function computeNormalizedRecovery(points) {
 function computeKeplerKinematics(times, vals, core) {
   if (!vals || !times || vals.length < 3 || core === null) return { angularVelocity: null, sweepRate: null };
   
-  const X = new Float64Array(vals.length);
-  const Y = new Float64Array(vals.length);
+  // Plain arrays, not Float64Array: gap markers must stay null. A typed array coerces
+  // null to 0, which silently places every gap point exactly on the core and makes all
+  // the null guards below unreachable (measured up to -23% error on gap-heavy series).
+  const X = new Array(vals.length);
+  const Y = new Array(vals.length);
   const T_hours = new Float64Array(vals.length);
   
   for (let i = 0; i < vals.length; i++) {
@@ -2024,7 +2027,7 @@ function computeKeplerKinematics(times, vals, core) {
     }
   }
   
-  const dY = new Float64Array(vals.length);
+  const dY = new Array(vals.length);
   for (let i = 0; i < vals.length; i++) {
     if (Y[i] === null) { dY[i] = null; continue; }
     if (i > 0 && i < vals.length - 1 && Y[i-1] !== null && Y[i+1] !== null) {
@@ -2431,7 +2434,6 @@ const UI = {
     const dynamicText = `磁滞做功=${t.inputs.work_integral !== null && t.inputs.work_integral !== undefined ? t.inputs.work_integral.toFixed(2) : 'N/A'}, 上升阻力=${t.inputs.ascend_friction !== null && t.inputs.ascend_friction !== undefined ? t.inputs.ascend_friction.toFixed(2) : 'N/A'}, 夜间阻力=${t.inputs.night_friction !== null && t.inputs.night_friction !== undefined ? t.inputs.night_friction.toFixed(2) : 'N/A'}`;
     const advancedKinetics = `早相迟滞=${t.inputs.early_delay_min !== null ? t.inputs.early_delay_min.toFixed(1) + 'm' : 'N/A'}, 回落疲劳=${t.inputs.relaxation_time_min !== null ? t.inputs.relaxation_time_min.toFixed(1) + 'm' : 'N/A'}, 夜间AR1=${t.inputs.night_ar1 !== null ? t.inputs.night_ar1.toFixed(3) : 'N/A'}, 角速度=${t.inputs.angular_velocity !== null ? t.inputs.angular_velocity.toFixed(2) + 'rad/h' : 'N/A'}`;
     const dynamicDerivatives = isDual ? `\n- 奇点逼近加速度: ΔAR1 = ${kairos_vel !== null && kairos_vel > 0 ? '+' : ''}${kairos_vel !== null ? kairos_vel.toFixed(4) : 'N/A'}\n- 拓扑杠杆率: ${leverage0 !== null ? leverage0.toFixed(2) : 'N/A'} -> ${leverage1 !== null ? leverage1.toFixed(2) : 'N/A'}` : '';
-    const kairosText = `当前相态: ${t.phase_state || '未知'}`;
     const metrics = log.metrics.map(item =>
       `| ${item.label} | ${item.value} | ${statusLabels[item.status] || item.status} | ${item.interpretation} |`
     ).join('\n');
@@ -3140,8 +3142,8 @@ ${refs}` : ''}
     if (hr) {
       if (telemetry.meltdown) {
         hr.className = `health-rating bad`;
-        hr.innerHTML = `🚨 [CRITICAL MELTDOWN WARNING] ${telemetry.meltdownReason} - 强制建议退回幺元静默阶段！${suffix}`;
-        hr.title = "系统交感神经带宽耗尽或发生塑性形变";
+        hr.innerHTML = `🚨 [CRITICAL MELTDOWN WARNING] ${telemetry.meltdownReason}${suffix}`;
+        hr.title = "物理摩擦力残差已越过熔毁阈值；干预路由由高维解析层裁定";
       } else {
         hr.className = `health-rating reference`;
         hr.innerHTML = `<span class="dot"></span>张量引擎相态: ${telemetry.phaseState}${suffix}`;
@@ -3186,9 +3188,9 @@ ${refs}` : ''}
       { id: 'ascend_friction', label: '受迫上升相阻力', value: rData.ascendFric?.val || 'N/A', status: rData.ascendFric?.band || 'unavailable', interpretation: rData.ascendFric?.desc || '' },
     ];
 
-    const nextStep = telemetry.meltdown 
-      ? '系统处于严重塑性形变或交感神经带宽耗尽状态，请立即停止高强度物理干预，退回幺元静默阶段。'
-      : '系统动力学指标反映了当前的物理摩擦力，可用于指导 14 天周期的干预对比。';
+    const nextStep = telemetry.meltdown
+      ? '摩擦力残差已越过熔毁阈值。本层仅报告物理事实，干预路由与静默否决权由高维解析层（LLM Navigator）裁定。'
+      : '本输出为纯物理摩擦力残差，供 14 天周期的 Δ 对比使用；干预路由由高维解析层裁定。';
 
     const calcDelta = (v0, v1) => {
       if (v0 === null || v0 === undefined || v1 === null || v1 === undefined || v0 === 0) return null;
