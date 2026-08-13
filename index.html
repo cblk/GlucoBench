@@ -702,33 +702,21 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
           <summary>查看拓扑与混沌指标 (Advanced/Legacy)</summary>
           <div class="advanced-metrics-content">
 
-            <!-- 0. Insulin Predictor (Legacy) -->
+            <!-- 0. Insulin Predictor (Legacy / Disabled) -->
             <div class="metric-card" id="metric-insulin-pred">
               <div class="metric-header">
-                <div class="metric-title">空腹胰岛素基线预判 (F-Insulin)</div>
+                <div class="metric-title">空腹胰岛素基线预判 (已停用)</div>
                 <span class="info-icon">ℹ️</span>
               </div>
               <div class="metric-value-box">
-                <div class="metric-value" style="color:var(--text)">-</div>
+                <div class="metric-value" style="color:var(--text-secondary)">已停用</div>
               </div>
-              <div class="metric-desc">多尺度吸引子特征预测（仅供参考）。</div>
+              <div class="metric-desc">遵循标签盲化原则，已全面转向纯动力学遥测。</div>
               <div class="metric-tooltip">
-                <div class="tooltip-title">空腹胰岛素基线预判</div>
+                <div class="tooltip-title">空腹胰岛素基线预判 (已停用)</div>
                 <div class="tooltip-section">
-                  <div class="tooltip-label">物理与动力学定义</div>
-                  <div class="tooltip-text">通过将 τ∈{5,10,15,20} 四种延迟尺度的吸引子特征进行特征提取与 Ridge 回归，粗略还原空腹状态下的胰岛素代偿压力。</div>
-                </div>
-                <div class="tooltip-section">
-                  <div class="tooltip-label">参考标准 / 分级</div>
-                  <div class="tooltip-standards">
-                    • <strong>≤ 10.0 μU/mL</strong>：正常敏感区间<br>
-                    • <strong>10.0 ~ 15.0 μU/mL</strong>：早期代偿区间<br>
-                    • <strong>> 15.0 μU/mL</strong>：显著抵抗区间
-                  </div>
-                </div>
-                <div class="tooltip-section">
-                  <div class="tooltip-label">⚠️ 预警与局限性</div>
-                  <div class="tooltip-text">此模块系 v8.2 遗留探索模块（R² 极低），最新版本发现基于吸引子的拓扑特征缺乏对胰岛素绝对值的稳定映射。此预判不具备临床有效性，仅展示物理退化的一般趋势。</div>
+                  <div class="tooltip-label">停用与架构说明</div>
+                  <div class="tooltip-text">v8.8 架构遵循“标签盲化 (Label Blinding)”与控制论导航协议，弃用基于 CGMs 拟合静态临床标签（F-Insulin 浓度）的还原论回归模型（历史探索样本内 R²≈0.01，缺乏稳定映射）。系统已全面转向纯物理阻力与相空间残差遥测（Work Integral, Ascend Friction, Night Friction, AR1）。</div>
                 </div>
               </div>
             </div>
@@ -3067,6 +3055,9 @@ ${refs}` : ''}
 
     // Compute Telemetry Status (Replaces Screening)
     const telemetry = computeTelemetryStatus(m.workIntegral, m.ascendFriction, nightFrictionVal, m.nightAR1, prevAr1, prevWork, prevAscend, nightSkewness);
+
+    // 0. Legacy Insulin Predictor Card (Disabled per Label Blinding in v8.8)
+    rData.insulinPred = this.setCard('metric-insulin-pred', '已停用', '遵循标签盲化原则，已全面转向纯动力学遥测。', 'unavailable');
 
     // 0.5 Early Phase Delay
     const ed0 = epoch0 ? epoch0.metrics.earlyDelay : null;
