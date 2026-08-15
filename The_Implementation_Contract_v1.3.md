@@ -62,7 +62,8 @@
     *   在加权平均后的 ACF 曲线上，从 index=1 开始向右扫描。
     *   **触发条件 1:** ACF 首次下降穿过 $1/e \approx 0.3678$。
     *   **触发条件 2:** ACF 首次遇到局部极小值（当前点小于前一点和后一点），且此时 ACF $< 0.7$。
-*   **边界锁死:** $\tau$ 必须为整数。`tau_min = 1`，`tau_max = 20` (最大 60 分钟)。若超过上限仍未触发，强行锁定 `tau = 20`。
+*   **边界锁死:** $\tau$ 必须为整数。`tau_min = 1`，`tau_max = 60` (最大 180 分钟)。若超过上限仍未触发，强行锁定 `tau = 60`。
+*   **[v1.4 修订] 上限来源:** 该上限由 2026-08-15 Hall 队列风洞实测（`reports/wind_tunnel_hall_20260815_2149.md`）驱动上调，此前的 `tau_max = 20` 曾导致 42/57 人的 $\tau$ 被顶在天花板上（测量天花板伪影），详见 Pipeline Blueprint v3.3 第 3.1 节修订记录。
 
 ### 3.2 最小重构维度 $m_{fnn}$ (False Nearest Neighbors)
 *   **严禁双重 for 循环:** 距离计算必须使用 `scipy.spatial.distance.pdist` 或基于 `KDTree` 的 $O(N \log N)$ 邻域搜索。

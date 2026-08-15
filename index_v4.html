@@ -1028,7 +1028,11 @@ class TensorEngine:
                 self.log_event("[L1 ERROR] No valid chunks >= 30 points for ACF. ABORTING Tau extraction.")
                 return json.dumps({"result": None, "events": self.event_log})
 
-            max_lag = 20
+            # v9.1 / Blueprint v3.4: raised from 20 to 60 (180min) after the 2026-08-15 Hall
+            # wind-tunnel run showed 42/57 subjects pinned at the old 20-step ceiling -- a
+            # measurement-ceiling artifact, not a real cross-subject invariant. See
+            # reports/wind_tunnel_hall_20260815_2149.md and Blueprint v3.3 Sec 3.1 revision note.
+            max_lag = 60
             total_len = sum(len(c) for c in chunks)
             avg_acf = np.zeros(max_lag + 1)
             
@@ -2026,7 +2030,13 @@ function computeACF(values, maxLag) {
 // Tau selection: first local minimum after substantial decay (ACF < 0.8), or 1/e crossing.
 // OPTIMIZED v7.1: capped at 20 (max 60-min delay for 3-min resampled data).
 // The old cap of 40 produced taus of 14-58 on 5-min CGM, degrading phase space reconstruction.
-const TAU_MAX = 20;
+// [DEAD CODE NOTICE] recommendTau()/computeACF() below are no longer called anywhere in this
+// file -- live tau extraction is Pyodide's engine.extract_tau() (Contract v1.3 Law Two). Kept
+// only as legacy reference; TAU_MAX updated to 60 (v9.1/Blueprint v3.4) purely for hygiene so
+// this constant does not silently drift from the now-authoritative Python max_lag if this JS
+// path is ever re-wired. See reports/wind_tunnel_hall_20260815_2149.md for the evidence driving
+// the 20->60 change.
+const TAU_MAX = 60;
 function recommendTau(acf) {
   let decayed = false;
   for (let i = 1; i < acf.length - 1; i++) {
