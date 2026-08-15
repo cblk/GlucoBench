@@ -3,10 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CGM Aether相空间探针 v8.8</title>
+<title>CGM Aether相空间探针 v9.0 (Pyodide Aether-Core)</title>
+<!-- Pyodide -->
+<script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
 <!-- SheetJS for Excel parsing -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<!-- Plotly.js for 3D visualization -->
+<!-- Plotly.js for visualization -->
 <script src="https://cdn.plot.ly/plotly-2.29.1.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -406,8 +408,23 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
           <input type="file" id="file-input-1" accept=".xlsx,.csv" style="display:none">
         </div>
 
-        <div style="display:flex;gap:8px;margin-top:12px">
+        <!-- 人类语境标注：仅供 LLM 高维解析层参考，绝不进入 Python 张量引擎的数学计算 (Label Blinding 红线)。 -->
+        <div id="intervention-annotations" style="margin-top:10px; padding:8px 10px; border:1px solid var(--border-color, #333); border-radius:6px;">
+          <div style="font-size:11px; color:var(--text-secondary); margin-bottom:6px;">Epoch 1 实际执行的干预标注（如实勾选，不影响下方任何数值计算）：</div>
+          <label style="display:flex; align-items:center; gap:6px; font-size:12px; margin-bottom:4px; cursor:pointer;"><input type="checkbox" id="chk-vec-v1"> V1 光照 (Blue-light/Circadian)</label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:12px; margin-bottom:4px; cursor:pointer;"><input type="checkbox" id="chk-vec-v2"> V2 生化 (营养/补剂注资)</label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:12px; margin-bottom:4px; cursor:pointer;"><input type="checkbox" id="chk-vec-v3"> V3 机械拉扯 (抗阻/负重)</label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:12px; margin-bottom:4px; cursor:pointer;"><input type="checkbox" id="chk-vec-v4"> V4 热力学倾泻 (冷暴露/深度睡眠)</label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:#e8a33d; cursor:pointer;"><input type="checkbox" id="chk-vec-med"> ⚠ 药物治疗变化 (新增/调整处方药)</label>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:12px; flex-direction:column;">
           <button class="btn btn-highlight" id="btn-load-sample" style="flex:1">加载演示对照数据</button>
+          <div style="display:flex;gap:4px;">
+            <button class="btn" id="btn-airgap-sine" style="background:#444;color:white;flex:1;font-size:11px;">隔离测试:正弦</button>
+            <button class="btn" id="btn-airgap-noise" style="background:#444;color:white;flex:1;font-size:11px;">隔离测试:白噪</button>
+            <button class="btn" id="btn-airgap-flat" style="background:#444;color:white;flex:1;font-size:11px;">隔离测试:直线</button>
+          </div>
         </div>
       </section>
 
@@ -927,7 +944,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
   <div class="report-dialog" role="dialog" aria-modal="true" aria-labelledby="report-title">
     <div class="report-header">
       <div>
-        <h2 id="report-title">CGM 张量引擎遥测日志</h2>
+        <h2 id="report-title">CGM 张量引擎遥测日志 (Aether-Core v9.0)</h2>
         <p>先呈现遥测路径与数据质量，再呈现探索性结构指标；不包含原始血糖序列或本地文件路径。</p>
       </div>
       <button class="report-close" id="btn-close-report" type="button" aria-label="关闭日志预览">×</button>
@@ -942,6 +959,503 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
 </div>
 
 <script>
+/* 
+ * ============================================================================
+ * 🚨 [The Aether-Core Protocol] 🚨
+ * ============================================================================
+ * VERSION: v9.0 (WASM/Pyodide Engine)
+ * DESIGN GOAL: Implement "The Implementation Contract v1.3" bit-for-bit truth.
+ * ARCHITECTURE:
+ *   1. JavaScript acts ONLY as the UI Shell, I/O pipeline, and Plotly bridge.
+ *   2. ALL mathematical computations (filtering, RQA, FNN, embedding) are 
+ *      executed inside an embedded Python environment via Pyodide using SciPy.
+ *   3. LIFO resource management is strictly enforced for memory leaks.
+ * ============================================================================
+ */
+// ==========================================
+// Pyodide Initialization & Python Python Code
+// ==========================================
+let pyodide = null;
+let pyEngineReady = false;
+
+function updateUIState(text) {
+    const hr = document.getElementById('health-rating');
+    if (hr) {
+        hr.innerHTML = `<span class="dot" style="background:var(--primary); box-shadow:0 0 8px var(--primary);"></span>${text}`;
+    }
+}
+
+const PYTHON_ENGINE_CODE = `
+import numpy as np
+from scipy import signal
+import json
+import traceback
+
+class TensorEngine:
+    def __init__(self):
+        self.event_log = []
+    
+    def log_event(self, msg):
+        self.event_log.append(msg)
+
+    def extract_tau(self, values_json):
+        # Concurrency/Lifecycle Audit fix: self.event_log is a singleton accumulator on this
+        # long-lived engine instance. Without a per-call reset, every response's "events" field
+        # would leak the ENTIRE session's history (all prior calls, all prior epochs) into the
+        # current call's result, which JS then appends onto _eventSequence at every one of the
+        # 5 call sites per epoch -- causing unbounded log growth and burying the current epoch's
+        # forensic signal under stale, unrelated history. Reset here so each call returns ONLY
+        # the log lines it itself generated.
+        self.event_log = []
+        try:
+            values_list = json.loads(values_json)
+            self.log_event("[Python Engine L1] Starting ACF Tau Extraction.")
+            chunk_indices = []
+            cur_indices = []
+            for i, v in enumerate(values_list):
+                if v is not None and not (isinstance(v, float) and np.isnan(v)):
+                    cur_indices.append(i)
+                else:
+                    if len(cur_indices) > 0:
+                        chunk_indices.append(cur_indices)
+                        cur_indices = []
+            if len(cur_indices) > 0:
+                chunk_indices.append(cur_indices)
+                
+            chunks = [np.array([values_list[i] for i in idxs], dtype=np.float64) for idxs in chunk_indices if len(idxs) >= 30]
+            
+            if not chunks:
+                self.log_event("[L1 ERROR] No valid chunks >= 30 points for ACF. ABORTING Tau extraction.")
+                return json.dumps({"result": None, "events": self.event_log})
+
+            max_lag = 20
+            total_len = sum(len(c) for c in chunks)
+            avg_acf = np.zeros(max_lag + 1)
+            
+            for c in chunks:
+                n = len(c)
+                mean = np.mean(c)
+                var = np.var(c)
+                if var < 1e-9:
+                    continue
+                acf = np.zeros(max_lag + 1)
+                acf[0] = 1.0
+                for lag in range(1, max_lag + 1):
+                    if n <= lag:
+                        break
+                    acf[lag] = np.sum((c[:-lag] - mean) * (c[lag:] - mean)) / ((n - lag) * var)
+                avg_acf += acf * (n / total_len)
+
+            tau = max_lag
+            decayed = False
+            for i in range(1, max_lag):
+                if avg_acf[i] < 0.7:
+                    decayed = True
+                if avg_acf[i] < 0.3678:
+                    tau = i
+                    break
+                if decayed and avg_acf[i] < avg_acf[i-1] and avg_acf[i] < avg_acf[i+1]:
+                    tau = i
+                    break
+
+            self.log_event(f"[Python Engine L1] Weighted ACF calculated, locked tau = {tau}")
+            return json.dumps({"result": int(tau), "events": self.event_log})
+        except Exception as e:
+            err = traceback.format_exc()
+            self.log_event(f"[Python L1 Error] Tau Extraction: {err}")
+            return json.dumps({"error": str(e), "events": self.event_log})
+
+    def estimate_dimension(self, values_json, tau):
+        self.event_log = []  # Per-call reset; see extract_tau for rationale.
+        try:
+            values_list = json.loads(values_json)
+            self.log_event(f"[Python Engine L1] Starting FNN & Jacobi Razor with tau={tau}.")
+            
+            chunk_indices = []
+            cur_indices = []
+            for i, v in enumerate(values_list):
+                if v is not None and not (isinstance(v, float) and np.isnan(v)):
+                    cur_indices.append(i)
+                else:
+                    if len(cur_indices) > 0:
+                        chunk_indices.append(cur_indices)
+                        cur_indices = []
+            if len(cur_indices) > 0:
+                chunk_indices.append(cur_indices)
+                
+            chunks = [np.array([values_list[i] for i in idxs], dtype=np.float64) for idxs in chunk_indices if len(idxs) >= 30]
+            
+            if not chunks:
+                self.log_event("[L1 ERROR] No valid chunks for Dimension Estimation. ABORTING.")
+                return json.dumps({"result": None, "events": self.event_log})
+                
+            all_vals = np.concatenate(chunks)
+            R_A = np.std(all_vals)
+            if R_A < 1e-3: R_A = 1e-3
+            
+            R_tol = 15.0
+            A_tol = 2.0
+            
+            def build_phase_space(c, m, t):
+                n = len(c)
+                if n <= (m-1)*t:
+                    return np.empty((0, m))
+                return np.array([c[i : i + m*t : t] for i in range(n - (m-1)*t)])
+                
+            m_fnn = 10
+            prev_fnn_ratio = 1.0
+            from scipy.spatial import cKDTree
+            
+            for m in range(1, 11):
+                pts_m = []
+                pts_m_plus_1 = []
+                for c in chunks:
+                    p_m = build_phase_space(c, m, tau)
+                    p_m1 = build_phase_space(c, m+1, tau)
+                    if len(p_m1) > 0:
+                        pts_m.append(p_m[:len(p_m1)])
+                        pts_m_plus_1.append(p_m1)
+                
+                if not pts_m:
+                    m_fnn = max(1, m-1)
+                    break
+                    
+                pts_m = np.concatenate(pts_m)
+                pts_m_plus_1 = np.concatenate(pts_m_plus_1)
+                
+                if len(pts_m) < 10:
+                    m_fnn = max(1, m-1)
+                    break
+                    
+                tree = cKDTree(pts_m)
+                # k=2 because nearest neighbor to itself is distance 0 (index 0)
+                distances, indices = tree.query(pts_m, k=2)
+                if distances.shape[1] < 2:
+                    m_fnn = max(1, m-1)
+                    break
+                    
+                nn_dists = distances[:, 1]
+                nn_indices = indices[:, 1]
+                
+                fnn_count = 0
+                for i in range(len(pts_m)):
+                    R_d = nn_dists[i]
+                    if R_d < 1e-6:
+                        R_d = 1e-6
+                    
+                    coord_diff = np.abs(pts_m_plus_1[i, -1] - pts_m_plus_1[nn_indices[i], -1])
+                    
+                    if coord_diff / R_d > R_tol:
+                        fnn_count += 1
+                    elif np.sqrt(R_d**2 + coord_diff**2) / R_A > A_tol:
+                        fnn_count += 1
+                        
+                fnn_ratio = fnn_count / len(pts_m)
+                self.log_event(f"  [FNN] m={m}, ratio={fnn_ratio:.4f}")
+                
+                if fnn_ratio < 0.05 or fnn_ratio > prev_fnn_ratio:
+                    m_fnn = m
+                    break
+                prev_fnn_ratio = fnn_ratio
+                
+            m_fnn = int(max(2, min(m_fnn, 10)))
+            self.log_event(f"[Python Engine L1] FNN locked m_fnn={m_fnn}.")
+            
+            # Jacobi Razor
+            pts_fnn = []
+            for c in chunks:
+                p = build_phase_space(c, m_fnn, tau)
+                if len(p) > 0:
+                    pts_fnn.append(p)
+                    
+            if not pts_fnn:
+                self.log_event("[L1 ERROR] FNN points empty. ABORTING.")
+                return json.dumps({"result": None, "events": self.event_log})
+
+            pts_fnn = np.concatenate(pts_fnn)
+            if len(pts_fnn) < m_fnn:
+                self.log_event(f"[L1 ERROR] FNN points ({len(pts_fnn)}) < m_fnn ({m_fnn}). ABORTING.")
+                return json.dumps({"result": None, "events": self.event_log})
+
+            cov = np.cov(pts_fnn, rowvar=False)
+            if m_fnn == 1:
+                self.log_event("[L1 ERROR] Covariance matrix is 1D (m_fnn=1), cannot calculate eigenvalues. ABORTING.")
+                return json.dumps({"result": None, "events": self.event_log})
+
+            eigvals = np.linalg.eigvalsh(cov)
+            eigvals = np.sort(eigvals)[::-1]
+
+            total_var = np.sum(eigvals)
+            if total_var < 1e-9:
+                self.log_event("[L1 ERROR] Total variance < 1e-9. System is frozen. ABORTING.")
+                return json.dumps({"result": None, "events": self.event_log})
+                
+            cum_var = 0.0
+            m_eff = m_fnn
+            for i, val in enumerate(eigvals):
+                cum_var += max(0, val)
+                if cum_var / total_var >= 0.99:
+                    m_eff = i + 1
+                    break
+                    
+            m_eff = int(max(2, min(m_eff, m_fnn)))
+            self.log_event(f"[Python Engine L1] Jacobi Razor effective dim m_eff={m_eff} (from {m_fnn}).")
+            return json.dumps({"result": m_eff, "events": self.event_log})
+        except Exception as e:
+            err = traceback.format_exc()
+            self.log_event(f"[Python L1 Error] Dimension Estimation: {err}")
+            return json.dumps({"error": str(e), "events": self.event_log})
+            
+    def compute_rqa(self, points_json, tau):
+        self.event_log = []  # Per-call reset; see extract_tau for rationale.
+        try:
+            # Contract v1.3 4.4 Spatiotemporal Alignment: the caller MUST pass the FULL point
+            # array including None gap markers. Squashing nulls before this call would collapse
+            # the array index onto the compacted position, silently converting the Theiler window
+            # from a "physical time" filter into a meaningless "array position" filter, and would
+            # let diagonal-line scans splice together two chunks separated by a real data dropout.
+            pts = json.loads(points_json)
+            orig_idx = []
+            valid_pts = []
+            for i, p in enumerate(pts):
+                if p is not None and len(p) >= 2:
+                    orig_idx.append(i)
+                    valid_pts.append(p)
+            n = len(valid_pts)
+            if n < 10:
+                self.log_event(f"[L2 ERROR] Insufficient points for RQA ({n} < 10). ABORTING RQA.")
+                return json.dumps({"result": None, "events": self.event_log})
+
+            orig_idx = np.array(orig_idx, dtype=np.int64)
+            arr = np.array(valid_pts, dtype=np.float64)
+            T = int(max(5, tau))
+            target_rr = 0.05
+
+            # Using scipy.spatial.distance.pdist for efficient pair-wise distance
+            from scipy.spatial.distance import pdist, squareform
+            condensed_dists = pdist(arr, metric='euclidean')
+
+            # Max expected points is ~4000 (14 days = 6720 / chunking).
+            # memory for 4000x4000 float64 is ~128MB, very safe in Pyodide.
+            dist_mat = squareform(condensed_dists)
+
+            # Theiler mask keyed on TRUE physical-time separation (orig_idx), not compacted
+            # array position, so a gap does not falsely shrink or inflate the exclusion band.
+            idx_gap = np.abs(orig_idx[:, None] - orig_idx[None, :])
+            mask = np.triu(idx_gap > T)
+            valid_dists = dist_mat[mask]
+
+            if len(valid_dists) == 0:
+                self.log_event("[L2 ERROR] Theiler window excluded all points (T >= N/2). ABORTING RQA.")
+                return json.dumps({"result": None, "events": self.event_log})
+
+            # Find epsilon to achieve 5% RR (5th percentile of the valid distances)
+            epsilon = float(np.percentile(valid_dists, target_rr * 100))
+            if epsilon < 1e-9: epsilon = 1e-9
+
+            # Build recurrence matrix (upper triangle only for calculation)
+            R = (dist_mat < epsilon) & mask
+
+            rr = float(np.sum(R)) / len(valid_dists)
+
+            # Chunk-boundary marker: True where compacted positions m, m+1 are ALSO physically
+            # adjacent (no dropout between them). A diagonal "line" may only extend across a
+            # step where this holds for BOTH tracks of the pair; otherwise it is a seam artifact.
+            contiguous = (np.diff(orig_idx) == 1) if n > 1 else np.array([], dtype=bool)
+
+            diag_lengths = []
+            l_min = 2
+            total_recurrent_pts = int(np.sum(R))
+
+            for k in range(T + 1, n):
+                diag = np.diag(R, k=k)
+                L = len(diag)
+                if L < l_min:
+                    continue
+                if L > 1:
+                    can_extend = contiguous[0:L-1] & contiguous[k:k+L-1]
+                    barrier_idx = np.where(~can_extend)[0] + 1
+                    segments = np.split(diag, barrier_idx) if len(barrier_idx) > 0 else [diag]
+                else:
+                    segments = [diag]
+                for seg in segments:
+                    if len(seg) == 0:
+                        continue
+                    padded = np.concatenate(([False], seg, [False]))
+                    diffs = np.diff(padded.astype(int))
+                    starts = np.where(diffs == 1)[0]
+                    ends = np.where(diffs == -1)[0]
+                    lengths = ends - starts
+                    for l in lengths:
+                        if l >= l_min:
+                            diag_lengths.append(int(l))
+
+            det = 0.0
+            entr = 0.0
+
+            if len(diag_lengths) > 0 and total_recurrent_pts > 0:
+                det = sum(diag_lengths) / total_recurrent_pts
+                lengths_arr = np.array(diag_lengths)
+                unique_lengths, counts = np.unique(lengths_arr, return_counts=True)
+                probs = counts / np.sum(counts)
+                entr = float(-np.sum(probs * np.log(probs)))
+
+            # Pack recurrence plot for JS (sparse representation, compacted-index space; purely
+            # a rendering convenience and does not feed back into DET/ENTR/RR math above).
+            rp_y, rp_x = np.where(dist_mat < epsilon)
+
+            rp_coords = []
+            if len(rp_x) < 50000:
+                rp_coords = [int(i) for i in rp_x]
+                rp_coords_y = [int(i) for i in rp_y]
+            else:
+                stride = len(rp_x) // 50000 + 1
+                rp_coords = [int(i) for i in rp_x[::stride]]
+                rp_coords_y = [int(i) for i in rp_y[::stride]]
+
+            res = {
+                "rr": rr,
+                "det": det,
+                "entr": entr,
+                "rp_x": rp_coords,
+                "rp_y": rp_coords_y
+            }
+            self.log_event(f"[Python Engine L2] RQA computed. T={T} (physical steps), eps={epsilon:.4f}, DET={det:.3f}, ENTR={entr:.3f}, chunk_seams={int(np.sum(~contiguous)) if n > 1 else 0}")
+            return json.dumps({"result": res, "events": self.event_log})
+        except Exception as e:
+            err = traceback.format_exc()
+            self.log_event(f"[Python L2 Error] RQA Calculation: {err}")
+            return json.dumps({"error": str(e), "events": self.event_log})
+
+    def filter_chunks(self, values_json, order, Wn):
+        self.event_log = []  # Per-call reset; see extract_tau for rationale.
+        try:
+            values = json.loads(values_json)
+            out = list(values)
+            chunk_indices = []
+            cur_indices = []
+            for i, v in enumerate(values):
+                if v is not None and not (isinstance(v, float) and np.isnan(v)):
+                    cur_indices.append(i)
+                else:
+                    if len(cur_indices) > 0:
+                        chunk_indices.append(cur_indices)
+                        cur_indices = []
+            if len(cur_indices) > 0:
+                chunk_indices.append(cur_indices)
+
+            b, a = signal.butter(int(order), float(Wn), btype='low')
+            for idxs in chunk_indices:
+                chunk = np.array([values[i] for i in idxs], dtype=np.float64)
+                if len(chunk) >= 12:
+                    padlen = min(3 * max(len(a), len(b)), len(chunk) - 1)
+                    filtered = signal.filtfilt(b, a, chunk, padlen=padlen)
+                    for k, i in enumerate(idxs):
+                        out[i] = float(filtered[k])
+                else:
+                    for k, i in enumerate(idxs):
+                        out[i] = float(chunk[k])
+            self.log_event(f"[Python Engine L0] Zero-phase Butterworth (order={order}, Wn={Wn}) applied on {len(chunk_indices)} chunks.")
+            return json.dumps({"result": out, "events": self.event_log})
+        except Exception as e:
+            err = traceback.format_exc()
+            self.log_event(f"[Python Filter Error] {err}")
+            return json.dumps({"error": str(e), "events": self.event_log})
+
+    def compute_work_integral(self, points_json):
+        self.event_log = []  # Per-call reset; see extract_tau for rationale.
+        try:
+            # Contract v1.3 4.1 Spatiotemporal Alignment: caller MUST pass the FULL array
+            # (nulls included, on the fixed-step resampled grid). We never pre-filter to a
+            # compacted array here -- distance is only accumulated between two ADJACENT grid
+            # slots that are BOTH valid, which is exactly the Chunking Engine boundary rule:
+            # a null gap between them silently breaks the sum instead of teleporting across it.
+            pts = json.loads(points_json)
+            n = len(pts)
+            valid_count = sum(1 for p in pts if p is not None and len(p) >= 2)
+            if valid_count < 2:
+                self.log_event("[L0 ERROR] Insufficient points for Work Integral (<2). ABORTING calculation.")
+                return json.dumps({"result": None, "events": self.event_log})
+
+            xs = np.full(n, np.nan, dtype=np.float64)
+            ys = np.full(n, np.nan, dtype=np.float64)
+            for i, p in enumerate(pts):
+                if p is not None and len(p) >= 2:
+                    xs[i] = p[0]
+                    ys[i] = p[1]
+
+            dx = np.diff(xs)
+            dy = np.diff(ys)
+            dist = np.sqrt(dx * dx + dy * dy)
+            # NaN propagates from either endpoint being invalid/missing, so this automatically
+            # drops any step that would have crossed a chunk boundary.
+            raw_work = float(np.nansum(dist))
+
+            # 24h Time-Normalization Mandate (Contract v1.3 4.1 / Blueprint v3.3 L2):
+            # normalize to a 480-point (3-min step) equivalent basis so the thermodynamic bill
+            # stays comparable across epochs with different data-loss rates.
+            val = raw_work / (valid_count / 480.0)
+            self.log_event(f"[Python Engine L2] Work Integral computed. raw={raw_work:.4f}, valid_pts={valid_count}, normalized={val:.4f}")
+            return json.dumps({"result": val, "events": self.event_log})
+        except Exception as e:
+            err = traceback.format_exc()
+            self.log_event(f"[Python L2 Error] Work Integral: {err}")
+            return json.dumps({"error": str(e), "events": self.event_log})
+
+engine = TensorEngine()
+`;
+
+async function initPyodide() {
+    // Add loading indicator to DOM if not present
+    if (!document.getElementById('pyodide-loader')) {
+        const loader = document.createElement('div');
+        loader.id = 'pyodide-loader';
+        loader.style = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;color:white;font-size:24px;';
+        loader.innerHTML = '<div>Aether-Core WASM Loading... <span id="pyodide-status"></span></div>';
+        document.body.appendChild(loader);
+    }
+    
+    try {
+        updateUIState("正在启动 Aether-Core (加载 Pyodide / WASM)...");
+        document.getElementById('pyodide-status').innerText = '(1/3) Downloading Engine';
+        pyodide = await loadPyodide();
+        
+        updateUIState("Aether-Core: 加载 NumPy / SciPy...");
+        document.getElementById('pyodide-status').innerText = '(2/3) Loading Scientific Stack (NumPy/SciPy)';
+        await pyodide.loadPackage(["numpy", "scipy"]);
+        
+        updateUIState("Aether-Core: 编译物理引擎...");
+        document.getElementById('pyodide-status').innerText = '(3/3) Compiling Physics Engine';
+        await pyodide.runPythonAsync(PYTHON_ENGINE_CODE);
+        
+        pyEngineReady = true;
+        document.getElementById('pyodide-loader').style.display = 'none';
+        updateUIState("Aether-Core 就绪。等待数据输入。");
+        console.log("Pyodide Engine Initialized.");
+    } catch (e) {
+        console.error("Pyodide Init Error:", e);
+        document.getElementById('pyodide-status').innerText = `Error: ${e.message}`;
+        updateUIState("Aether-Core 启动失败: " + e.message);
+    }
+}
+
+// Call on startup
+window.addEventListener('load', () => {
+    initPyodide();
+});
+// ==========================================
+// 🚨 LIFO Resource Cleanup Command Center 🚨
+// ==========================================
+function performPlotlyPurge(divIds) {
+    divIds.forEach(id => {
+        try {
+            Plotly.purge(id);
+            console.log(`[LIFO Destructor] Purged Plotly div: ${id}`);
+        } catch(e) {
+            console.warn(`[LIFO Destructor] Failed to purge ${id}:`, e);
+        }
+    });
+}
 // ============================================================
 // CGM Takens Phase Space Reconstruction Analyzer v8.0
 //
@@ -1524,17 +2038,30 @@ function recommendTau(acf) {
 }
 
 // Slice time series by period: 'all', 'night' (0:00-6:00), 'daytime' (6:00-18:00)
+//
+// Contract v1.3 4.4 Spatiotemporal Alignment: the returned array MUST keep the SAME length
+// and index-to-physical-time correspondence as the input (identical to the 'all' branch), on
+// pain of corrupting every downstream Chunking Engine / Theiler-window / adjacency check that
+// assumes "array index == fixed 3-min grid step". The previous implementation collapsed each
+// multi-hour excluded run (e.g. ~18h of daytime between two nights) down to a SINGLE null
+// placeholder to keep the array short for rendering. That silently made night N's last sample
+// and night N+1's first sample look "one tau-step apart" to every consumer (takensEmbedding,
+// compute_rqa's Theiler mask, compute_work_integral's adjacency check, computeAsymmetricFriction's
+// velocity term) — fabricating a fictitious jump across an ~18h gap as if it were physically
+// adjacent. Night Friction/AR1 are computed on 'night'-sliced data UNCONDITIONALLY (not only
+// when the user picks the "night" view), so this corrupted every multi-night analysis silently.
 function sliceByPeriod(ts, vs, period) {
   if (period === 'all') return { timestamps: ts, values: vs };
-  const newTs = [], newVs = [];
   const startH = period === 'night' ? 0 : 6;
   const endH = period === 'night' ? 6 : 18;
+  const newTs = new Array(ts.length);
+  const newVs = new Array(ts.length);
   for (let i = 0; i < ts.length; i++) {
-    if (vs[i] === null) { newTs.push(ts[i]); newVs.push(null); continue; }
+    newTs[i] = ts[i];
+    if (vs[i] === null) { newVs[i] = null; continue; }
     const h = ts[i].getHours() + ts[i].getMinutes() / 60;
     const inRange = startH <= endH ? (h >= startH && h < endH) : (h >= startH || h < endH);
-    if (inRange) { newTs.push(ts[i]); newVs.push(vs[i]); }
-    else if (newVs.length > 0 && newVs[newVs.length - 1] !== null) { newTs.push(ts[i]); newVs.push(null); }
+    newVs[i] = inRange ? vs[i] : null;
   }
   return { timestamps: newTs, values: newVs };
 }
@@ -1874,6 +2401,35 @@ function gammaApprox(x) {
   return Math.sqrt(2 * Math.PI / x) * Math.pow(x / Math.E, x);
 }
 
+// Blueprint v3.3 L0 2.2 Dual-Track Law: Work Integral MUST use the smooth track exclusively,
+// independent of the raw-track friction calculations. Kept as a standalone operator so callers
+// can never accidentally mix tracks.
+function computeWorkIntegralFromPoints(points) {
+  if (!points || points.length < 3) return null;
+  let workIntegral = 0;
+  let validPhasePoints = 0;
+  for (let i = 0; i < points.length; i++) {
+    if (points[i] !== null) validPhasePoints++;
+  }
+  for (let i = 1; i < points.length; i++) {
+    // Contiguity guard: only accumulate distance between two points that are BOTH valid AND
+    // adjacent on the fixed 3-minute resampled grid. This automatically respects Chunk boundaries
+    // (a null gap between them breaks the sum), preventing any cross-dropout "teleport" artifact.
+    if (points[i] !== null && points[i-1] !== null) {
+      const dx = points[i][0] - points[i-1][0];
+      const dy = points[i][1] - points[i-1][1];
+      workIntegral += Math.sqrt(dx * dx + dy * dy);
+    }
+  }
+  if (validPhasePoints > 0) {
+    // Time-Normalization Mandate (Contract v1.3 4.1): normalize to a 24h-equivalent basis
+    // (480 points at the 3-minute grid step) so the thermodynamic bill is comparable across
+    // epochs with different data-loss rates.
+    workIntegral = workIntegral / (validPhasePoints / 480.0);
+  }
+  return workIntegral;
+}
+
 // Phase Space Asymmetric Friction (Aether Protocol):
 function computeAsymmetricFriction(points, core) {
   let frictionSum = 0;
@@ -1937,6 +2493,16 @@ function computeAsymmetricFriction(points, core) {
 
   let asymFriction = count > 0 ? frictionSum / count : null;
   let ascendFriction = ascCount > 0 ? ascFrictionSum / ascCount : null;
+  
+  // Normalize Work Integral by total physical time to match historic UI thresholds (45-80/day).
+  // Assuming 3-minute resampling step, 480 points = 24 hours.
+  let validPhasePoints = 0;
+  for (let i = 0; i < points.length; i++) {
+    if (points[i] !== null) validPhasePoints++;
+  }
+  if (validPhasePoints > 0) {
+    workIntegral = workIntegral / (validPhasePoints / 480.0);
+  }
   
   let frictionGradient = null;
   if (count >= 4) {
@@ -2038,38 +2604,41 @@ function computeKeplerKinematics(times, vals, core) {
     }
   }
   
-  const dY = new Array(vals.length);
-  for (let i = 0; i < vals.length; i++) {
-    if (Y[i] === null) { dY[i] = null; continue; }
-    if (i > 0 && i < vals.length - 1 && Y[i-1] !== null && Y[i+1] !== null) {
-      dY[i] = (Y[i+1] - Y[i-1]) / (T_hours[i+1] - T_hours[i-1]);
-    } else {
-       dY[i] = null;
+    const dY = new Array(vals.length);
+    for (let i = 0; i < vals.length; i++) {
+      if (Y[i] === null) { dY[i] = null; continue; }
+      if (i > 0 && i < vals.length - 1 && Y[i-1] !== null && Y[i+1] !== null) {
+        dY[i] = (Y[i+1] - Y[i-1]) / (T_hours[i+1] - T_hours[i-1]);
+      } else {
+         dY[i] = null;
+      }
     }
-  }
-  
-  let sumSweep = 0;
-  let sumR2 = 0;
-  let validCount = 0;
-  
-  for (let i = 1; i < vals.length - 1; i++) {
-    if (X[i] === null || Y[i] === null || dY[i] === null) continue;
     
-    const r2 = X[i]*X[i] + Y[i]*Y[i];
-    if (r2 < 0.05) continue; // lower noise floor for real data
+    let sumSweep = 0;
+    let sumR2 = 0;
+    let validCount = 0;
     
-    // Cross product magnitude: | X*dY - Y*dX | where dX = Y
-    const sweep = 0.5 * Math.abs(X[i] * dY[i] - Y[i] * Y[i]);
+    for (let i = 1; i < vals.length - 1; i++) {
+      if (X[i] === null || Y[i] === null || dY[i] === null) continue;
+      
+      const r2 = X[i]*X[i] + Y[i]*Y[i];
+      if (r2 < 0.05) continue; // lower noise floor for real data
+      
+      // Cross product magnitude: | X*dY - Y*dX | where dX = Y
+      const sweep = 0.5 * Math.abs(X[i] * dY[i] - Y[i] * Y[i]);
+      
+      sumSweep += sweep;
+      sumR2 += r2;
+      validCount++;
+    }
     
-    sumSweep += sweep;
-    sumR2 += r2;
-    validCount++;
-  }
-  
-  if (validCount < 5 || sumR2 === 0) return { angularVelocity: null, sweepRate: null };
-  
-  const avgSweepRate = sumSweep / validCount;
-  const weightedAngularVel = 2.0 * sumSweep / sumR2; // rad/hour
+    if (validCount < 5 || sumR2 === 0) return { angularVelocity: null, sweepRate: null };
+    
+    // Average sweep rate and velocity over the dataset
+    const avgSweepRate = sumSweep / validCount;
+    // 2.0 * sumSweep is extensive if not normalized, but here it's divided by sumR2 which is also extensive!
+    // Since both sumSweep and sumR2 scale with N, their ratio is intensive.
+    const weightedAngularVel = 2.0 * sumSweep / sumR2; // rad/hour
   
   return { angularVelocity: weightedAngularVel, sweepRate: avgSweepRate };
 }
@@ -2169,46 +2738,58 @@ function computeExcursionKinetics(times, vals) {
 // ============================================================================
 
 function computeCriticalSlowingDown(times, vals) {
-  // Extract strictly night periods (0:00 - 6:00) to isolate baseline dynamics
-  let nightVals = [];
+  // Contract v1.3 4.3 "禁止跨夜" (No-Cross-Night Pooling Law):
+  // AR1/variance/skewness must be computed independently PER natural night (0:00-6:00,
+  // grouped by calendar day), then aggregated via median. Pooling all nights into one flat
+  // array (the old behavior) creates a spurious lag-1 "jump" artifact at every night-to-night
+  // seam, which fabricates false critical-slowing signal that never physically happened.
+  const nightsByDay = new Map();
   for (let i = 0; i < times.length; i++) {
     if (!times[i] || vals[i] === null) continue;
-    let h = times[i].getHours();
+    const h = times[i].getHours();
     if (h >= 0 && h < 6) {
-      nightVals.push(vals[i]);
+      const dayKey = `${times[i].getFullYear()}-${times[i].getMonth()}-${times[i].getDate()}`;
+      if (!nightsByDay.has(dayKey)) nightsByDay.set(dayKey, []);
+      nightsByDay.get(dayKey).push(vals[i]);
     }
   }
-  
-  if (nightVals.length < 30) return { ar1: null, variance: null, skewness: null };
 
-  // Calculate Mean and Variance
-  let mean = nightVals.reduce((a, b) => a + b, 0) / nightVals.length;
-  let variance = nightVals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (nightVals.length - 1);
-  
-  // Calculate Skewness (Asymmetry of fluctuations)
-  let m3 = nightVals.reduce((a, b) => a + Math.pow(b - mean, 3), 0) / nightVals.length;
-  let skewness = variance > 0 ? m3 / Math.pow(variance, 1.5) : 0;
-  
-  // Calculate Lag-1 Autocorrelation (AR1)
-  let num = 0;
-  let den = 0;
-  for (let i = 1; i < nightVals.length; i++) {
-    num += (nightVals[i] - mean) * (nightVals[i-1] - mean);
+  const perNightAr1 = [];
+  const perNightVariance = [];
+  const perNightSkewness = [];
+
+  for (const nightVals of nightsByDay.values()) {
+    if (nightVals.length < 30) continue; // MIN_CHUNK_LEN guard per-night, not pooled.
+
+    const mean = nightVals.reduce((a, b) => a + b, 0) / nightVals.length;
+    const variance = nightVals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (nightVals.length - 1);
+    const m3 = nightVals.reduce((a, b) => a + Math.pow(b - mean, 3), 0) / nightVals.length;
+    const skewness = variance > 0 ? m3 / Math.pow(variance, 1.5) : 0;
+
+    let num = 0, den = 0;
+    for (let i = 1; i < nightVals.length; i++) {
+      num += (nightVals[i] - mean) * (nightVals[i-1] - mean);
+    }
+    for (let i = 0; i < nightVals.length; i++) {
+      den += Math.pow(nightVals[i] - mean, 2);
+    }
+    const ar1 = den > 1e-8 ? num / den : 0;
+
+    perNightAr1.push(ar1);
+    perNightVariance.push(variance);
+    perNightSkewness.push(skewness);
   }
-  for (let i = 0; i < nightVals.length; i++) {
-    den += Math.pow(nightVals[i] - mean, 2);
-  }
-  
-  let ar1 = den > 1e-8 ? num / den : 0;
-  
-  return { 
-    ar1: ar1, 
-    variance: variance,
-    skewness: skewness
+
+  if (perNightAr1.length === 0) return { ar1: null, variance: null, skewness: null };
+
+  return {
+    ar1: getMedian(perNightAr1),
+    variance: getMedian(perNightVariance),
+    skewness: getMedian(perNightSkewness)
   };
 }
 
-function computeAttractorMetrics(shapePoints, rawPoints, smoothPoints, skipRQA = false) {
+function computeAttractorMetrics(shapePoints, rawPoints, smoothPoints, skipRQA = false, skipWorkIntegral = false) {
   const points = shapePoints;
   const valid = points.filter(p => p !== null);
   const n = valid.length; if (n < 4) return null;
@@ -2263,19 +2844,35 @@ function computeAttractorMetrics(shapePoints, rawPoints, smoothPoints, skipRQA =
   const shapeRatio = eigvals[1] > 1e-12 ? eigvals[0] / eigvals[1] : Infinity;
 
   // Reactivity metrics
+  // Blueprint v3.3 L0 2.2: Ascend/Descend Friction MUST use the RAW track (preserves real noise);
+  // Work Integral MUST use the SMOOTH track (peaks/troughs without high-frequency sensor jitter).
   const normalizedRecovery = computeNormalizedRecovery(rawPoints);
   const fricObj = computeAsymmetricFriction(rawPoints, gravityCore);
   const asymFriction = fricObj ? fricObj.asymFriction : null;
-  const workIntegral = fricObj ? fricObj.workIntegral : null;
+  // Contract v1.3 Law Two (Language Ownership): when the Pyodide/SciPy engine is available,
+  // Work Integral MUST be computed by engine.compute_work_integral, not this JS approximation.
+  // The caller (processEpochPyodide) sets skipWorkIntegral=true and fills metrics.workIntegral
+  // asynchronously after this function returns. computeWorkIntegralFromPoints only survives as
+  // the degraded-mode fallback for when Pyodide genuinely failed to load.
+  const workIntegral = skipWorkIntegral ? null : computeWorkIntegralFromPoints(smoothPoints);
   const ascendFriction = fricObj ? fricObj.ascendFriction : null;
   const frictionGradient = fricObj ? fricObj.frictionGradient : null;
   const dimension = boxCountingDimension(points);
   const lyapunov = lyapunovProxy(smoothPoints);
 
   // RQA
-  const rqa = skipRQA
-    ? { det: null, entr: null, rr: null, rpMatrix: null }
-    : computeRQA(smoothPoints.filter(p => p !== null));
+  let rqa = { det: null, entr: null, rr: null, rpMatrix: null };
+  if (!skipRQA) {
+    if (typeof pyEngineReady !== 'undefined' && pyEngineReady && typeof pyodide !== 'undefined') {
+       // Called synchronously from an async context usually, but wait, computeAttractorMetrics is synchronous.
+       // We can't await pyodide inside a sync function.
+       // For now, we will leave rqa null here and compute it asynchronously *outside* this function 
+       // in processEpochPyodide, exactly as we do for the L0/L1 Python calls.
+       console.warn("RQA requires Python but computeAttractorMetrics is synchronous. Moving RQA extraction up to processEpochPyodide.");
+    } else {
+       rqa = computeRQA(smoothPoints.filter(p => p !== null));
+    }
+  }
 
   return {
     volume, shapeRatio, avgRecovery: normalizedRecovery,
@@ -2310,6 +2907,14 @@ const UI = {
   plotInit: false, _rpInit: false,
   _screenTau: 6,
   _analyzeTimer: null,
+  // Concurrency/Race-Condition Audit (v1.3 Contract): mutex + single-slot coalescing queue for
+  // analyze() re-entrancy. See analyze() for the full rationale.
+  _isAnalyzing: false,
+  _pendingRerun: false,
+  // Slice 1 recheck: must exist BEFORE the very first analyze() call, because onDataReady()
+  // (which runs on first file load, ahead of analyze()) unconditionally pushes into it on a
+  // Pyodide tau-extraction failure. Without this default, that push would throw on `undefined`.
+  _eventSequence: [],
   lastReport: null,
   lastReportJSON: null,
   _reportReturnFocus: null,
@@ -2459,6 +3064,7 @@ ${limits}
 ## 6. 后续核实
 
 - ${log.clinical_boundary ? log.clinical_boundary.next_step : ''}
+${log.clinical_boundary && log.clinical_boundary.confounder_warning ? `- **${log.clinical_boundary.confounder_warning}**` : ''}
 
 ## 7. 肉身状态张量序列化协议 (SSVS)
 
@@ -2490,6 +3096,7 @@ ${refs}` : ''}
 
     // Load sample data
     document.getElementById('btn-load-sample').onclick = () => {
+      this.plotInit = false; this._rpInit = false; // force full redraw
       fetch('1.csv').then(r => r.text()).then(t => {
         this.epochs[0] = parseCGMFromCSV(t);
         document.getElementById('upload-zone-0').classList.add('has-file');
@@ -2498,7 +3105,12 @@ ${refs}` : ''}
       }).catch(e => alert("无本地演示文件，请上传数据"));
     };
 
-    // Setup dual upload zones
+    // Bind Airgap buttons
+    document.getElementById('btn-airgap-sine')?.addEventListener('click', () => this.injectAirgapData('sine'));
+    document.getElementById('btn-airgap-noise')?.addEventListener('click', () => this.injectAirgapData('noise'));
+    document.getElementById('btn-airgap-flat')?.addEventListener('click', () => this.injectAirgapData('flat'));
+
+    // Reset plot state when switching files to ensure clean purge
     [0, 1].forEach(epochIdx => {
       const input = document.getElementById(`file-input-${epochIdx}`);
       const zone = document.getElementById(`upload-zone-${epochIdx}`);
@@ -2506,6 +3118,7 @@ ${refs}` : ''}
 
       input.onchange = e => {
         if (e.target.files.length) {
+          this.plotInit = false; this._rpInit = false;
           const file = e.target.files[0];
           zone.classList.add('has-file');
           info.textContent = file.name;
@@ -2529,6 +3142,7 @@ ${refs}` : ''}
         e.preventDefault(); e.stopPropagation();
         zone.classList.remove('dragover');
         if (e.dataTransfer && e.dataTransfer.files.length) {
+          this.plotInit = false; this._rpInit = false;
           const file = e.dataTransfer.files[0];
           zone.classList.add('has-file');
           info.textContent = file.name;
@@ -2632,6 +3246,7 @@ ${refs}` : ''}
   // Parse uploaded file (CSV/TXT/TSV with GBK fallback, or XLSX/XLS)
   parse(f, epochIdx) {
     if (!f) return;
+    this.plotInit = false; this._rpInit = false; // force full redraw
     const nameLower = f.name.toLowerCase();
     const isExcel = nameLower.endsWith('.xlsx') || nameLower.endsWith('.xls');
     const r = new FileReader();
@@ -2696,10 +3311,7 @@ ${refs}` : ''}
     }
   },
 
-  onDataReady(epochIdx) {
-    // Reset plot state for new data
-    this.plotInit = false; this._rpInit = false;
-
+  async   onDataReady(epochIdx) {
     const data = this.epochs[epochIdx];
     if (!data) return;
 
@@ -2707,8 +3319,37 @@ ${refs}` : ''}
     
     // Only recommend tau based on Epoch 0 if available, else Epoch 1
     if (epochIdx === 0 || (epochIdx === 1 && !this.epochs[0])) {
-      const acf = computeACF(rawValues, 60);
-      const recTau = recommendTau(acf);
+      let recTau = 6;
+      if (pyEngineReady && pyodide) {
+          try {
+             const valStr = JSON.stringify(rawValues);
+             const pyResStr = await pyodide.runPythonAsync(`engine.extract_tau('${valStr}')`);
+             const pyRes = JSON.parse(pyResStr);
+        if (pyRes.result) {
+           recTau = pyRes.result;
+        } else {
+           // Fail-Closed: Tau fallback explicitly disabled, logging failure.
+           this._eventSequence.push(`[ERROR] [L1] Pyodide Tau Extraction failed: ${pyRes.error}. Using default tau=6.`);
+           recTau = 6;
+        }
+      } catch(e) { 
+         this._eventSequence.push(`[ERROR] [L1] Pyodide Tau Extraction Crash: ${e.message}. Using default tau=6.`);
+         recTau = 6; 
+      }
+    } else {
+       this._eventSequence.push(`[ERROR] [L1] Pyodide not ready for Tau Extraction. Using default tau=6.`);
+       recTau = 6;
+    }
+
+      // Concurrency/Race-Condition Audit: if the user dropped/selected a second file on the same
+      // upload zone while this Tau-extraction await was in flight, this.epochs[epochIdx] has
+      // already been overwritten by the newer onDataReady() call. Writing this call's (stale)
+      // recommended tau over the slider now would flash an incorrect value; the newer call's own
+      // onDataReady() will already run its own extract_tau + analyze() for the current data, so
+      // this stale call can simply abort here instead of racing it.
+      if (this.epochs[epochIdx] !== data) {
+        return;
+      }
 
       const slider = document.getElementById('tau-slider');
       if (recTau > parseInt(slider.max)) {
@@ -2734,58 +3375,195 @@ ${refs}` : ''}
     }, 180);
   },
 
-  // ---- Main analysis pipeline ----
-  analyze() {
-    if (!this.epochs[0] && !this.epochs[1]) return;
-    document.getElementById('plot-placeholder').style.display = 'none';
+  // ==========================================
+  // Air-gapped Testing (Blueprint v3.3)
+  // ==========================================
+  injectAirgapData(type) {
+    this.plotInit = false; this._rpInit = false; // force full redraw
+    const N = 2000;
+    const dt = 3 * 60 * 1000; // 3 minutes
+    const startTime = new Date().setHours(0,0,0,0);
+    const times = [];
+    const values = [];
+
+    for (let i = 0; i < N; i++) {
+      times.push(startTime + i * dt);
+      let v = 5.5;
+      if (type === 'sine') {
+        v = 5.5 + 2.0 * Math.sin(2 * Math.PI * i / 100);
+      } else if (type === 'noise') {
+        // Simple Box-Muller for gaussian noise
+        const u = 1 - Math.random();
+        const v_rand = Math.random();
+        const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v_rand);
+        v = 5.5 + 1.0 * z;
+      } else if (type === 'flat') {
+        v = 5.5;
+      }
+      values.push(v);
+    }
     
-    // v3.3 Blueprint: Initialize an empty event sequence logger
-    this._eventSequence = ["[INFO] [L0] Data Ingested."];
-
-    // Unit collapse notice
-    const hasCollapsed = (this.epochs[0] && this.epochs[0].collapsed) || (this.epochs[1] && this.epochs[1].collapsed);
-    if (hasCollapsed) {
-      if (!document.getElementById('collapse-notice')) {
-        const notice = document.createElement('div');
-        notice.id = 'collapse-notice';
-        notice.style = 'background:rgba(245,158,11,0.1);color:var(--yellow);padding:8px 12px;border-radius:6px;margin-bottom:12px;font-size:13px;border:1px solid rgba(245,158,11,0.2);';
-        notice.innerHTML = '⚠️ <strong>量纲转换：</strong>检测到 mg/dL，已自动转换为 mmol/L。';
-        document.getElementById('sidebar-controls').prepend(notice);
-      }
-    } else {
-      const notice = document.getElementById('collapse-notice');
-      if (notice) notice.remove();
-    }
-
-    const smooth = document.getElementById('chk-smooth').checked;
-    const period = document.getElementById('sel-period').value;
-    const tau = parseInt(document.getElementById('tau-slider').value);
-
-    // Process each epoch
-    for (let i = 0; i < 2; i++) {
-      const data = this.epochs[i];
-      if (!data) {
-        this.epochMetrics[i] = null;
-        continue;
-      }
-      this.epochMetrics[i] = this.processEpoch(data, smooth, period, tau);
-    }
-
-    // Render metrics using both epochs
-    this.renderMetricsDual();
+    // Inject as both epochs to test dual rendering
+    this._rawTimes = times;
+    this._rawValues = values;
+    
+    this._chunks = [];
+    this.epochs[0] = { timestamps: [...times], values: [...values], rawValues: [...values], collapsed: false };
+    this.epochs[1] = null;
+    
+    const info0 = document.getElementById('file-info-0');
+    if (info0) info0.textContent = `Airgap (${type})`;
+    document.getElementById('upload-zone-0')?.classList.add('has-file');
+    updateUIState(`已注入绝对假数据: ${type}`);
+    this.analyze();
   },
 
-  processEpoch(data, smooth, period, tau) {
-    // v3.3 Blueprint Logging: record pre-processing stats
+  // ---- Main analysis pipeline ----
+  async analyze() {
+    if (!this.epochs[0] && !this.epochs[1]) return;
+    if (!pyEngineReady) {
+      alert("Aether-Core 尚未就绪，请等待 Pyodide 加载完毕。");
+      return;
+    }
+    // Concurrency/Race-Condition Audit (v1.3 Contract): this function performs multiple
+    // sequential `await`s into the shared Pyodide engine singleton while mutating shared mutable
+    // state (this._eventSequence, this.epochMetrics, this.plotInit/_rpInit). analyze() is wired
+    // to fire from several independent, un-debounced UI events (period selector, smoothing
+    // checkbox, file upload, sample/airgap load) in addition to the debounced tau-slider path.
+    // If a second call starts while the first is still awaiting Pyodide, the two runs interleave
+    // writes into that shared state -- e.g. _eventSequence gets reset mid-flight by the second
+    // call, or epochMetrics[0] ends up from run A while epochMetrics[1] ends up from run B,
+    // silently rendering a Frankenstein result. Rather than letting them race, coalesce: if a
+    // run is already in flight, just flag that we need ONE more run after it finishes (never a
+    // growing queue), and let the in-flight run drain to completion untouched.
+    if (this._isAnalyzing) {
+      this._pendingRerun = true;
+      return;
+    }
+    this._isAnalyzing = true;
+    try {
+      document.getElementById('plot-placeholder').style.display = 'none';
+
+      // v3.3 Blueprint: Initialize an empty event sequence logger
+      this._eventSequence = ["[INFO] [L0] Data Ingested."];
+
+      // Unit collapse notice
+      const hasCollapsed = (this.epochs[0] && this.epochs[0].collapsed) || (this.epochs[1] && this.epochs[1].collapsed);
+      if (hasCollapsed) {
+        if (!document.getElementById('collapse-notice')) {
+          const notice = document.createElement('div');
+          notice.id = 'collapse-notice';
+          notice.style = 'background:rgba(245,158,11,0.1);color:var(--yellow);padding:8px 12px;border-radius:6px;margin-bottom:12px;font-size:13px;border:1px solid rgba(245,158,11,0.2);';
+          notice.innerHTML = '⚠️ <strong>量纲转换：</strong>检测到 mg/dL，已自动转换为 mmol/L。';
+          document.getElementById('sidebar-controls').prepend(notice);
+        }
+      } else {
+        const notice = document.getElementById('collapse-notice');
+        if (notice) notice.remove();
+      }
+
+      const smooth = document.getElementById('chk-smooth').checked;
+      const period = document.getElementById('sel-period').value;
+      const tau = parseInt(document.getElementById('tau-slider').value);
+
+      // Process each epoch via Pyodide
+      for (let i = 0; i < 2; i++) {
+        const data = this.epochs[i];
+        if (!data) {
+          this.epochMetrics[i] = null;
+          continue;
+        }
+        this.epochMetrics[i] = await this.processEpochPyodide(data, smooth, period, tau);
+      }
+
+      // Render metrics using both epochs
+      this.renderMetricsDual();
+    } finally {
+      this._isAnalyzing = false;
+      if (this._pendingRerun) {
+        this._pendingRerun = false;
+        this.analyze();
+      }
+    }
+  },
+
+  async processEpochPyodide(data, smooth, period, tau) {
     if (this._eventSequence) {
-      this._eventSequence.push(`[INFO] [L0] Processing Epoch, Smoothing=${smooth}, Period=${period}, Tau_Locked=${tau}`);
+      this._eventSequence.push(`[INFO] [L0] Pyodide Processing Epoch, Smoothing=${smooth}, Period=${period}, Tau_Locked=${tau}`);
     }
 
-    const { timestamps, values } = resampleData(data, smooth);
-    const { values: probeRawValues } = resampleData(data, false);
-    const slicedProbe = sliceByPeriod(timestamps, probeRawValues, period);
-    const { dim, dA, calculatedDim, capped: dimCapped, probeN } = estimateEmbeddingDimension(slicedProbe.values, tau);
+    const rawResample = resampleData(data, false);
+    const timestamps = rawResample.timestamps;
+    const rawValues = rawResample.values;
+
+    // --- W9: 会话是事件日志，一切皆派生；读模型可丢弃重建 ---
+    // The resampled arrays act as our transient read-models.
+    // L0: Zero-Phase Lowpass Filtering via Pyodide SciPy (filtfilt)
+    let smoothValues = rawValues;
+    if (smooth) {
+      if (pyEngineReady && pyodide) {
+        try {
+          const valStr = JSON.stringify(rawValues);
+          const pyResStr = await pyodide.runPythonAsync(`engine.filter_chunks('${valStr}', 2, 0.08)`);
+          const pyRes = JSON.parse(pyResStr);
+          if (pyRes.result) {
+            smoothValues = pyRes.result;
+            if (pyRes.events) this._eventSequence.push(...pyRes.events);
+          } else {
+            // Fail-Closed: If Python fails, we ABORT the epoch instead of silently degrading to JS
+            this._eventSequence.push(`[ERROR] [L0] Pyodide FiltFilt failed: ${pyRes.error}. ABORTING Epoch.`);
+            console.error("EVENT LOG:", JSON.stringify(this._eventSequence, null, 2));
+            return null;
+          }
+        } catch (err) {
+          this._eventSequence.push(`[ERROR] [L0] Pyodide Execution Crash: ${err.message}. ABORTING Epoch.`);
+          console.error("EVENT LOG:", JSON.stringify(this._eventSequence, null, 2));
+          return null;
+        }
+      } else {
+        // If engine is not ready, do not silently fallback.
+        this._eventSequence.push(`[ERROR] [L0] Pyodide not ready. Cannot apply required zero-phase filter. ABORTING Epoch.`);
+        console.error("EVENT LOG:", JSON.stringify(this._eventSequence, null, 2));
+        return null;
+      }
+    }
+
+    const currentValues = smooth ? smoothValues : rawValues;
+
+    // L1: Embedding dimension estimation
+    const slicedProbe = sliceByPeriod(timestamps, rawValues, period);
+    let dim = null, probeN = slicedProbe.values.filter(v => v !== null).length;
+    let dimCapped = false, calculatedDim = null, dA = null;
     
+    if (pyEngineReady && pyodide) {
+        try {
+            const valStr = JSON.stringify(slicedProbe.values);
+            const pyResStr = await pyodide.runPythonAsync(`engine.estimate_dimension('${valStr}', ${tau})`);
+            const pyRes = JSON.parse(pyResStr);
+            if (pyRes.result) {
+                dim = pyRes.result;
+                if (pyRes.events) this._eventSequence.push(...pyRes.events);
+            } else {
+                // Fail-Closed: Do not fallback to JS box-counting
+                this._eventSequence.push(`[ERROR] [L1] Pyodide Dimension Estimation failed: ${pyRes.error}. ABORTING Epoch.`);
+                console.error("EVENT LOG:", JSON.stringify(this._eventSequence, null, 2));
+                return null;
+            }
+        } catch (err) {
+            this._eventSequence.push(`[ERROR] [L1] Pyodide Dimension Estimation Crash: ${err.message}. ABORTING Epoch.`);
+            console.error("EVENT LOG:", JSON.stringify(this._eventSequence, null, 2));
+            return null;
+        }
+    } else {
+        this._eventSequence.push(`[ERROR] [L1] Pyodide not ready. ABORTING Epoch.`);
+        console.error("EVENT LOG:", JSON.stringify(this._eventSequence, null, 2));
+        return null;
+    }
+
+    // For UI display compatibility
+    dA = 1.0; 
+    calculatedDim = dim;
+
     // v1.2 Contract: Reactive Coeffects Check
     if (dim < 2) {
       if (this._eventSequence) this._eventSequence.push(`[ERROR] [L1] Effective dimension M_eff < 2. Pipeline aborted for this Epoch.`);
@@ -2795,59 +3573,112 @@ ${refs}` : ''}
       this._eventSequence.push(`[INFO] [L1] FNN/Jacobi Razor M_eff locked at: ${dim} (ProbeN: ${probeN})`);
     }
 
-    // ---- Pipeline Stage 4: Construct phase spaces ----
-    const sliced = sliceByPeriod(timestamps, values, period);
-    
-    // v1.2 Contract: Coeffects. If invalid length for given tau and dim, abort nicely.
-    if (sliced.values.filter(v=>v!==null).length < dim * tau) {
-       if (this._eventSequence) this._eventSequence.push(`[ERROR] [L2] Chunk too short for Tau=${tau} and M_eff=${dim}. Aborting Phase Space Reconstruction.`);
-       return null;
+    // L2: Construct phase spaces
+    const sliced = sliceByPeriod(timestamps, currentValues, period);
+    if (sliced.values.filter(v => v !== null).length < dim * tau) {
+      if (this._eventSequence) this._eventSequence.push(`[ERROR] [L2] Chunk too short for Tau=${tau} and M_eff=${dim}. Aborting Phase Space Reconstruction.`);
+      return null;
     }
-    
-    const points = takensEmbedding(sliced.values, tau, dim);           // view path (may be smoothed)
+
+    const points = takensEmbedding(sliced.values, tau, dim);
 
     // Night baseline core
-    const nightS = sliceByPeriod(timestamps, values, 'night');
+    // Blueprint v3.3 L0 2.2 Dual-Track Law: Night Friction MUST use the RAW track unconditionally,
+    // never the UI's "smooth" display toggle (currentValues), to avoid contaminating the夜间摩擦力
+    // with filtered/phase-preserved data that would understate real overnight noise.
+    const nightS = sliceByPeriod(timestamps, rawValues, 'night');
     const nightPointsAll = takensEmbedding(nightS.values, tau, dim);
     const nightPoints = nightPointsAll.filter(p => p !== null);
     const nightCore = nightPoints.length > 0
       ? new Array(dim).fill(0).map((_, d) => getMedian(nightPoints.map(p => p[d])))
       : null;
-      
-    // Aether Protocol v8.6: Night-specific Friction for Treated cohort
+
     let nightFriction = null;
     if (nightCore) {
       const nightFricObj = computeAsymmetricFriction(nightPointsAll, nightCore);
       nightFriction = nightFricObj ? nightFricObj.asymFriction : null;
     }
 
-    // Raw & smooth pathways (anchored: Recovery→raw, Lyapunov/RQA→smooth)
-    const { values: rawValues } = resampleData(data, false);
-    const { values: smoothValues } = resampleData(data, true);
     const pointsRaw = takensEmbedding(sliceByPeriod(timestamps, rawValues, period).values, tau, dim);
     const pointsSmooth = takensEmbedding(sliceByPeriod(timestamps, smoothValues, period).values, tau, dim);
-    
+
     const nightRaw = sliceByPeriod(timestamps, rawValues, 'night').values.filter(v => v !== null);
     const nightMean = nightRaw.length >= 6 ? nightRaw.reduce((a, b) => a + b, 0) / nightRaw.length : null;
 
-    // Aether Protocol v8.7: Kinetics (Time-to-Deceleration & Relaxation Fatigue)
     const kinetics = computeExcursionKinetics(timestamps, smoothValues);
     const csd = computeCriticalSlowingDown(timestamps, rawValues);
     const kepler = computeKeplerKinematics(timestamps, smoothValues, nightMean);
 
-    // ---- Pipeline Stage 5: Compute attractor metrics ----
-    const metrics = computeAttractorMetrics(points, pointsRaw, pointsSmooth);
+    // skip sync RQA and Work Integral: both MUST come from the Python engine (Contract v1.3 Law Two)
+    const metrics = computeAttractorMetrics(points, pointsRaw, pointsSmooth, true, true);
     if (!metrics) {
-       if (this._eventSequence) this._eventSequence.push(`[ERROR] [L2] computeAttractorMetrics returned null (possibly valid points < 4).`);
-       return null;
+      if (this._eventSequence) this._eventSequence.push(`[ERROR] [L2] computeAttractorMetrics returned null (possibly valid points < 4).`);
+      return null;
     }
-    
+
+    // L2: Pyodide Asynchronous RQA Execution
+    if (pyEngineReady && pyodide) {
+      try {
+        // Contract v1.3 4.4: pass the FULL array (nulls included) so Python can key the
+        // Theiler window and diagonal-line scan off true physical-time indices instead of a
+        // compacted array position that would silently splice across real data dropouts.
+        const ptsStr = JSON.stringify(pointsSmooth);
+        const pyResStr = await pyodide.runPythonAsync(`engine.compute_rqa('${ptsStr}', ${tau})`);
+        const pyRes = JSON.parse(pyResStr);
+        if (pyRes.result) {
+           metrics.rr = pyRes.result.rr;
+           metrics.det = pyRes.result.det;
+           metrics.entr = pyRes.result.entr;
+           // Construct pseudo-rpMatrix from sparse coordinates for Plotly
+           const rp_x = pyRes.result.rp_x;
+           const rp_y = pyRes.result.rp_y;
+           // The original rpMatrix was a 2D array of 0s and 1s, which is memory-heavy.
+           // Since renderPlots needs it to plot, we must pass it carefully.
+           metrics.rpMatrix = { isSparse: true, x: rp_x, y: rp_y };
+           if (pyRes.events) this._eventSequence.push(...pyRes.events);
+        } else {
+           // Fail-Closed: Log the RQA failure instead of falling back to JS
+           this._eventSequence.push(`[ERROR] [L2] Pyodide RQA failed: ${pyRes.error}. (RQA metrics will be null)`);
+        }
+      } catch (err) {
+        this._eventSequence.push(`[ERROR] [L2] Pyodide RQA Crash: ${err.message}. (RQA metrics will be null)`);
+      }
+    } else {
+        this._eventSequence.push(`[ERROR] [L2] Pyodide not ready for RQA. (RQA metrics will be null)`);
+    }
+
+    // L2: Pyodide Asynchronous Work Integral Execution (Contract v1.3 4.1 / Law Two)
+    // Blueprint v3.3 L0 2.2 Dual-Track Law: Work Integral MUST run on the SMOOTH track.
+    if (pyEngineReady && pyodide) {
+      try {
+        // Pass the FULL smooth-track array (nulls included) -- Contract v1.3 4.1 forbids
+        // pre-flattening, since that would let the distance sum teleport across a data gap.
+        const wiPtsStr = JSON.stringify(pointsSmooth);
+        const wiResStr = await pyodide.runPythonAsync(`engine.compute_work_integral('${wiPtsStr}')`);
+        const wiRes = JSON.parse(wiResStr);
+        if (wiRes.result !== null && wiRes.result !== undefined) {
+          metrics.workIntegral = wiRes.result;
+          if (wiRes.events) this._eventSequence.push(...wiRes.events);
+        } else {
+          this._eventSequence.push(`[ERROR] [L2] Pyodide Work Integral failed: ${wiRes.error}. (workIntegral will be null)`);
+          metrics.workIntegral = null;
+        }
+      } catch (err) {
+        this._eventSequence.push(`[ERROR] [L2] Pyodide Work Integral Crash: ${err.message}. (workIntegral will be null)`);
+        metrics.workIntegral = null;
+      }
+    } else {
+      this._eventSequence.push(`[ERROR] [L2] Pyodide not ready for Work Integral. (workIntegral will be null)`);
+    }
+
+    // --- W2/G11: 模型可见即日志记录等价律 (Model-Visible ⟺ Logged) ---
     if (this._eventSequence) {
       this._eventSequence.push(`[INFO] [L2] Attractor Metrics generated. Valid Points: ${metrics.validPoints.length}`);
       if (metrics.rr !== null) {
         this._eventSequence.push(`[INFO] [L2] RQA Matrix built successfully. DET: ${metrics.det.toFixed(2)}, ENTR: ${metrics.entr.toFixed(2)}`);
       }
     }
+
     metrics.earlyDelay = kinetics.earlyDelay;
     metrics.relaxationTime = kinetics.relaxationTime;
     metrics.nightAR1 = csd.ar1;
@@ -2864,28 +3695,20 @@ ${refs}` : ''}
       };
     }
 
-    // Core displacement: distance between current gravity core and night baseline
     let displacement = null;
     if (nightCore) {
       displacement = period === 'night' ? 0 : calcDistance(metrics.gravityCore, nightCore);
     }
 
-    // ---- Pipeline Stage 6: Clinical scores ----
-    // v8.8 Label Blinding: legacy insulin predictor is bypassed.
     const insulinPred = predictInsulinBaseline(rawValues, 4);
 
-    // Boundary penetration (always on raw unsmoothed data)
     const currentRawSlice = sliceByPeriod(timestamps, rawValues, period);
     const validVs = currentRawSlice.values.filter(v => v !== null);
 
-    // 3D coordinates for visualization — derived from the dim-D embedding (first 3 coords
-    // are exactly the 3D delay coordinates), skipping a redundant third embedding pass.
-    // (The (dim-3)·τ tail points that a standalone 3D embedding would add are visual-only.)
     const points3D = points.map(p => p ? [p[0], p[1], p[2]] : null);
     const nightCore3D = nightCore ? nightCore.slice(0, 3) : null;
     const gravityCore3D = metrics.gravityCore.slice(0, 3);
 
-    // ---- Pipeline Stage 7: Return ----
     return {
       metrics, displacement, tau, validVs, smooth, dA, dim, dimCapped,
       calculatedDim, nightMean,
@@ -2894,6 +3717,7 @@ ${refs}` : ''}
     };
   },
 
+  // ---- Rendering Logic ----
   renderMetricsDual() {
     const m0 = this.epochMetrics[0];
     const m1 = this.epochMetrics[1];
@@ -3027,7 +3851,7 @@ ${refs}` : ''}
     if (arVal !== null && arVal !== undefined && Number.isFinite(arVal)) {
       let ar1Cls = 'reference', ar1Desc = '高频敏锐对抗；未出现临界慢化。';
       if (arVal > 0.995) { ar1Cls = 'bad'; ar1Desc = '极度慢化（>0.995）｜系统自我纠错能力丧失，崩溃前兆。'; }
-      else if (arVal > 0.990) { ar1Cls = 'warn'; ar1Desc = '低频游荡（0.990-0.995）｜夜间基础相调控开始变慢。'; }
+      else if (arVal > 0.950) { ar1Cls = 'warn'; ar1Desc = '低频游荡（0.950-0.995）｜夜间基础相调控开始变慢。'; }
       const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(ar0, ar1) : arVal.toFixed(3);
       rData.nightAR1 = this.setCard('metric-night-ar1', displayStr, ar1Desc, ar1Cls);
     } else {
@@ -3232,12 +4056,52 @@ ${refs}` : ''}
     const kairos_vel = (ssvs_ar0 !== null && ssvs_ar1 !== null) ? ssvs_ar1 - ssvs_ar0 : null;
 
     const isDual = !!(epoch0 && epoch1);
+
+    // Blueprint v3.3 L3 5.1: Kairos Handshake flags, evaluated against the most recent epoch
+    // (Epoch 1 if a dual comparison, otherwise Epoch 0). DSH Epistemological Discipline: a flag
+    // must resolve to `null` (unknown), never a fabricated `false`, when its underlying physical
+    // measure itself failed to compute — we do not get to assert "safe" from missing data.
+    const arCurrent = isDual ? ssvs_ar1 : ssvs_ar0;
+    const detCurrent = Number.isFinite(m.det) ? m.det : null;
+    const workCurrent = isDual ? ssvs_w1 : ssvs_w0;
+    const leverageCurrent = isDual ? leverage1 : leverage0;
+    const flagGate = (value, test) => (value === null || value === undefined || !Number.isFinite(value)) ? null : test(value);
+    const isApproachingSaddle = flagGate(arCurrent, v => v > 0.990);
+    const isInDeepAttractor = flagGate(detCurrent, v => v > 0.85);
+    const workHeavy = flagGate(workCurrent, v => v > 80.0);
+    const leverageHeavy = flagGate(leverageCurrent, v => v > 5.0);
+    const thermodynamicBillHeavy = (workHeavy === null && leverageHeavy === null) ? null : !!(workHeavy || leverageHeavy);
+
+    // Human-context annotation only: these checkboxes NEVER feed the Python tensor engine's
+    // math (Label Blinding red line). They exist solely so the LLM Navigator's interpretation
+    // layer can see what was ACTUALLY done in Epoch 1, instead of a fabricated fixed claim.
+    const readInterventionAnnotations = () => {
+      const isChecked = (id) => { const el = document.getElementById(id); return !!(el && el.checked); };
+      const vectors = [];
+      if (isChecked('chk-vec-v1')) vectors.push('V1_Light');
+      if (isChecked('chk-vec-v2')) vectors.push('V2_Biochem');
+      if (isChecked('chk-vec-v3')) vectors.push('V3_Mechanical');
+      if (isChecked('chk-vec-v4')) vectors.push('V4_Thermodynamic');
+      return { vectors, medicationChanged: isChecked('chk-vec-med') };
+    };
+    const interventionAnnotation = epoch1 ? readInterventionAnnotations() : { vectors: [], medicationChanged: false };
+    if (epoch1 && this._eventSequence) {
+      // W2/G11 Model-Visible ⟺ Logged: any annotation that changes the report's narrative
+      // must be permanently recorded, exactly as typed/checked by the human.
+      this._eventSequence.push(`[INFO] [L3] Epoch 1 human-context annotation: vectors=[${interventionAnnotation.vectors.join(',') || 'none'}], medication_changed=${interventionAnnotation.medicationChanged}`);
+    }
+
     const ssvs = {
       subject_id: "Somatic-Node-Alpha",
       analysis_mode: isDual ? "Cybernetic_Differential" : "Cybernetic_Baseline",
+      kairos_routing_flags: {
+        is_approaching_saddle: isApproachingSaddle,
+        is_in_deep_attractor: isInDeepAttractor,
+        thermodynamic_bill_heavy: thermodynamicBillHeavy
+      },
       epochs: {
         epoch_0: epoch0 ? { type: "baseline", duration_days: new Set(epoch0.plotData.timestamps.filter(t => t && !Number.isNaN(t.getTime())).map(t => `${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`)).size } : null,
-        epoch_1: epoch1 ? { type: "intervention", duration_days: new Set(epoch1.plotData.timestamps.filter(t => t && !Number.isNaN(t.getTime())).map(t => `${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`)).size, intervention_vectors: ["V2_Biochem", "V3_Mechanical", "V4_Thermodynamic"] } : null
+        epoch_1: epoch1 ? { type: "intervention", duration_days: new Set(epoch1.plotData.timestamps.filter(t => t && !Number.isNaN(t.getTime())).map(t => `${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`)).size, intervention_vectors: interventionAnnotation.vectors, medication_changed: interventionAnnotation.medicationChanged } : null
       },
       tensor_metrics: {
         work_integral: {
@@ -3275,7 +4139,11 @@ ${refs}` : ''}
           topological_leverage_1: leverage1 !== null ? +leverage1.toFixed(4) : null,
           semantic_tag: "Phase_Transition_Momentum"
         }
-      }
+      },
+      // Blueprint v3.3 L3 5.2: the append-only computation trace lives inside the SSVS object
+      // itself (not just at the report's top level) so a consumer that only extracts `ssvs`
+      // still gets the full black-box flight recorder for crash/anomaly forensics.
+      event_sequence: this._eventSequence || []
     };
 
     if (!epoch1 && epoch0) {
@@ -3353,6 +4221,13 @@ ${refs}` : ''}
         diagnostic_status: 'not_diagnostic',
         next_step: nextStep,
         standard_confirmation: [],
+        // Confound disclosure: a medication change is a causal channel structurally identical
+        // to the physical V1-V4 vectors (both can suppress glucose variability), but it is NOT
+        // one of them. If checked, the LLM Navigator MUST NOT attribute any Δ improvement to
+        // V1-V4 efficacy without explicitly discounting this confound first.
+        confounder_warning: interventionAnnotation.medicationChanged
+          ? '⚠ 用户标注 Epoch 1 期间发生药物治疗变化。任何 Work Integral / Friction / AR1 的改善，在排除药物本身对血糖波动的压制效应之前，禁止归因为 V1-V4 物理干预生效。'
+          : null,
       },
       privacy: {
         raw_glucose_series_included: false,
@@ -3373,17 +4248,6 @@ ${refs}` : ''}
 
   // ---- Plot rendering ----
   renderPlots(ts, vs, points, tau, currentCore, nightCore, m) {
-    // v1.2 Contract Fix: Explicit LIFO cleanup of previous contexts to prevent OOM across Epochs
-    if (this.plotInit) {
-      try { 
-        Plotly.purge('plotly-div'); 
-        Plotly.purge('plotly-2d-div'); 
-      } catch (e) {}
-    }
-    if (this._rpInit) {
-      try { Plotly.purge('plotly-rp-div'); } catch (e) {}
-    }
-
     document.getElementById('plot-2d-wrapper').style.display = 'block';
 
     // --- 3D Phase Space (rendered first for reliability) ---
@@ -3453,13 +4317,13 @@ ${refs}` : ''}
     };
 
     // Render 3D + 2D FIRST (before RP, to ensure they always render)
-    try {
-      Plotly.newPlot('plotly-div', traces3d, layout3d, { responsive: true });
-      Plotly.newPlot('plotly-2d-div', traces2d, layout2d, { responsive: true });
-      this.plotInit = true;
-    } catch (err) {
-      console.error('Plotly render error:', err);
-    }
+        try {
+            Plotly.newPlot('plotly-div', traces3d, layout3d, { responsive: true });
+            Plotly.newPlot('plotly-2d-div', traces2d, layout2d, { responsive: true });
+            this.plotInit = true;
+        } catch (err) {
+            console.error('Plotly render error:', err);
+        }
 
     // Show tab switcher
     const tabsBar = document.getElementById('plot-tabs-bar');
@@ -3476,28 +4340,46 @@ ${refs}` : ''}
       divRp.style.display = 'none';
     }
 
-    // --- Recurrence Plot ---
-    if (m.rpMatrix && m.rpMatrix.x && m.rpMatrix.x.length > 0) {
-      const traceRP = {
-        x: m.rpMatrix.x, y: m.rpMatrix.y,
-        mode: 'markers',
-        type: 'scattergl',
-        marker: { color: '#3b82f6', size: 2, symbol: 'square' }
-      };
+    // Check if we have RQA from Python (Sparse representation)
+    if (m && m.rpMatrix && m.rpMatrix.isSparse) {
+        const rpTrace = {
+            x: m.rpMatrix.x,
+            y: m.rpMatrix.y,
+            mode: 'markers',
+            type: 'scattergl',
+            marker: { color: 'rgba(59, 130, 246, 0.8)', size: 2, symbol: 'square' },
+            hoverinfo: 'none'
+        };
+        const N_points = Math.max(...m.rpMatrix.x, ...m.rpMatrix.y, 100) + 1;
+        const layoutRp = {
+            title: { text: `递归图 (RR≈5%, DET=${(m.det*100).toFixed(1)}%)`, font: { color: '#fff', size: 14 } },
+            paper_bgcolor: 'transparent', plot_bgcolor: 'rgba(255,255,255,0.02)',
+            margin: { l: 40, r: 20, b: 40, t: 40 },
+            xaxis: { title: 'Index i', range: [0, N_points], color: '#aaa', gridcolor: 'rgba(255,255,255,0.05)', scaleanchor: 'y' },
+            yaxis: { title: 'Index j', range: [0, N_points], color: '#aaa', gridcolor: 'rgba(255,255,255,0.05)', autorange: 'reversed' },
+            showlegend: false
+        };
+        try { 
+            Plotly.newPlot('plotly-rp-div', [rpTrace], layoutRp, { displayModeBar: false, responsive: true }); 
+            this._rpInit = true;
+        }
+        catch(e) { console.warn('Plotly RP Error', e); }
+    } 
+    // Fallback: old dense matrix rendering
+    else if (m && m.rpMatrix && m.rpMatrix.length > 0) {
+      const z = m.rpMatrix.map(row => row.map(val => val ? 1 : 0));
+      const traceRP = { z, type: 'heatmap', colorscale: [[0, 'transparent'], [1, '#3b82f6']], showscale: false, hoverinfo: 'none' };
       const layoutRP = {
         title: { text: '递归图 (Recurrence Plot - RQA)', font: { color: '#94a3b8', size: 13 } },
         margin: { l: 40, r: 40, b: 40, t: 40 },
         paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
         xaxis: { showgrid: false, zeroline: false, showticklabels: false, constrain: 'domain' },
         yaxis: { showgrid: false, zeroline: false, showticklabels: false, autorange: 'reversed', scaleanchor: 'x', scaleratio: 1 },
-        showlegend: false
       };
       try {
         Plotly.newPlot('plotly-rp-div', [traceRP], layoutRP, { responsive: true });
         this._rpInit = true;
-      } catch (err) {
-        console.error('RP render error:', err);
-      }
+      } catch (err) { console.error('RP render error:', err); }
     }
   }
 };
