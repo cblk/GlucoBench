@@ -1957,12 +1957,22 @@ function resampleData(data, smooth = false) {
 
 // Resample to 3-minute grid. Gaps 4-15 min → linear interpolation; >15 min → null break.
 // smooth=true applies Zero-Phase filter approximation to avoid time shift (v1.2 Contract)
+// [v3.5 residual fix, 2026-08-16] A normal-cadence gap (4-15 min) whose flanking
+// reading is itself null/missing (sensor dropout, not a timing gap) must NOT be
+// interpolated: `vs[i] - vs[i-1]` previously relied on JS's implicit null→0
+// coercion, silently synthesizing a fabricated "glucose≈0" interpolation instead
+// of failing loudly or honestly nulling the gap (Blueprint v3.3 Section 2.1 Line
+// 15: "绝对禁止使用...插值掩盖物理数据缺失"). Discovered via mcPHASES wind-tunnel
+// (real sensor dropouts inside otherwise-normal-cadence sequences); see
+// Implementation Contract v1.3 Section 1.3 ([v1.5 新增]) for the codified rule.
 function resampleDataImpl(data, smooth = false) {
   const ts = data.timestamps, vs = data.values;
   const newTs = [ts[0]], newVs = [vs[0]];
   for (let i = 1; i < ts.length; i++) {
     const gap = (ts[i].getTime() - ts[i - 1].getTime()) / 60000;
-    if (gap > 4 && gap <= 15) {
+    const bothValid = vs[i] !== null && vs[i] !== undefined && !Number.isNaN(vs[i]) &&
+                       vs[i - 1] !== null && vs[i - 1] !== undefined && !Number.isNaN(vs[i - 1]);
+    if (gap > 4 && gap <= 15 && bothValid) {
       const steps = Math.round(gap / 3);
       const tStep = (ts[i].getTime() - ts[i - 1].getTime()) / steps;
       const vStep = (vs[i] - vs[i - 1]) / steps;

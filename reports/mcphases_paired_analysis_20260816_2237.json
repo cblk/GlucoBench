@@ -1,0 +1,787 @@
+{
+  "source_file": "reports\\wind_tunnel_mcphases_phase_night_taumax60_20260816_2237.json",
+  "n_total_segments": 481,
+  "n_success_segments": 468,
+  "metrics": {
+    "workIntegral": {
+      "n_subjects_all4_phases": 41,
+      "n_subjects_total": 42,
+      "friedman_stat": 1.7707317073170543,
+      "friedman_p": 0.6213246600308777,
+      "pairwise_paired_contrasts": [
+        {
+          "phase_a": "Follicular",
+          "phase_b": "Fertility",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 16,
+          "n_neg_b_lt_a": 25,
+          "n_tie": 0,
+          "frac_pos_b_gt_a": 0.3902439024390244,
+          "mean_delta_b_minus_a": -0.4875652277197415,
+          "median_delta_b_minus_a": -1.8108815619289693,
+          "sd_delta": 7.108329178159628,
+          "cohens_d_paired": -0.06859069346672741,
+          "wilcoxon_stat": 388.0,
+          "wilcoxon_p": 0.589966487134916,
+          "sign_test_p": 0.21102359760880063
+        },
+        {
+          "phase_a": "Follicular",
+          "phase_b": "Luteal",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 20,
+          "n_neg_b_lt_a": 21,
+          "n_tie": 0,
+          "frac_pos_b_gt_a": 0.4878048780487805,
+          "mean_delta_b_minus_a": -0.8628634981062028,
+          "median_delta_b_minus_a": -0.4505172533189672,
+          "sd_delta": 6.702510240578805,
+          "cohens_d_paired": -0.12873736363462668,
+          "wilcoxon_stat": 372.0,
+          "wilcoxon_p": 0.45634096628145926,
+          "sign_test_p": 1.0
+        },
+        {
+          "phase_a": "Follicular",
+          "phase_b": "Menstrual",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 25,
+          "n_neg_b_lt_a": 16,
+          "n_tie": 0,
+          "frac_pos_b_gt_a": 0.6097560975609756,
+          "mean_delta_b_minus_a": 0.5069487531987731,
+          "median_delta_b_minus_a": 0.8610063273573658,
+          "sd_delta": 7.403961629819336,
+          "cohens_d_paired": 0.06846993252329202,
+          "wilcoxon_stat": 398.0,
+          "wilcoxon_p": 0.681513923390412,
+          "sign_test_p": 0.21102359760880063
+        },
+        {
+          "phase_a": "Fertility",
+          "phase_b": "Luteal",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 21,
+          "n_neg_b_lt_a": 20,
+          "n_tie": 0,
+          "frac_pos_b_gt_a": 0.5121951219512195,
+          "mean_delta_b_minus_a": -0.37529827038646135,
+          "median_delta_b_minus_a": 0.07964826153274629,
+          "sd_delta": 6.778951661556945,
+          "cohens_d_paired": -0.05536228743372767,
+          "wilcoxon_stat": 419.0,
+          "wilcoxon_p": 0.8878708392185217,
+          "sign_test_p": 1.0
+        },
+        {
+          "phase_a": "Fertility",
+          "phase_b": "Menstrual",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 22,
+          "n_neg_b_lt_a": 19,
+          "n_tie": 0,
+          "frac_pos_b_gt_a": 0.5365853658536586,
+          "mean_delta_b_minus_a": 0.9945139809185147,
+          "median_delta_b_minus_a": 1.0788875743794506,
+          "sd_delta": 7.9401967735086165,
+          "cohens_d_paired": 0.1252505459608476,
+          "wilcoxon_stat": 381.0,
+          "wilcoxon_p": 0.5293899788184717,
+          "sign_test_p": 0.755228657504631
+        },
+        {
+          "phase_a": "Luteal",
+          "phase_b": "Menstrual",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 23,
+          "n_neg_b_lt_a": 18,
+          "n_tie": 0,
+          "frac_pos_b_gt_a": 0.5609756097560976,
+          "mean_delta_b_minus_a": 1.3698122513049762,
+          "median_delta_b_minus_a": 1.8454251674591937,
+          "sd_delta": 7.5517886182789224,
+          "cohens_d_paired": 0.18138911462502785,
+          "wilcoxon_stat": 381.0,
+          "wilcoxon_p": 0.5293899788184717,
+          "sign_test_p": 0.5327092552361137
+        }
+      ],
+      "per_phase_complete_case_subject_level": {
+        "Follicular": {
+          "mean": 31.57454103152676,
+          "median": 30.731068475155485,
+          "sd": 7.83651816154709,
+          "n": 41
+        },
+        "Fertility": {
+          "mean": 31.086975803807015,
+          "median": 29.254283394683,
+          "sd": 9.825375717885978,
+          "n": 41
+        },
+        "Luteal": {
+          "mean": 30.71167753342056,
+          "median": 30.610687199756256,
+          "sd": 6.836148326702852,
+          "n": 41
+        },
+        "Menstrual": {
+          "mean": 32.081489784725534,
+          "median": 28.294500603822765,
+          "sd": 10.157037110985916,
+          "n": 41
+        }
+      },
+      "per_phase_pooled_segment_level": {
+        "Follicular": {
+          "mean": 31.50760865557645,
+          "median": 30.114488310554407,
+          "sd": 11.074584594370533,
+          "n_segments": 118
+        },
+        "Fertility": {
+          "mean": 30.65503208755123,
+          "median": 29.42019585222693,
+          "sd": 12.700423665858633,
+          "n_segments": 119
+        },
+        "Luteal": {
+          "mean": 31.023978597116596,
+          "median": 29.513507186912598,
+          "sd": 10.874842546306827,
+          "n_segments": 119
+        },
+        "Menstrual": {
+          "mean": 32.17304824752399,
+          "median": 30.99744724806406,
+          "sd": 12.59767918402087,
+          "n_segments": 112
+        }
+      }
+    },
+    "tau": {
+      "n_subjects_all4_phases": 41,
+      "n_subjects_total": 42,
+      "friedman_stat": 2.431034482758706,
+      "friedman_p": 0.48788371038869904,
+      "pairwise_paired_contrasts": [
+        {
+          "phase_a": "Follicular",
+          "phase_b": "Fertility",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 19,
+          "n_neg_b_lt_a": 21,
+          "n_tie": 1,
+          "frac_pos_b_gt_a": 0.4634146341463415,
+          "mean_delta_b_minus_a": 0.09552845528455244,
+          "median_delta_b_minus_a": -0.5,
+          "sd_delta": 8.359616073379742,
+          "cohens_d_paired": 0.011427373511655884,
+          "wilcoxon_stat": 405.5,
+          "wilcoxon_p": 0.951754001469391,
+          "sign_test_p": 0.8746293123804207
+        },
+        {
+          "phase_a": "Follicular",
+          "phase_b": "Luteal",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 23,
+          "n_neg_b_lt_a": 17,
+          "n_tie": 1,
+          "frac_pos_b_gt_a": 0.5609756097560976,
+          "mean_delta_b_minus_a": 1.0569105691056906,
+          "median_delta_b_minus_a": 0.9166666666666661,
+          "sd_delta": 6.808018123680174,
+          "cohens_d_paired": 0.1552449699611496,
+          "wilcoxon_stat": 341.0,
+          "wilcoxon_p": 0.3536714510635105,
+          "sign_test_p": 0.42959050784338615
+        },
+        {
+          "phase_a": "Follicular",
+          "phase_b": "Menstrual",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 22,
+          "n_neg_b_lt_a": 19,
+          "n_tie": 0,
+          "frac_pos_b_gt_a": 0.5365853658536586,
+          "mean_delta_b_minus_a": 0.6211382113821136,
+          "median_delta_b_minus_a": 0.6666666666666679,
+          "sd_delta": 8.4504429735881,
+          "cohens_d_paired": 0.07350362736290678,
+          "wilcoxon_stat": 399.5,
+          "wilcoxon_p": 0.6878856966192668,
+          "sign_test_p": 0.755228657504631
+        },
+        {
+          "phase_a": "Fertility",
+          "phase_b": "Luteal",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 25,
+          "n_neg_b_lt_a": 15,
+          "n_tie": 1,
+          "frac_pos_b_gt_a": 0.6097560975609756,
+          "mean_delta_b_minus_a": 0.9613821138211384,
+          "median_delta_b_minus_a": 1.0,
+          "sd_delta": 8.762453391082563,
+          "cohens_d_paired": 0.1097160887382893,
+          "wilcoxon_stat": 338.0,
+          "wilcoxon_p": 0.33311933317437414,
+          "sign_test_p": 0.1538599441628321
+        },
+        {
+          "phase_a": "Fertility",
+          "phase_b": "Menstrual",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 23,
+          "n_neg_b_lt_a": 18,
+          "n_tie": 0,
+          "frac_pos_b_gt_a": 0.5609756097560976,
+          "mean_delta_b_minus_a": 0.5256097560975608,
+          "median_delta_b_minus_a": 1.0,
+          "sd_delta": 8.158406619998527,
+          "cohens_d_paired": 0.06442554049820769,
+          "wilcoxon_stat": 389.5,
+          "wilcoxon_p": 0.5951618584318775,
+          "sign_test_p": 0.5327092552361137
+        },
+        {
+          "phase_a": "Luteal",
+          "phase_b": "Menstrual",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 20,
+          "n_neg_b_lt_a": 20,
+          "n_tie": 1,
+          "frac_pos_b_gt_a": 0.4878048780487805,
+          "mean_delta_b_minus_a": -0.4357723577235773,
+          "median_delta_b_minus_a": 0.0,
+          "sd_delta": 7.683145840965805,
+          "cohens_d_paired": -0.056717959901279036,
+          "wilcoxon_stat": 370.0,
+          "wilcoxon_p": 0.5907838565736092,
+          "sign_test_p": 1.0
+        }
+      ],
+      "per_phase_complete_case_subject_level": {
+        "Follicular": {
+          "mean": 23.25,
+          "median": 22.5,
+          "sd": 9.323264658309819,
+          "n": 41
+        },
+        "Fertility": {
+          "mean": 23.345528455284555,
+          "median": 20.0,
+          "sd": 10.039480415112132,
+          "n": 41
+        },
+        "Luteal": {
+          "mean": 24.30691056910569,
+          "median": 22.666666666666668,
+          "sd": 8.562159138073238,
+          "n": 41
+        },
+        "Menstrual": {
+          "mean": 23.87113821138211,
+          "median": 21.5,
+          "sd": 9.271576954738729,
+          "n": 41
+        }
+      },
+      "per_phase_pooled_segment_level": {
+        "Follicular": {
+          "mean": 23.008474576271187,
+          "median": 19.0,
+          "sd": 11.245128679597919,
+          "n_segments": 118
+        },
+        "Fertility": {
+          "mean": 22.974789915966387,
+          "median": 19.0,
+          "sd": 12.126775379281934,
+          "n_segments": 119
+        },
+        "Luteal": {
+          "mean": 24.142857142857142,
+          "median": 20.0,
+          "sd": 12.720119998824838,
+          "n_segments": 119
+        },
+        "Menstrual": {
+          "mean": 23.491071428571427,
+          "median": 19.0,
+          "sd": 12.461107448445297,
+          "n_segments": 112
+        }
+      }
+    },
+    "dim": {
+      "n_subjects_all4_phases": 41,
+      "n_subjects_total": 42,
+      "friedman_stat": 3.4272445820434014,
+      "friedman_p": 0.3303215677478738,
+      "pairwise_paired_contrasts": [
+        {
+          "phase_a": "Follicular",
+          "phase_b": "Fertility",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 12,
+          "n_neg_b_lt_a": 20,
+          "n_tie": 9,
+          "frac_pos_b_gt_a": 0.2926829268292683,
+          "mean_delta_b_minus_a": -0.16747967479674797,
+          "median_delta_b_minus_a": 0.0,
+          "sd_delta": 0.5077448946555548,
+          "cohens_d_paired": -0.329850041939591,
+          "wilcoxon_stat": 160.5,
+          "wilcoxon_p": 0.05238372805903119,
+          "sign_test_p": 0.21532714972272515
+        },
+        {
+          "phase_a": "Follicular",
+          "phase_b": "Luteal",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 14,
+          "n_neg_b_lt_a": 16,
+          "n_tie": 11,
+          "frac_pos_b_gt_a": 0.34146341463414637,
+          "mean_delta_b_minus_a": -0.091869918699187,
+          "median_delta_b_minus_a": 0.0,
+          "sd_delta": 0.4441771723463559,
+          "cohens_d_paired": -0.20683169784229619,
+          "wilcoxon_stat": 161.5,
+          "wilcoxon_p": 0.14314207484067595,
+          "sign_test_p": 0.8555355519056321
+        },
+        {
+          "phase_a": "Follicular",
+          "phase_b": "Menstrual",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 6,
+          "n_neg_b_lt_a": 16,
+          "n_tie": 19,
+          "frac_pos_b_gt_a": 0.14634146341463414,
+          "mean_delta_b_minus_a": -0.12967479674796747,
+          "median_delta_b_minus_a": 0.0,
+          "sd_delta": 0.35803305626253806,
+          "cohens_d_paired": -0.36218665980629366,
+          "wilcoxon_stat": 64.5,
+          "wilcoxon_p": 0.04312616930913059,
+          "sign_test_p": 0.052478790283203125
+        },
+        {
+          "phase_a": "Fertility",
+          "phase_b": "Luteal",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 17,
+          "n_neg_b_lt_a": 14,
+          "n_tie": 10,
+          "frac_pos_b_gt_a": 0.4146341463414634,
+          "mean_delta_b_minus_a": 0.07560975609756097,
+          "median_delta_b_minus_a": 0.0,
+          "sd_delta": 0.5532868650289379,
+          "cohens_d_paired": 0.13665561370882437,
+          "wilcoxon_stat": 203.0,
+          "wilcoxon_p": 0.3769661306419583,
+          "sign_test_p": 0.720100131817162
+        },
+        {
+          "phase_a": "Fertility",
+          "phase_b": "Menstrual",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 16,
+          "n_neg_b_lt_a": 14,
+          "n_tie": 11,
+          "frac_pos_b_gt_a": 0.3902439024390244,
+          "mean_delta_b_minus_a": 0.037804878048780494,
+          "median_delta_b_minus_a": 0.0,
+          "sd_delta": 0.4736680798454743,
+          "cohens_d_paired": 0.07981301602825687,
+          "wilcoxon_stat": 207.5,
+          "wilcoxon_p": 0.6066587517392056,
+          "sign_test_p": 0.8555355519056321
+        },
+        {
+          "phase_a": "Luteal",
+          "phase_b": "Menstrual",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 14,
+          "n_neg_b_lt_a": 18,
+          "n_tie": 9,
+          "frac_pos_b_gt_a": 0.34146341463414637,
+          "mean_delta_b_minus_a": -0.03780487804878049,
+          "median_delta_b_minus_a": 0.0,
+          "sd_delta": 0.43066525396833416,
+          "cohens_d_paired": -0.08778251252087356,
+          "wilcoxon_stat": 234.0,
+          "wilcoxon_p": 0.572900943099623,
+          "sign_test_p": 0.5966148958541453
+        }
+      ],
+      "per_phase_complete_case_subject_level": {
+        "Follicular": {
+          "mean": 3.567073170731707,
+          "median": 3.6666666666666665,
+          "sd": 0.4418315384862017,
+          "n": 41
+        },
+        "Fertility": {
+          "mean": 3.399593495934959,
+          "median": 3.3333333333333335,
+          "sd": 0.4480743955602011,
+          "n": 41
+        },
+        "Luteal": {
+          "mean": 3.4752032520325207,
+          "median": 3.5,
+          "sd": 0.47081669515173774,
+          "n": 41
+        },
+        "Menstrual": {
+          "mean": 3.437398373983739,
+          "median": 3.5,
+          "sd": 0.44141156922053415,
+          "n": 41
+        }
+      },
+      "per_phase_pooled_segment_level": {
+        "Follicular": {
+          "mean": 3.5508474576271185,
+          "median": 4.0,
+          "sd": 0.5787912194196123,
+          "n_segments": 118
+        },
+        "Fertility": {
+          "mean": 3.4201680672268906,
+          "median": 3.0,
+          "sd": 0.6701353053273889,
+          "n_segments": 119
+        },
+        "Luteal": {
+          "mean": 3.4873949579831933,
+          "median": 4.0,
+          "sd": 0.6872389639228007,
+          "n_segments": 119
+        },
+        "Menstrual": {
+          "mean": 3.4464285714285716,
+          "median": 3.0,
+          "sd": 0.6127663710441569,
+          "n_segments": 112
+        }
+      }
+    },
+    "det": {
+      "n_subjects_all4_phases": 41,
+      "n_subjects_total": 42,
+      "friedman_stat": 0.5414634146342223,
+      "friedman_p": 0.9096920880659197,
+      "pairwise_paired_contrasts": [
+        {
+          "phase_a": "Follicular",
+          "phase_b": "Fertility",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 17,
+          "n_neg_b_lt_a": 24,
+          "n_tie": 0,
+          "frac_pos_b_gt_a": 0.4146341463414634,
+          "mean_delta_b_minus_a": -0.0009153019254830206,
+          "median_delta_b_minus_a": -0.0013730393787824147,
+          "sd_delta": 0.05028025769941237,
+          "cohens_d_paired": -0.01820400227371384,
+          "wilcoxon_stat": 429.0,
+          "wilcoxon_p": 0.989773659029197,
+          "sign_test_p": 0.34888887944907765
+        },
+        {
+          "phase_a": "Follicular",
+          "phase_b": "Luteal",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 21,
+          "n_neg_b_lt_a": 20,
+          "n_tie": 0,
+          "frac_pos_b_gt_a": 0.5121951219512195,
+          "mean_delta_b_minus_a": 0.0029293231288682183,
+          "median_delta_b_minus_a": 0.0003584049849351123,
+          "sd_delta": 0.05256109715224601,
+          "cohens_d_paired": 0.05573177288105837,
+          "wilcoxon_stat": 393.0,
+          "wilcoxon_p": 0.635057771260108,
+          "sign_test_p": 1.0
+        },
+        {
+          "phase_a": "Follicular",
+          "phase_b": "Menstrual",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 21,
+          "n_neg_b_lt_a": 20,
+          "n_tie": 0,
+          "frac_pos_b_gt_a": 0.5121951219512195,
+          "mean_delta_b_minus_a": -0.023868164583622557,
+          "median_delta_b_minus_a": 0.0008417858857837635,
+          "sd_delta": 0.09595604369238728,
+          "cohens_d_paired": -0.2487406073153488,
+          "wilcoxon_stat": 395.0,
+          "wilcoxon_p": 0.6534846488639232,
+          "sign_test_p": 1.0
+        },
+        {
+          "phase_a": "Fertility",
+          "phase_b": "Luteal",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 21,
+          "n_neg_b_lt_a": 20,
+          "n_tie": 0,
+          "frac_pos_b_gt_a": 0.5121951219512195,
+          "mean_delta_b_minus_a": 0.0038446250543512387,
+          "median_delta_b_minus_a": 0.001731444363717527,
+          "sd_delta": 0.03970385174863018,
+          "cohens_d_paired": 0.09683254608877795,
+          "wilcoxon_stat": 382.0,
+          "wilcoxon_p": 0.5378507163841277,
+          "sign_test_p": 1.0
+        },
+        {
+          "phase_a": "Fertility",
+          "phase_b": "Menstrual",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 19,
+          "n_neg_b_lt_a": 22,
+          "n_tie": 0,
+          "frac_pos_b_gt_a": 0.4634146341463415,
+          "mean_delta_b_minus_a": -0.022952862658139537,
+          "median_delta_b_minus_a": -0.001483949584799027,
+          "sd_delta": 0.10916868112304258,
+          "cohens_d_paired": -0.21025135068060105,
+          "wilcoxon_stat": 363.0,
+          "wilcoxon_p": 0.38920910656815977,
+          "sign_test_p": 0.755228657504631
+        },
+        {
+          "phase_a": "Luteal",
+          "phase_b": "Menstrual",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 18,
+          "n_neg_b_lt_a": 23,
+          "n_tie": 0,
+          "frac_pos_b_gt_a": 0.43902439024390244,
+          "mean_delta_b_minus_a": -0.026797487712490776,
+          "median_delta_b_minus_a": -0.00014193884652091704,
+          "sd_delta": 0.1091771364662426,
+          "cohens_d_paired": -0.2454496296555325,
+          "wilcoxon_stat": 389.0,
+          "wilcoxon_p": 0.5988687414364904,
+          "sign_test_p": 0.5327092552361137
+        }
+      ],
+      "per_phase_complete_case_subject_level": {
+        "Follicular": {
+          "mean": 0.9625001344561068,
+          "median": 0.9789228825281614,
+          "sd": 0.042706641834336236,
+          "n": 41
+        },
+        "Fertility": {
+          "mean": 0.9615848325306239,
+          "median": 0.9794818501654312,
+          "sd": 0.046481147631568444,
+          "n": 41
+        },
+        "Luteal": {
+          "mean": 0.965429457584975,
+          "median": 0.9775985792148353,
+          "sd": 0.035897685612071274,
+          "n": 41
+        },
+        "Menstrual": {
+          "mean": 0.9386319698724843,
+          "median": 0.9770038007592269,
+          "sd": 0.10497403641214396,
+          "n": 41
+        }
+      },
+      "per_phase_pooled_segment_level": {
+        "Follicular": {
+          "mean": 0.9648454198042573,
+          "median": 0.9837186024003899,
+          "sd": 0.05250384766960987,
+          "n_segments": 118
+        },
+        "Fertility": {
+          "mean": 0.9636117337261461,
+          "median": 0.9869238616340537,
+          "sd": 0.059697250189537636,
+          "n_segments": 119
+        },
+        "Luteal": {
+          "mean": 0.9654341017687289,
+          "median": 0.9849913411583606,
+          "sd": 0.05819635873330411,
+          "n_segments": 119
+        },
+        "Menstrual": {
+          "mean": 0.9463491522651175,
+          "median": 0.9867560907096695,
+          "sd": 0.12755578664703854,
+          "n_segments": 112
+        }
+      }
+    },
+    "entr": {
+      "n_subjects_all4_phases": 41,
+      "n_subjects_total": 42,
+      "friedman_stat": 1.1268292682926813,
+      "friedman_p": 0.7706016557173117,
+      "pairwise_paired_contrasts": [
+        {
+          "phase_a": "Follicular",
+          "phase_b": "Fertility",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 19,
+          "n_neg_b_lt_a": 22,
+          "n_tie": 0,
+          "frac_pos_b_gt_a": 0.4634146341463415,
+          "mean_delta_b_minus_a": 0.023136673004547886,
+          "median_delta_b_minus_a": -0.011709813724840146,
+          "sd_delta": 0.2631813849493229,
+          "cohens_d_paired": 0.08791151018907734,
+          "wilcoxon_stat": 413.0,
+          "wilcoxon_p": 0.8274844261859471,
+          "sign_test_p": 0.755228657504631
+        },
+        {
+          "phase_a": "Follicular",
+          "phase_b": "Luteal",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 18,
+          "n_neg_b_lt_a": 23,
+          "n_tie": 0,
+          "frac_pos_b_gt_a": 0.43902439024390244,
+          "mean_delta_b_minus_a": 0.0005153853173879042,
+          "median_delta_b_minus_a": -0.04111727779418439,
+          "sd_delta": 0.34410841571580264,
+          "cohens_d_paired": 0.0014977411009138419,
+          "wilcoxon_stat": 417.0,
+          "wilcoxon_p": 0.8676535108124881,
+          "sign_test_p": 0.5327092552361137
+        },
+        {
+          "phase_a": "Follicular",
+          "phase_b": "Menstrual",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 20,
+          "n_neg_b_lt_a": 21,
+          "n_tie": 0,
+          "frac_pos_b_gt_a": 0.4878048780487805,
+          "mean_delta_b_minus_a": -0.04482966971153368,
+          "median_delta_b_minus_a": -0.019628280231675177,
+          "sd_delta": 0.4288944273677113,
+          "cohens_d_paired": -0.10452378685978847,
+          "wilcoxon_stat": 401.0,
+          "wilcoxon_p": 0.709980035901026,
+          "sign_test_p": 1.0
+        },
+        {
+          "phase_a": "Fertility",
+          "phase_b": "Luteal",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 20,
+          "n_neg_b_lt_a": 21,
+          "n_tie": 0,
+          "frac_pos_b_gt_a": 0.4878048780487805,
+          "mean_delta_b_minus_a": -0.022621287687159982,
+          "median_delta_b_minus_a": -0.00913162308665072,
+          "sd_delta": 0.3096144079821307,
+          "cohens_d_paired": -0.07306277454783552,
+          "wilcoxon_stat": 403.0,
+          "wilcoxon_p": 0.7291827946046396,
+          "sign_test_p": 1.0
+        },
+        {
+          "phase_a": "Fertility",
+          "phase_b": "Menstrual",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 16,
+          "n_neg_b_lt_a": 25,
+          "n_tie": 0,
+          "frac_pos_b_gt_a": 0.3902439024390244,
+          "mean_delta_b_minus_a": -0.06796634271608157,
+          "median_delta_b_minus_a": -0.08667780376722822,
+          "sd_delta": 0.3502953113870001,
+          "cohens_d_paired": -0.19402584193024938,
+          "wilcoxon_stat": 319.0,
+          "wilcoxon_p": 0.15175407844162692,
+          "sign_test_p": 0.21102359760880063
+        },
+        {
+          "phase_a": "Luteal",
+          "phase_b": "Menstrual",
+          "n_pairs": 41,
+          "n_pos_b_gt_a": 19,
+          "n_neg_b_lt_a": 22,
+          "n_tie": 0,
+          "frac_pos_b_gt_a": 0.4634146341463415,
+          "mean_delta_b_minus_a": -0.04534505502892159,
+          "median_delta_b_minus_a": -0.06346767709827095,
+          "sd_delta": 0.44292926988323195,
+          "cohens_d_paired": -0.10237538612175204,
+          "wilcoxon_stat": 353.0,
+          "wilcoxon_p": 0.32196494471736514,
+          "sign_test_p": 0.755228657504631
+        }
+      ],
+      "per_phase_complete_case_subject_level": {
+        "Follicular": {
+          "mean": 2.729081585491119,
+          "median": 2.7565793132742216,
+          "sd": 0.2551020707785277,
+          "n": 41
+        },
+        "Fertility": {
+          "mean": 2.7522182584956667,
+          "median": 2.7568467619278096,
+          "sd": 0.2197555742612852,
+          "n": 41
+        },
+        "Luteal": {
+          "mean": 2.729596970808507,
+          "median": 2.7745869137244434,
+          "sd": 0.2969937832540095,
+          "n": 41
+        },
+        "Menstrual": {
+          "mean": 2.684251915779585,
+          "median": 2.710574644718028,
+          "sd": 0.3192460574918701,
+          "n": 41
+        }
+      },
+      "per_phase_pooled_segment_level": {
+        "Follicular": {
+          "mean": 2.7280612816485523,
+          "median": 2.754020953146179,
+          "sd": 0.40775392695750057,
+          "n_segments": 118
+        },
+        "Fertility": {
+          "mean": 2.772736491636319,
+          "median": 2.8058950760771495,
+          "sd": 0.38752543512181414,
+          "n_segments": 119
+        },
+        "Luteal": {
+          "mean": 2.726512043587648,
+          "median": 2.7435700280887874,
+          "sd": 0.4455656575545471,
+          "n_segments": 119
+        },
+        "Menstrual": {
+          "mean": 2.687796088420702,
+          "median": 2.746662001506162,
+          "sd": 0.4234016243690669,
+          "n_segments": 112
+        }
+      }
+    }
+  }
+}

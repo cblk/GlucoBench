@@ -43,14 +43,32 @@ import _extracted_tensor_engine_v4 as eng
 
 
 def resample_raw(timestamps_iso, values):
-    """Port of resampleDataImpl(data, smooth=false), index_v4.html:~1956-1974."""
+    """Port of resampleDataImpl(data, smooth=false), index_v4.html:~1960-1984.
+
+    [v1 residual, discovered via mcPHASES 2026-08-16, FIXED 2026-08-16] The
+    production JS at index_v4.html previously relied on JS's implicit null->0
+    coercion when a neighboring sample was missing during 4-15min-gap linear
+    interpolation: it did NOT throw, it silently interpolated as if the
+    missing reading were glucose=0, corrupting every downstream operator with
+    no log trace. This was fixed under Section 10.4's UI/Code Constitution as
+    a double atomic transaction (index_v4.html `bothValid` guard +
+    Implementation Contract v1.3 Section 1.3 + Blueprint v3.3 Section 2.1
+    [v3.5]) -- JS now skips the interpolation branch and lets the null
+    propagate honestly, matching this Python port's behavior below. This
+    guard is kept here (rather than removed) because it makes the harness
+    robust even if a *future* JS edit reintroduces the coercion bug: this
+    Python port never had the coercion in the first place (None - float
+    raises TypeError in Python), so it always skip the small-gap
+    interpolation whenever either endpoint is None, per AGENTS.md Section
+    8.1/8.3 (No Fabrication / Zero Magic-Constant).
+    """
     ts = [dt.datetime.fromisoformat(t) for t in timestamps_iso]
     vs = list(values)
     new_ts = [ts[0]]
     new_vs = [vs[0]]
     for i in range(1, len(ts)):
         gap = (ts[i] - ts[i - 1]).total_seconds() / 60.0
-        if 4 < gap <= 15:
+        if 4 < gap <= 15 and vs[i] is not None and vs[i - 1] is not None:
             steps = round(gap / 3)
             if steps < 1:
                 steps = 1
@@ -182,8 +200,10 @@ def run_subject(subject, period="night"):
         "events": log,
     }
     # Labels: prism-only, NEVER fed back into any computation above (Section 9.1.2).
-    for field in LABEL_FIELDS:
-        record[field] = subject.get(field)
+    # Pass through any cohort-specific metadata attached to subject.
+    for k, v in subject.items():
+        if k not in ("timestamps", "values", "id"):
+            record[k] = v
     return record
 
 

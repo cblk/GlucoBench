@@ -39,6 +39,12 @@
 *   **Chunk 切分规则:** 沿时间轴，按连续的非 `NaN` 数据片段切分为 `list[np.ndarray]`。
 *   **最小可用长度截断:** 定义全局变量 `MIN_CHUNK_LEN = 30` (相当于 90 分钟)。任何 `len(chunk) < MIN_CHUNK_LEN` 的碎片强制抛弃，不参与重构。
 
+### 1.3 JS 边界重采样阶段的空值防污染 (Resample-Boundary Null Immunity)
+*   **[v1.5 新增，2026-08-16 残差修复]** `resampleDataImpl`（JS 侧、Pyodide 之外的 3 分钟网格重采样函数）在执行 4–15 分钟间隙的线性插值前，**必须**先校验插值窗口两端的原始读数本身是否有效（非 `null`/`undefined`/`NaN`）。
+*   **禁止的失效模式:** JavaScript 的隐式类型转换会把 `null` 在算术运算中强制转换为 `0`（即 `vs[i] - vs[i-1]` 在 `vs[i-1]` 为 `null` 时不报错，而是静默算出错误结果）。这会把一次真实的传感器单点丢失，伪造成一段"血糖趋近于 0"的虚假插值轨迹，且不产生任何 `Event Log` 痕迹——直接违反第 0 节 Law One（崩溃可归因性）与 Blueprint v3.3 第 2.1 节"绝对禁止使用插值掩盖物理数据缺失"。
+*   **强制处理:** 若插值窗口任一端点为空值，**禁止**进入线性插值分支，让该端点的空值原样传递到重采样输出序列中（与 `gap > 15` 分支产生的 `null` 断链享有同等的下游处理路径——被 1.2 节的 Chunking Engine 自然切除，绝不参与 L1-L2 计算）。
+*   **发现溯源:** 由 mcPHASES 队列（`validate/wind_tunnel_v4_mcphases_phase.py`）风洞测试首次触发——该队列存在"时间间隙正常但读数本身缺失"的真实传感器丢点模式，是 Hall/Colas/Stanford/CGMacros 均未覆盖到的边界条件。
+
 ---
 
 ## 🔒 2. L0: 零相移滤波器参数焊死 (Zero-Phase Filter Config)
