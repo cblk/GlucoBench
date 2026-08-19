@@ -6,7 +6,7 @@
 - [`DSH_Engineering_Doctrine.md`](./DSH_Engineering_Doctrine.md) —— 地图-疆域认识论与工程第一性原理
 - [`Atomic_WASM_Refactoring_Doctrine.md`](./Atomic_WASM_Refactoring_Doctrine.md) —— 巨石 HTML/Pyodide 文件的原子化重构工作流
 - [`Somatic_Tensor_Worldview.md`](./Somatic_Tensor_Worldview.md) —— 控制论导航员协议全文
-- [`The_Cybernetic_Wind_Tunnel_Doctrine_v1.0.md`](./The_Cybernetic_Wind_Tunnel_Doctrine_v1.0.md) —— 风洞测试的极端物理学认识论与 Agent 执行戒律
+- [`The_Cybernetic_Wind_Tunnel_Doctrine_v1.1.md`](./The_Cybernetic_Wind_Tunnel_Doctrine_v1.1.md) —— 风洞测试的极端物理学认识论与 Agent 执行戒律
 
 **若你运行在 Cursor：** `.cursor/rules/*.mdc` 会自动把上述文件注入上下文，无需手动读取。
 **若你运行在 Codex CLI / DeepSeek Harness 或其他仅读取 `AGENTS.md` 的环境：** 你必须在开始任何实质性工作前，主动使用文件读取工具打开上述 5 份文件并将其视为强制生效的规则——它们不会被自动注入，只有本文件本身会被自动加载。
@@ -158,7 +158,7 @@
 
 **背景：** `reports/experiment_20260811_1605.md` 时期，系统曾尝试用外部队列（Kobe/Shanghai/BIG IDEAs/Stanford）的临床标签（Clamp DI、A1C、SSPG）去拟合/加权拓扑特征（`bounded_base5`/`full9` 冻结公式），结果是换一个队列相关性就崩塌（Kobe rho=0.084，95% CI 跨0）——这是把“自下而上的统计拟合”和“自上而下的拓扑机制”错误地缝合在了一起。第 7.3 节的《标签盲化》红线因此把所有临床标签一刀切禁止，连带炸掉了“用真实数据集给拓扑算子做压力测试”这一正当研究模式。本节把红线降维解包为可执行的隔离法则，重新打通“自下而上数据挖掘”与“自上而下拓扑构建”的合作接口。
 
-> **终极认识论统御：** 风洞测试的设计与解读，必须严格服从根目录下的 [`The_Cybernetic_Wind_Tunnel_Doctrine_v1.0.md`](./The_Cybernetic_Wind_Tunnel_Doctrine_v1.0.md) 元指令。该指令强制系统保持对“物理实在”的敬畏，拒绝抢救失效算子，并用极严苛的第一性原理四段式锻造测试用例。
+> **终极认识论统御：** 风洞测试的设计与解读，必须严格服从根目录下的 [`The_Cybernetic_Wind_Tunnel_Doctrine_v1.1.md`](./The_Cybernetic_Wind_Tunnel_Doctrine_v1.1.md) 元指令。该指令强制系统保持对“物理实在”的敬畏，拒绝抢救失效算子，并用极严苛的第一性原理六段式锻造测试用例。
 
 ### 9.1 三条隔离法则
 1. **计算层绝对物理隔离 (The Calculation Firewall)：** 见第 7.3 节。`index_v4.html` 的生产计算层永远不知道、不使用任何临床标签，输入只有 `(Time, Glucose)`。此法则没有任何豁免。
