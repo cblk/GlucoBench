@@ -1,0 +1,155 @@
+{
+  "source_file": "reports\\wind_tunnel_t1d_uom_activity_night_taumax60_20260819_1119.json",
+  "n_total_weekly_runs": 246,
+  "n_success_weekly_runs": 246,
+  "n_subjects_total": 17,
+  "metrics": {
+    "workIntegral": {
+      "n_pairs": 17,
+      "n_pos_high_gt_low": 8,
+      "n_neg_high_lt_low": 9,
+      "n_tie": 0,
+      "high_mean": 46.149142011638574,
+      "low_mean": 47.25974909209558,
+      "mean_delta_high_minus_low": -1.1106070804570027,
+      "cohens_d_paired": -0.13911589716890224,
+      "wilcoxon_stat": 65.0,
+      "wilcoxon_p": 0.6112213134765625,
+      "sign_test_p": 1.0
+    },
+    "tau": {
+      "n_pairs": 17,
+      "n_pos_high_gt_low": 7,
+      "n_neg_high_lt_low": 10,
+      "n_tie": 0,
+      "high_mean": 25.823338426279605,
+      "low_mean": 27.748090145148968,
+      "mean_delta_high_minus_low": -1.924751718869366,
+      "cohens_d_paired": -0.32257285627983573,
+      "wilcoxon_stat": 51.0,
+      "wilcoxon_p": 0.22732016306296354,
+      "sign_test_p": 0.629058837890625
+    },
+    "dim": {
+      "n_pairs": 17,
+      "n_pos_high_gt_low": 13,
+      "n_neg_high_lt_low": 1,
+      "n_tie": 3,
+      "high_mean": 2.6881843646549526,
+      "low_mean": 2.5309396485867075,
+      "mean_delta_high_minus_low": 0.1572447160682455,
+      "cohens_d_paired": 0.44983459855338376,
+      "wilcoxon_stat": 14.0,
+      "wilcoxon_p": 0.015449328972887935,
+      "sign_test_p": 0.0018310546875
+    },
+    "det": {
+      "n_pairs": 17,
+      "n_pos_high_gt_low": 8,
+      "n_neg_high_lt_low": 9,
+      "n_tie": 0,
+      "high_mean": 0.9633813713435904,
+      "low_mean": 0.9554293015277783,
+      "mean_delta_high_minus_low": 0.007952069815812339,
+      "cohens_d_paired": 0.16848932360222496,
+      "wilcoxon_stat": 74.0,
+      "wilcoxon_p": 0.926513671875,
+      "sign_test_p": 1.0
+    },
+    "entr": {
+      "n_pairs": 17,
+      "n_pos_high_gt_low": 13,
+      "n_neg_high_lt_low": 4,
+      "n_tie": 0,
+      "high_mean": 2.9745824767805265,
+      "low_mean": 2.891059602042128,
+      "mean_delta_high_minus_low": 0.08352287473839866,
+      "cohens_d_paired": 0.4947586335005288,
+      "wilcoxon_stat": 35.0,
+      "wilcoxon_p": 0.050537109375,
+      "sign_test_p": 0.049041748046875
+    }
+  },
+  "confound_checks": {
+    "weekly_active_kcal_total": {
+      "n_pairs": 17,
+      "n_pos_high_gt_low": 17,
+      "n_neg_high_lt_low": 0,
+      "n_tie": 0,
+      "high_mean": 4937.582951362364,
+      "low_mean": 3095.216641201935,
+      "mean_delta_high_minus_low": 1842.3663101604277,
+      "cohens_d_paired": 0.7736627424637561,
+      "wilcoxon_stat": 0.0,
+      "wilcoxon_p": 1.52587890625e-05,
+      "sign_test_p": 1.52587890625e-05
+    },
+    "weekly_basal_dose_total": {
+      "n_pairs": 12,
+      "n_pos_high_gt_low": 8,
+      "n_neg_high_lt_low": 4,
+      "n_tie": 0,
+      "high_mean": 189.3580436507937,
+      "low_mean": 169.87420535714287,
+      "mean_delta_high_minus_low": 19.483838293650784,
+      "cohens_d_paired": 0.4369670877101811,
+      "wilcoxon_stat": 21.0,
+      "wilcoxon_p": 0.17626953125,
+      "sign_test_p": 0.3876953125
+    }
+  },
+  "holm_bonferroni_wilcoxon": {
+    "dim": {
+      "p_raw": 0.015449328972887935,
+      "holm_threshold": 0.01,
+      "survives_holm": false
+    },
+    "entr": {
+      "p_raw": 0.050537109375,
+      "holm_threshold": 0.0125,
+      "survives_holm": false
+    },
+    "tau": {
+      "p_raw": 0.22732016306296354,
+      "holm_threshold": 0.016666666666666666,
+      "survives_holm": false
+    },
+    "workIntegral": {
+      "p_raw": 0.6112213134765625,
+      "holm_threshold": 0.025,
+      "survives_holm": false
+    },
+    "det": {
+      "p_raw": 0.926513671875,
+      "holm_threshold": 0.05,
+      "survives_holm": false
+    }
+  },
+  "holm_bonferroni_sign_test": {
+    "dim": {
+      "p_raw": 0.0018310546875,
+      "holm_threshold": 0.01,
+      "survives_holm": true
+    },
+    "entr": {
+      "p_raw": 0.049041748046875,
+      "holm_threshold": 0.0125,
+      "survives_holm": false
+    },
+    "tau": {
+      "p_raw": 0.629058837890625,
+      "holm_threshold": 0.016666666666666666,
+      "survives_holm": false
+    },
+    "workIntegral": {
+      "p_raw": 1.0,
+      "holm_threshold": 0.025,
+      "survives_holm": false
+    },
+    "det": {
+      "p_raw": 1.0,
+      "holm_threshold": 0.05,
+      "survives_holm": false
+    }
+  }
+}

@@ -1,0 +1,193 @@
+{
+  "source_file": "reports\\wind_tunnel_shanghai_t2dm_night_taumax60_20260819_1105.json",
+  "median_hba1c_mmol_mol": 69.405,
+  "n_independent_patients": 100,
+  "n_excluded_repeat_visits": 9,
+  "duration_bucket_sizes": {
+    "long(>=10d)": 61,
+    "short(<7d)": 24,
+    "mid(7-10d)": 15
+  },
+  "rows": [
+    {
+      "bucket": "short(<7d)",
+      "metric": "workIntegral",
+      "n_high": 17,
+      "n_low": 7,
+      "high_median": 24.030421940470234,
+      "low_median": 19.372759722666167,
+      "rank_sep": 0.7899159663865546
+    },
+    {
+      "bucket": "short(<7d)",
+      "metric": "tau",
+      "n_high": 17,
+      "n_low": 7,
+      "high_median": 42.0,
+      "low_median": 36.0,
+      "rank_sep": 0.6386554621848739
+    },
+    {
+      "bucket": "short(<7d)",
+      "metric": "dim",
+      "n_high": 17,
+      "n_low": 7,
+      "high_median": 2.0,
+      "low_median": 3.0,
+      "rank_sep": 0.27310924369747897
+    },
+    {
+      "bucket": "short(<7d)",
+      "metric": "det",
+      "n_high": 17,
+      "n_low": 7,
+      "high_median": 0.9659090909090909,
+      "low_median": 0.9537487828627069,
+      "rank_sep": 0.5798319327731093
+    },
+    {
+      "bucket": "short(<7d)",
+      "metric": "entr",
+      "n_high": 17,
+      "n_low": 7,
+      "high_median": 2.8188235712049123,
+      "low_median": 3.0679877520229852,
+      "rank_sep": 0.31932773109243695
+    },
+    {
+      "bucket": "mid(7-10d)",
+      "metric": "workIntegral",
+      "n_high": 10,
+      "n_low": 5,
+      "high_median": 21.0810508827371,
+      "low_median": 22.7857593244226,
+      "rank_sep": 0.3
+    },
+    {
+      "bucket": "mid(7-10d)",
+      "metric": "tau",
+      "n_high": 10,
+      "n_low": 5,
+      "high_median": 59.0,
+      "low_median": 52.0,
+      "rank_sep": 0.59
+    },
+    {
+      "bucket": "mid(7-10d)",
+      "metric": "dim",
+      "n_high": 10,
+      "n_low": 5,
+      "high_median": 2.0,
+      "low_median": 2.0,
+      "rank_sep": 0.4
+    },
+    {
+      "bucket": "mid(7-10d)",
+      "metric": "det",
+      "n_high": 10,
+      "n_low": 5,
+      "high_median": 0.8739092293462281,
+      "low_median": 0.9142993554547625,
+      "rank_sep": 0.4
+    },
+    {
+      "bucket": "mid(7-10d)",
+      "metric": "entr",
+      "n_high": 10,
+      "n_low": 5,
+      "high_median": 3.236635958184473,
+      "low_median": 3.0610073173937513,
+      "rank_sep": 0.54
+    },
+    {
+      "bucket": "long(>=10d)",
+      "metric": "workIntegral",
+      "n_high": 17,
+      "n_low": 36,
+      "high_median": 23.165043590827942,
+      "low_median": 17.7858845771014,
+      "rank_sep": 0.6715686274509803
+    },
+    {
+      "bucket": "long(>=10d)",
+      "metric": "tau",
+      "n_high": 17,
+      "n_low": 36,
+      "high_median": 52.0,
+      "low_median": 33.0,
+      "rank_sep": 0.8169934640522876
+    },
+    {
+      "bucket": "long(>=10d)",
+      "metric": "dim",
+      "n_high": 17,
+      "n_low": 36,
+      "high_median": 2.0,
+      "low_median": 3.0,
+      "rank_sep": 0.23202614379084968
+    },
+    {
+      "bucket": "long(>=10d)",
+      "metric": "det",
+      "n_high": 17,
+      "n_low": 36,
+      "high_median": 0.9353479853479854,
+      "low_median": 0.9625704698062783,
+      "rank_sep": 0.30718954248366015
+    },
+    {
+      "bucket": "long(>=10d)",
+      "metric": "entr",
+      "n_high": 17,
+      "n_low": 36,
+      "high_median": 3.205993635177654,
+      "low_median": 2.9907027519097693,
+      "rank_sep": 0.7303921568627451
+    },
+    {
+      "bucket": "pooled(all)",
+      "metric": "workIntegral",
+      "n_high": 44,
+      "n_low": 48,
+      "high_median": 22.204867870118406,
+      "low_median": 19.029958478152665,
+      "rank_sep": 0.6358901515151515
+    },
+    {
+      "bucket": "pooled(all)",
+      "metric": "tau",
+      "n_high": 44,
+      "n_low": 48,
+      "high_median": 55.0,
+      "low_median": 34.0,
+      "rank_sep": 0.7755681818181818
+    },
+    {
+      "bucket": "pooled(all)",
+      "metric": "dim",
+      "n_high": 44,
+      "n_low": 48,
+      "high_median": 2.0,
+      "low_median": 3.0,
+      "rank_sep": 0.22040719696969696
+    },
+    {
+      "bucket": "pooled(all)",
+      "metric": "det",
+      "n_high": 44,
+      "n_low": 48,
+      "high_median": 0.9244349989633008,
+      "low_median": 0.9612922156334727,
+      "rank_sep": 0.3953598484848485
+    },
+    {
+      "bucket": "pooled(all)",
+      "metric": "entr",
+      "n_high": 44,
+      "n_low": 48,
+      "high_median": 3.032799106466484,
+      "low_median": 3.028030582387006,
+      "rank_sep": 0.5089962121212122
+    }
+  ]
+}

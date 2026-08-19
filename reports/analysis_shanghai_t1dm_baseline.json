@@ -1,0 +1,165 @@
+{
+  "result_file": "reports\\wind_tunnel_shanghai_t1dm_night_taumax60_20260819_1141.json",
+  "isolation_note": "STRICT T1D-only cohort; never compared against shanghai_t2dm.",
+  "n_first_visit": 12,
+  "n_hba1c_valid": 11,
+  "hba1c_median_mmol_mol": 69.405,
+  "metrics": {
+    "workIntegral": {
+      "median_high": 27.07044171720614,
+      "median_low": 35.46222226091041,
+      "rank_sep_auc": 0.23333333333333334,
+      "mannwhitney_p": 0.17748917748917747,
+      "spearman_rho": -0.2785417166361061,
+      "spearman_p": 0.4068749573158957,
+      "n_high": 5,
+      "n_low": 6
+    },
+    "dim": {
+      "median_high": 2.0,
+      "median_low": 2.0,
+      "rank_sep_auc": 0.5,
+      "mannwhitney_p": NaN,
+      "spearman_rho": NaN,
+      "spearman_p": NaN,
+      "n_high": 5,
+      "n_low": 6
+    },
+    "det": {
+      "median_high": 0.7427581084426839,
+      "median_low": 0.81920465337132,
+      "rank_sep_auc": 0.4,
+      "mannwhitney_p": 0.6623376623376623,
+      "spearman_rho": -0.0730601223963557,
+      "spearman_p": 0.8309557779908179,
+      "n_high": 5,
+      "n_low": 6
+    },
+    "entr": {
+      "median_high": 3.345468151283827,
+      "median_low": 3.427824727999546,
+      "rank_sep_auc": 0.43333333333333335,
+      "mannwhitney_p": 0.7922077922077921,
+      "spearman_rho": 0.16438527539180034,
+      "spearman_p": 0.6291003050587903,
+      "n_high": 5,
+      "n_low": 6
+    },
+    "rr": {
+      "median_high": 0.05,
+      "median_low": 0.05,
+      "rank_sep_auc": 0.7,
+      "mannwhitney_p": 0.13638021563578917,
+      "spearman_rho": 0.43346269534630166,
+      "spearman_p": 0.18290718256672261,
+      "n_high": 5,
+      "n_low": 6
+    },
+    "tau": {
+      "median_high": 60.0,
+      "median_low": 60.0,
+      "rank_sep_auc": 0.4166666666666667,
+      "mannwhitney_p": 0.6423466029647014,
+      "spearman_rho": -0.02032686221670483,
+      "spearman_p": 0.9526976130311904,
+      "n_high": 5,
+      "n_low": 6
+    }
+  },
+  "multi_visit_descriptive": {
+    "1002": {
+      "workIntegral": [
+        38.93794628603778,
+        32.280102290310445,
+        20.67281848795846
+      ],
+      "dim": [
+        2,
+        2,
+        2
+      ],
+      "det": [
+        0.7924691358024691,
+        0.8336515209367443,
+        0.9861111111111112
+      ],
+      "entr": [
+        3.280267137411795,
+        3.3734870264522305,
+        2.9581139481954613
+      ],
+      "rr": [
+        0.05,
+        0.05,
+        0.05
+      ],
+      "tau": [
+        60,
+        60,
+        60
+      ],
+      "hba1c_mmol_mol": [
+        69.405,
+        69.405,
+        72.68400000000001
+      ],
+      "admission_date": [
+        "20210504",
+        "20210521",
+        "20210909"
+      ],
+      "hypoglycemic_agents": [
+        "insulin aspart, insulin detemir",
+        "Novolin R, insulin glargine",
+        "Novolin R"
+      ]
+    },
+    "1006": {
+      "workIntegral": [
+        22.009541973422706,
+        30.9536511231161,
+        31.07425890245562
+      ],
+      "dim": [
+        2,
+        2,
+        2
+      ],
+      "det": [
+        0.9006410256410257,
+        0.9197191697191697,
+        0.9922171602126044
+      ],
+      "entr": [
+        3.7358274026755405,
+        3.433365512027109,
+        2.9206104659081293
+      ],
+      "rr": [
+        0.05,
+        0.05,
+        0.05000284754257076
+      ],
+      "tau": [
+        60,
+        60,
+        51
+      ],
+      "hba1c_mmol_mol": [
+        68.312,
+        63.94,
+        60.661
+      ],
+      "admission_date": [
+        "20210114",
+        "20210209",
+        "20210303"
+      ],
+      "hypoglycemic_agents": [
+        "voglibose, Humulin R, insulin degludec",
+        "voglibose, Humulin R, insulin degludec",
+        "voglibose, Humulin R, insulin degludec"
+      ]
+    }
+  }
+}

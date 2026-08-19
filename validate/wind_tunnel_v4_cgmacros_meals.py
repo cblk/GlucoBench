@@ -30,8 +30,14 @@ def analyze_subject_meals(subject, min_carbs=25.0, window_min=240):
     valid_meals = []
 
     for idx, m in enumerate(meals):
-        carbs = m.get("carbs", 0.0)
-        if carbs < min_carbs:
+        carbs = m.get("carbs")
+        # Honest degradation path (Staging Matrix Standard 2): if a meal event
+        # carries no usable carb metadata (missing key, None, or unparseable),
+        # this event is silently excluded from the carb-normalized challenge
+        # set -- it never contributes a value to w_carb/strain_per_carb. We do
+        # NOT fabricate a fallback carb estimate (e.g. population mean) to keep
+        # the record; declining to use it is the only doctrine-compliant move.
+        if carbs is None or not isinstance(carbs, (int, float)) or carbs < min_carbs:
             continue
 
         t_meal = dt.datetime.fromisoformat(m["timestamp"])

@@ -1,0 +1,68 @@
+{
+  "production_file": "reports\\wind_tunnel_shanghai_t1dm_night_taumax60_20260819_1141.json",
+  "supplementary_file": "reports\\wind_tunnel_shanghai_t1dm_night_taumax120_SUPPLEMENTARY_20260819_1209.json",
+  "n_first_visit": 12,
+  "hba1c_median_mmol_mol": 69.405,
+  "metrics_corrected": {
+    "workIntegral": {
+      "median_high": 27.07044171720614,
+      "median_low": 32.633884712755936,
+      "rank_sep_auc": 0.26666666666666666,
+      "mannwhitney_p": 0.24675324675324672,
+      "spearman_rho": -0.2465779130877005,
+      "spearman_p": 0.46482031341588437,
+      "n_high": 5,
+      "n_low": 6
+    },
+    "dim": {
+      "median_high": 2.0,
+      "median_low": 2.0,
+      "rank_sep_auc": 0.5,
+      "mannwhitney_p": NaN,
+      "spearman_rho": NaN,
+      "spearman_p": NaN,
+      "n_high": 5,
+      "n_low": 6
+    },
+    "det": {
+      "median_high": 0.7261538461538461,
+      "median_low": 0.33574989361993124,
+      "rank_sep_auc": 0.6333333333333333,
+      "mannwhitney_p": 0.5367965367965368,
+      "spearman_rho": 0.22374662483883936,
+      "spearman_p": 0.5083744746599337,
+      "n_high": 5,
+      "n_low": 6
+    },
+    "entr": {
+      "median_high": 3.345468151283827,
+      "median_low": 2.6414307747412247,
+      "rank_sep_auc": 0.5333333333333333,
+      "mannwhitney_p": 0.9307359307359306,
+      "spearman_rho": 0.1552527600922559,
+      "spearman_p": 0.6485214035283661,
+      "n_high": 5,
+      "n_low": 6
+    },
+    "rr": {
+      "median_high": 0.05000097096805515,
+      "median_low": 0.05001075303875328,
+      "rank_sep_auc": 0.3333333333333333,
+      "mannwhitney_p": 0.4070160272713742,
+      "spearman_rho": -0.3225840704387764,
+      "spearman_p": 0.3332819237858844,
+      "n_high": 5,
+      "n_low": 6
+    },
+    "tau": {
+      "median_high": 68.0,
+      "median_low": 80.0,
+      "rank_sep_auc": 0.26666666666666666,
+      "mannwhitney_p": 0.24675324675324672,
+      "spearman_rho": -0.2511441707374727,
+      "spearman_p": 0.45632066436721125,
+      "n_high": 5,
+      "n_low": 6
+    }
+  }
+}

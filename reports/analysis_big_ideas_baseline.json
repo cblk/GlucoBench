@@ -1,0 +1,67 @@
+{
+  "result_file": "reports\\wind_tunnel_big_ideas_night_taumax60_20260819_1128.json",
+  "n": 16,
+  "hba1c_median": 5.65,
+  "metrics": {
+    "workIntegral": {
+      "median_high": 21.52502378489406,
+      "median_low": 16.059066783820967,
+      "rank_sep_auc": 0.625,
+      "mannwhitney_p": 0.4418026418026417,
+      "spearman_rho": 0.3199631501195781,
+      "spearman_p": 0.22700301122970082,
+      "n_high": 8,
+      "n_low": 8
+    },
+    "dim": {
+      "median_high": 4.0,
+      "median_low": 4.0,
+      "rank_sep_auc": 0.5,
+      "mannwhitney_p": 1.0,
+      "spearman_rho": -0.09919353522139876,
+      "spearman_p": 0.7147441057620048,
+      "n_high": 8,
+      "n_low": 8
+    },
+    "det": {
+      "median_high": 0.9712375883657336,
+      "median_low": 0.9783652965527347,
+      "rank_sep_auc": 0.453125,
+      "mannwhitney_p": 0.7984459984459983,
+      "spearman_rho": -0.1101268516690641,
+      "spearman_p": 0.6847328931260421,
+      "n_high": 8,
+      "n_low": 8
+    },
+    "entr": {
+      "median_high": 2.7711814461862216,
+      "median_low": 2.9047301551997826,
+      "rank_sep_auc": 0.34375,
+      "mannwhitney_p": 0.32820512820512815,
+      "spearman_rho": -0.4434838080727175,
+      "spearman_p": 0.08532123884627846,
+      "n_high": 8,
+      "n_low": 8
+    },
+    "rr": {
+      "median_high": 0.05000336153559638,
+      "median_low": 0.05000209919173249,
+      "rank_sep_auc": 0.5625,
+      "mannwhitney_p": 0.7129894874507409,
+      "spearman_rho": 0.11839904566136057,
+      "spearman_p": 0.6623138004409621,
+      "n_high": 8,
+      "n_low": 8
+    },
+    "tau": {
+      "median_high": 27.5,
+      "median_low": 25.0,
+      "rank_sep_auc": 0.578125,
+      "mannwhitney_p": 0.6355065570939342,
+      "spearman_rho": 0.138811536328248,
+      "spearman_p": 0.608161507056037,
+      "n_high": 8,
+      "n_low": 8
+    }
+  }
+}

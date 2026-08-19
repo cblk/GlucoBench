@@ -1,0 +1,1002 @@
+{
+  "shanghai_t1dm": {
+    "summary": {
+      "60": {
+        "n": 16,
+        "median_tau": 60.0,
+        "mean_tau": 56.1875,
+        "pct_at_ceiling": 0.6875
+      },
+      "90": {
+        "n": 16,
+        "median_tau": 72.0,
+        "mean_tau": 68.6875,
+        "pct_at_ceiling": 0.125
+      },
+      "120": {
+        "n": 16,
+        "median_tau": 72.0,
+        "mean_tau": 69.125,
+        "pct_at_ceiling": 0.0
+      },
+      "180": {
+        "n": 16,
+        "median_tau": 72.0,
+        "mean_tau": 69.125,
+        "pct_at_ceiling": 0.0
+      },
+      "240": {
+        "n": 16,
+        "median_tau": 72.0,
+        "mean_tau": 69.125,
+        "pct_at_ceiling": 0.0
+      }
+    },
+    "per_subject": [
+      {
+        "id": "1001_0_20210730",
+        "tau_maxlag60": 58,
+        "tau_maxlag90": 58,
+        "tau_maxlag120": 58,
+        "tau_maxlag180": 58,
+        "tau_maxlag240": 58
+      },
+      {
+        "id": "1002_0_20210504",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 90,
+        "tau_maxlag120": 93,
+        "tau_maxlag180": 93,
+        "tau_maxlag240": 93
+      },
+      {
+        "id": "1002_1_20210521",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 76,
+        "tau_maxlag120": 76,
+        "tau_maxlag180": 76,
+        "tau_maxlag240": 76
+      },
+      {
+        "id": "1002_2_20210909",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 85,
+        "tau_maxlag120": 85,
+        "tau_maxlag180": 85,
+        "tau_maxlag240": 85
+      },
+      {
+        "id": "1003_0_20210831",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 70,
+        "tau_maxlag120": 70,
+        "tau_maxlag180": 70,
+        "tau_maxlag240": 70
+      },
+      {
+        "id": "1004_0_20210425",
+        "tau_maxlag60": 45,
+        "tau_maxlag90": 45,
+        "tau_maxlag120": 45,
+        "tau_maxlag180": 45,
+        "tau_maxlag240": 45
+      },
+      {
+        "id": "1005_0_20210522",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 75,
+        "tau_maxlag120": 75,
+        "tau_maxlag180": 75,
+        "tau_maxlag240": 75
+      },
+      {
+        "id": "1006_0_20210114",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 90,
+        "tau_maxlag120": 94,
+        "tau_maxlag180": 94,
+        "tau_maxlag240": 94
+      },
+      {
+        "id": "1006_1_20210209",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 60,
+        "tau_maxlag120": 60,
+        "tau_maxlag180": 60,
+        "tau_maxlag240": 60
+      },
+      {
+        "id": "1006_2_20210303",
+        "tau_maxlag60": 51,
+        "tau_maxlag90": 51,
+        "tau_maxlag120": 51,
+        "tau_maxlag180": 51,
+        "tau_maxlag240": 51
+      },
+      {
+        "id": "1007_0_20210726",
+        "tau_maxlag60": 40,
+        "tau_maxlag90": 40,
+        "tau_maxlag120": 40,
+        "tau_maxlag180": 40,
+        "tau_maxlag240": 40
+      },
+      {
+        "id": "1008_0_20210713",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 74,
+        "tau_maxlag120": 74,
+        "tau_maxlag180": 74,
+        "tau_maxlag240": 74
+      },
+      {
+        "id": "1009_0_20210803",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 87,
+        "tau_maxlag120": 87,
+        "tau_maxlag180": 87,
+        "tau_maxlag240": 87
+      },
+      {
+        "id": "1010_0_20210915",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 68,
+        "tau_maxlag120": 68,
+        "tau_maxlag180": 68,
+        "tau_maxlag240": 68
+      },
+      {
+        "id": "1011_0_20210622",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 85,
+        "tau_maxlag120": 85,
+        "tau_maxlag180": 85,
+        "tau_maxlag240": 85
+      },
+      {
+        "id": "1012_0_20210923",
+        "tau_maxlag60": 45,
+        "tau_maxlag90": 45,
+        "tau_maxlag120": 45,
+        "tau_maxlag180": 45,
+        "tau_maxlag240": 45
+      }
+    ]
+  },
+  "shanghai_t2dm_first_visit": {
+    "summary": {
+      "60": {
+        "n": 100,
+        "median_tau": 41.0,
+        "mean_tau": 43.33,
+        "pct_at_ceiling": 0.24
+      },
+      "90": {
+        "n": 100,
+        "median_tau": 41.0,
+        "mean_tau": 47.52,
+        "pct_at_ceiling": 0.09
+      },
+      "120": {
+        "n": 100,
+        "median_tau": 41.0,
+        "mean_tau": 49.63,
+        "pct_at_ceiling": 0.05
+      },
+      "180": {
+        "n": 100,
+        "median_tau": 41.0,
+        "mean_tau": 51.0,
+        "pct_at_ceiling": 0.01
+      },
+      "240": {
+        "n": 100,
+        "median_tau": 41.0,
+        "mean_tau": 51.6,
+        "pct_at_ceiling": 0.01
+      }
+    },
+    "per_subject": [
+      {
+        "id": "2000_0_20201230",
+        "tau_maxlag60": 28,
+        "tau_maxlag90": 28,
+        "tau_maxlag120": 28,
+        "tau_maxlag180": 28,
+        "tau_maxlag240": 28
+      },
+      {
+        "id": "2001_0_20201102",
+        "tau_maxlag60": 37,
+        "tau_maxlag90": 37,
+        "tau_maxlag120": 37,
+        "tau_maxlag180": 37,
+        "tau_maxlag240": 37
+      },
+      {
+        "id": "2002_0_20210513",
+        "tau_maxlag60": 42,
+        "tau_maxlag90": 42,
+        "tau_maxlag120": 42,
+        "tau_maxlag180": 42,
+        "tau_maxlag240": 42
+      },
+      {
+        "id": "2003_0_20210615",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 90,
+        "tau_maxlag120": 106,
+        "tau_maxlag180": 106,
+        "tau_maxlag240": 106
+      },
+      {
+        "id": "2004_0_20211028",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 90,
+        "tau_maxlag120": 105,
+        "tau_maxlag180": 105,
+        "tau_maxlag240": 105
+      },
+      {
+        "id": "2005_0_20211201",
+        "tau_maxlag60": 55,
+        "tau_maxlag90": 55,
+        "tau_maxlag120": 55,
+        "tau_maxlag180": 55,
+        "tau_maxlag240": 55
+      },
+      {
+        "id": "2006_0_20211112",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 80,
+        "tau_maxlag120": 80,
+        "tau_maxlag180": 80,
+        "tau_maxlag240": 80
+      },
+      {
+        "id": "2007_0_20220108",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 90,
+        "tau_maxlag120": 109,
+        "tau_maxlag180": 109,
+        "tau_maxlag240": 109
+      },
+      {
+        "id": "2008_0_20220118",
+        "tau_maxlag60": 46,
+        "tau_maxlag90": 46,
+        "tau_maxlag120": 46,
+        "tau_maxlag180": 46,
+        "tau_maxlag240": 46
+      },
+      {
+        "id": "2009_0_20211103",
+        "tau_maxlag60": 39,
+        "tau_maxlag90": 39,
+        "tau_maxlag120": 39,
+        "tau_maxlag180": 39,
+        "tau_maxlag240": 39
+      },
+      {
+        "id": "2010_0_20220111",
+        "tau_maxlag60": 42,
+        "tau_maxlag90": 42,
+        "tau_maxlag120": 42,
+        "tau_maxlag180": 42,
+        "tau_maxlag240": 42
+      },
+      {
+        "id": "2011_0_20220123",
+        "tau_maxlag60": 37,
+        "tau_maxlag90": 37,
+        "tau_maxlag120": 37,
+        "tau_maxlag180": 37,
+        "tau_maxlag240": 37
+      },
+      {
+        "id": "2012_0_20220126",
+        "tau_maxlag60": 39,
+        "tau_maxlag90": 39,
+        "tau_maxlag120": 39,
+        "tau_maxlag180": 39,
+        "tau_maxlag240": 39
+      },
+      {
+        "id": "2013_0_20220123",
+        "tau_maxlag60": 57,
+        "tau_maxlag90": 57,
+        "tau_maxlag120": 57,
+        "tau_maxlag180": 57,
+        "tau_maxlag240": 57
+      },
+      {
+        "id": "2014_0_20201224",
+        "tau_maxlag60": 33,
+        "tau_maxlag90": 33,
+        "tau_maxlag120": 33,
+        "tau_maxlag180": 33,
+        "tau_maxlag240": 33
+      },
+      {
+        "id": "2015_0_20210203",
+        "tau_maxlag60": 30,
+        "tau_maxlag90": 30,
+        "tau_maxlag120": 30,
+        "tau_maxlag180": 30,
+        "tau_maxlag240": 30
+      },
+      {
+        "id": "2016_0_20201224",
+        "tau_maxlag60": 36,
+        "tau_maxlag90": 36,
+        "tau_maxlag120": 36,
+        "tau_maxlag180": 36,
+        "tau_maxlag240": 36
+      },
+      {
+        "id": "2017_0_20210102",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 90,
+        "tau_maxlag120": 101,
+        "tau_maxlag180": 101,
+        "tau_maxlag240": 101
+      },
+      {
+        "id": "2018_0_20210420",
+        "tau_maxlag60": 48,
+        "tau_maxlag90": 48,
+        "tau_maxlag120": 48,
+        "tau_maxlag180": 48,
+        "tau_maxlag240": 48
+      },
+      {
+        "id": "2019_0_20210513",
+        "tau_maxlag60": 48,
+        "tau_maxlag90": 48,
+        "tau_maxlag120": 48,
+        "tau_maxlag180": 48,
+        "tau_maxlag240": 48
+      },
+      {
+        "id": "2020_0_20210423",
+        "tau_maxlag60": 36,
+        "tau_maxlag90": 36,
+        "tau_maxlag120": 36,
+        "tau_maxlag180": 36,
+        "tau_maxlag240": 36
+      },
+      {
+        "id": "2021_0_20211013",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 64,
+        "tau_maxlag120": 64,
+        "tau_maxlag180": 64,
+        "tau_maxlag240": 64
+      },
+      {
+        "id": "2022_0_20210419",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 62,
+        "tau_maxlag120": 62,
+        "tau_maxlag180": 62,
+        "tau_maxlag240": 62
+      },
+      {
+        "id": "2023_0_20210812",
+        "tau_maxlag60": 41,
+        "tau_maxlag90": 41,
+        "tau_maxlag120": 41,
+        "tau_maxlag180": 41,
+        "tau_maxlag240": 41
+      },
+      {
+        "id": "2024_0_20210429",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 74,
+        "tau_maxlag120": 74,
+        "tau_maxlag180": 74,
+        "tau_maxlag240": 74
+      },
+      {
+        "id": "2025_0_20210506",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 89,
+        "tau_maxlag120": 89,
+        "tau_maxlag180": 89,
+        "tau_maxlag240": 89
+      },
+      {
+        "id": "2026_0_20210916",
+        "tau_maxlag60": 39,
+        "tau_maxlag90": 39,
+        "tau_maxlag120": 39,
+        "tau_maxlag180": 39,
+        "tau_maxlag240": 39
+      },
+      {
+        "id": "2027_0_20210521",
+        "tau_maxlag60": 46,
+        "tau_maxlag90": 46,
+        "tau_maxlag120": 46,
+        "tau_maxlag180": 46,
+        "tau_maxlag240": 46
+      },
+      {
+        "id": "2028_0_20210426",
+        "tau_maxlag60": 58,
+        "tau_maxlag90": 58,
+        "tau_maxlag120": 58,
+        "tau_maxlag180": 58,
+        "tau_maxlag240": 58
+      },
+      {
+        "id": "2029_0_20210526",
+        "tau_maxlag60": 52,
+        "tau_maxlag90": 52,
+        "tau_maxlag120": 52,
+        "tau_maxlag180": 52,
+        "tau_maxlag240": 52
+      },
+      {
+        "id": "2030_0_20210531",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 71,
+        "tau_maxlag120": 71,
+        "tau_maxlag180": 71,
+        "tau_maxlag240": 71
+      },
+      {
+        "id": "2031_0_20210601",
+        "tau_maxlag60": 43,
+        "tau_maxlag90": 43,
+        "tau_maxlag120": 43,
+        "tau_maxlag180": 43,
+        "tau_maxlag240": 43
+      },
+      {
+        "id": "2032_0_20210727",
+        "tau_maxlag60": 28,
+        "tau_maxlag90": 28,
+        "tau_maxlag120": 28,
+        "tau_maxlag180": 28,
+        "tau_maxlag240": 28
+      },
+      {
+        "id": "2033_0_20210615",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 63,
+        "tau_maxlag120": 63,
+        "tau_maxlag180": 63,
+        "tau_maxlag240": 63
+      },
+      {
+        "id": "2034_0_20210624",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 90,
+        "tau_maxlag120": 120,
+        "tau_maxlag180": 129,
+        "tau_maxlag240": 129
+      },
+      {
+        "id": "2035_0_20210629",
+        "tau_maxlag60": 41,
+        "tau_maxlag90": 41,
+        "tau_maxlag120": 41,
+        "tau_maxlag180": 41,
+        "tau_maxlag240": 41
+      },
+      {
+        "id": "2036_0_20210803",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 60,
+        "tau_maxlag120": 60,
+        "tau_maxlag180": 60,
+        "tau_maxlag240": 60
+      },
+      {
+        "id": "2037_0_20201221",
+        "tau_maxlag60": 30,
+        "tau_maxlag90": 30,
+        "tau_maxlag120": 30,
+        "tau_maxlag180": 30,
+        "tau_maxlag240": 30
+      },
+      {
+        "id": "2038_0_20210608",
+        "tau_maxlag60": 25,
+        "tau_maxlag90": 25,
+        "tau_maxlag120": 25,
+        "tau_maxlag180": 25,
+        "tau_maxlag240": 25
+      },
+      {
+        "id": "2039_0_20210615",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 66,
+        "tau_maxlag120": 66,
+        "tau_maxlag180": 66,
+        "tau_maxlag240": 66
+      },
+      {
+        "id": "2040_0_20210729",
+        "tau_maxlag60": 29,
+        "tau_maxlag90": 29,
+        "tau_maxlag120": 29,
+        "tau_maxlag180": 29,
+        "tau_maxlag240": 29
+      },
+      {
+        "id": "2041_0_20210813",
+        "tau_maxlag60": 55,
+        "tau_maxlag90": 55,
+        "tau_maxlag120": 55,
+        "tau_maxlag180": 55,
+        "tau_maxlag240": 55
+      },
+      {
+        "id": "2042_0_20211019",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 90,
+        "tau_maxlag120": 120,
+        "tau_maxlag180": 125,
+        "tau_maxlag240": 125
+      },
+      {
+        "id": "2043_0_20210513",
+        "tau_maxlag60": 40,
+        "tau_maxlag90": 40,
+        "tau_maxlag120": 40,
+        "tau_maxlag180": 40,
+        "tau_maxlag240": 40
+      },
+      {
+        "id": "2044_0_20211101",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 90,
+        "tau_maxlag120": 120,
+        "tau_maxlag180": 124,
+        "tau_maxlag240": 124
+      },
+      {
+        "id": "2045_0_20201216",
+        "tau_maxlag60": 58,
+        "tau_maxlag90": 58,
+        "tau_maxlag120": 58,
+        "tau_maxlag180": 58,
+        "tau_maxlag240": 58
+      },
+      {
+        "id": "2046_0_20201216",
+        "tau_maxlag60": 21,
+        "tau_maxlag90": 21,
+        "tau_maxlag120": 21,
+        "tau_maxlag180": 21,
+        "tau_maxlag240": 21
+      },
+      {
+        "id": "2047_0_20210420",
+        "tau_maxlag60": 38,
+        "tau_maxlag90": 38,
+        "tau_maxlag120": 38,
+        "tau_maxlag180": 38,
+        "tau_maxlag240": 38
+      },
+      {
+        "id": "2048_0_20210426",
+        "tau_maxlag60": 32,
+        "tau_maxlag90": 32,
+        "tau_maxlag120": 32,
+        "tau_maxlag180": 32,
+        "tau_maxlag240": 32
+      },
+      {
+        "id": "2049_0_20210426",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 90,
+        "tau_maxlag120": 120,
+        "tau_maxlag180": 179,
+        "tau_maxlag240": 179
+      },
+      {
+        "id": "2050_0_20210510",
+        "tau_maxlag60": 34,
+        "tau_maxlag90": 34,
+        "tau_maxlag120": 34,
+        "tau_maxlag180": 34,
+        "tau_maxlag240": 34
+      },
+      {
+        "id": "2051_0_20210512",
+        "tau_maxlag60": 33,
+        "tau_maxlag90": 33,
+        "tau_maxlag120": 33,
+        "tau_maxlag180": 33,
+        "tau_maxlag240": 33
+      },
+      {
+        "id": "2052_0_20210511",
+        "tau_maxlag60": 32,
+        "tau_maxlag90": 32,
+        "tau_maxlag120": 32,
+        "tau_maxlag180": 32,
+        "tau_maxlag240": 32
+      },
+      {
+        "id": "2053_0_20210518",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 61,
+        "tau_maxlag120": 61,
+        "tau_maxlag180": 61,
+        "tau_maxlag240": 61
+      },
+      {
+        "id": "2054_0_20210524",
+        "tau_maxlag60": 29,
+        "tau_maxlag90": 29,
+        "tau_maxlag120": 29,
+        "tau_maxlag180": 29,
+        "tau_maxlag240": 29
+      },
+      {
+        "id": "2055_0_20210524",
+        "tau_maxlag60": 50,
+        "tau_maxlag90": 50,
+        "tau_maxlag120": 50,
+        "tau_maxlag180": 50,
+        "tau_maxlag240": 50
+      },
+      {
+        "id": "2056_0_20210524",
+        "tau_maxlag60": 29,
+        "tau_maxlag90": 29,
+        "tau_maxlag120": 29,
+        "tau_maxlag180": 29,
+        "tau_maxlag240": 29
+      },
+      {
+        "id": "2057_0_20210525",
+        "tau_maxlag60": 35,
+        "tau_maxlag90": 35,
+        "tau_maxlag120": 35,
+        "tau_maxlag180": 35,
+        "tau_maxlag240": 35
+      },
+      {
+        "id": "2058_0_20210524",
+        "tau_maxlag60": 27,
+        "tau_maxlag90": 27,
+        "tau_maxlag120": 27,
+        "tau_maxlag180": 27,
+        "tau_maxlag240": 27
+      },
+      {
+        "id": "2059_0_20210525",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 75,
+        "tau_maxlag120": 75,
+        "tau_maxlag180": 75,
+        "tau_maxlag240": 75
+      },
+      {
+        "id": "2060_0_20201214",
+        "tau_maxlag60": 48,
+        "tau_maxlag90": 48,
+        "tau_maxlag120": 48,
+        "tau_maxlag180": 48,
+        "tau_maxlag240": 48
+      },
+      {
+        "id": "2061_0_20210601",
+        "tau_maxlag60": 21,
+        "tau_maxlag90": 21,
+        "tau_maxlag120": 21,
+        "tau_maxlag180": 21,
+        "tau_maxlag240": 21
+      },
+      {
+        "id": "2062_0_20210601",
+        "tau_maxlag60": 26,
+        "tau_maxlag90": 26,
+        "tau_maxlag120": 26,
+        "tau_maxlag180": 26,
+        "tau_maxlag240": 26
+      },
+      {
+        "id": "2063_0_20210608",
+        "tau_maxlag60": 34,
+        "tau_maxlag90": 34,
+        "tau_maxlag120": 34,
+        "tau_maxlag180": 34,
+        "tau_maxlag240": 34
+      },
+      {
+        "id": "2064_0_20210608",
+        "tau_maxlag60": 29,
+        "tau_maxlag90": 29,
+        "tau_maxlag120": 29,
+        "tau_maxlag180": 29,
+        "tau_maxlag240": 29
+      },
+      {
+        "id": "2065_0_20210615",
+        "tau_maxlag60": 48,
+        "tau_maxlag90": 48,
+        "tau_maxlag120": 48,
+        "tau_maxlag180": 48,
+        "tau_maxlag240": 48
+      },
+      {
+        "id": "2066_0_20210615",
+        "tau_maxlag60": 40,
+        "tau_maxlag90": 40,
+        "tau_maxlag120": 40,
+        "tau_maxlag180": 40,
+        "tau_maxlag240": 40
+      },
+      {
+        "id": "2067_0_20210615",
+        "tau_maxlag60": 33,
+        "tau_maxlag90": 33,
+        "tau_maxlag120": 33,
+        "tau_maxlag180": 33,
+        "tau_maxlag240": 33
+      },
+      {
+        "id": "2068_0_20210616",
+        "tau_maxlag60": 39,
+        "tau_maxlag90": 39,
+        "tau_maxlag120": 39,
+        "tau_maxlag180": 39,
+        "tau_maxlag240": 39
+      },
+      {
+        "id": "2069_0_20210621",
+        "tau_maxlag60": 46,
+        "tau_maxlag90": 46,
+        "tau_maxlag120": 46,
+        "tau_maxlag180": 46,
+        "tau_maxlag240": 46
+      },
+      {
+        "id": "2070_0_20210629",
+        "tau_maxlag60": 24,
+        "tau_maxlag90": 24,
+        "tau_maxlag120": 24,
+        "tau_maxlag180": 24,
+        "tau_maxlag240": 24
+      },
+      {
+        "id": "2071_0_20210705",
+        "tau_maxlag60": 31,
+        "tau_maxlag90": 31,
+        "tau_maxlag120": 31,
+        "tau_maxlag180": 31,
+        "tau_maxlag240": 31
+      },
+      {
+        "id": "2072_0_20210706",
+        "tau_maxlag60": 24,
+        "tau_maxlag90": 24,
+        "tau_maxlag120": 24,
+        "tau_maxlag180": 24,
+        "tau_maxlag240": 24
+      },
+      {
+        "id": "2073_0_20210703",
+        "tau_maxlag60": 52,
+        "tau_maxlag90": 52,
+        "tau_maxlag120": 52,
+        "tau_maxlag180": 52,
+        "tau_maxlag240": 52
+      },
+      {
+        "id": "2074_0_20210707",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 79,
+        "tau_maxlag120": 79,
+        "tau_maxlag180": 79,
+        "tau_maxlag240": 79
+      },
+      {
+        "id": "2075_0_20210720",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 75,
+        "tau_maxlag120": 75,
+        "tau_maxlag180": 75,
+        "tau_maxlag240": 75
+      },
+      {
+        "id": "2076_0_20210720",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 90,
+        "tau_maxlag120": 120,
+        "tau_maxlag180": 180,
+        "tau_maxlag240": 240
+      },
+      {
+        "id": "2077_0_20210803",
+        "tau_maxlag60": 32,
+        "tau_maxlag90": 32,
+        "tau_maxlag120": 32,
+        "tau_maxlag180": 32,
+        "tau_maxlag240": 32
+      },
+      {
+        "id": "2078_0_20210803",
+        "tau_maxlag60": 35,
+        "tau_maxlag90": 35,
+        "tau_maxlag120": 35,
+        "tau_maxlag180": 35,
+        "tau_maxlag240": 35
+      },
+      {
+        "id": "2079_0_20210809",
+        "tau_maxlag60": 34,
+        "tau_maxlag90": 34,
+        "tau_maxlag120": 34,
+        "tau_maxlag180": 34,
+        "tau_maxlag240": 34
+      },
+      {
+        "id": "2080_0_20210816",
+        "tau_maxlag60": 29,
+        "tau_maxlag90": 29,
+        "tau_maxlag120": 29,
+        "tau_maxlag180": 29,
+        "tau_maxlag240": 29
+      },
+      {
+        "id": "2081_0_20210817",
+        "tau_maxlag60": 49,
+        "tau_maxlag90": 49,
+        "tau_maxlag120": 49,
+        "tau_maxlag180": 49,
+        "tau_maxlag240": 49
+      },
+      {
+        "id": "2082_0_20210907",
+        "tau_maxlag60": 35,
+        "tau_maxlag90": 35,
+        "tau_maxlag120": 35,
+        "tau_maxlag180": 35,
+        "tau_maxlag240": 35
+      },
+      {
+        "id": "2083_0_20201214",
+        "tau_maxlag60": 31,
+        "tau_maxlag90": 31,
+        "tau_maxlag120": 31,
+        "tau_maxlag180": 31,
+        "tau_maxlag240": 31
+      },
+      {
+        "id": "2084_0_20211013",
+        "tau_maxlag60": 23,
+        "tau_maxlag90": 23,
+        "tau_maxlag120": 23,
+        "tau_maxlag180": 23,
+        "tau_maxlag240": 23
+      },
+      {
+        "id": "2085_0_20200907",
+        "tau_maxlag60": 31,
+        "tau_maxlag90": 31,
+        "tau_maxlag120": 31,
+        "tau_maxlag180": 31,
+        "tau_maxlag240": 31
+      },
+      {
+        "id": "2086_0_20200914",
+        "tau_maxlag60": 45,
+        "tau_maxlag90": 45,
+        "tau_maxlag120": 45,
+        "tau_maxlag180": 45,
+        "tau_maxlag240": 45
+      },
+      {
+        "id": "2087_0_20201012",
+        "tau_maxlag60": 55,
+        "tau_maxlag90": 55,
+        "tau_maxlag120": 55,
+        "tau_maxlag180": 55,
+        "tau_maxlag240": 55
+      },
+      {
+        "id": "2088_0_20201123",
+        "tau_maxlag60": 46,
+        "tau_maxlag90": 46,
+        "tau_maxlag120": 46,
+        "tau_maxlag180": 46,
+        "tau_maxlag240": 46
+      },
+      {
+        "id": "2089_0_20201019",
+        "tau_maxlag60": 35,
+        "tau_maxlag90": 35,
+        "tau_maxlag120": 35,
+        "tau_maxlag180": 35,
+        "tau_maxlag240": 35
+      },
+      {
+        "id": "2090_0_20201130",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 62,
+        "tau_maxlag120": 62,
+        "tau_maxlag180": 62,
+        "tau_maxlag240": 62
+      },
+      {
+        "id": "2091_0_20201029",
+        "tau_maxlag60": 32,
+        "tau_maxlag90": 32,
+        "tau_maxlag120": 32,
+        "tau_maxlag180": 32,
+        "tau_maxlag240": 32
+      },
+      {
+        "id": "2092_0_20201109",
+        "tau_maxlag60": 30,
+        "tau_maxlag90": 30,
+        "tau_maxlag120": 30,
+        "tau_maxlag180": 30,
+        "tau_maxlag240": 30
+      },
+      {
+        "id": "2093_0_20201109",
+        "tau_maxlag60": 30,
+        "tau_maxlag90": 30,
+        "tau_maxlag120": 30,
+        "tau_maxlag180": 30,
+        "tau_maxlag240": 30
+      },
+      {
+        "id": "2094_0_20211109",
+        "tau_maxlag60": 60,
+        "tau_maxlag90": 68,
+        "tau_maxlag120": 68,
+        "tau_maxlag180": 68,
+        "tau_maxlag240": 68
+      },
+      {
+        "id": "2095_0_20201116",
+        "tau_maxlag60": 59,
+        "tau_maxlag90": 59,
+        "tau_maxlag120": 59,
+        "tau_maxlag180": 59,
+        "tau_maxlag240": 59
+      },
+      {
+        "id": "2096_0_20201116",
+        "tau_maxlag60": 35,
+        "tau_maxlag90": 35,
+        "tau_maxlag120": 35,
+        "tau_maxlag180": 35,
+        "tau_maxlag240": 35
+      },
+      {
+        "id": "2097_0_20201116",
+        "tau_maxlag60": 58,
+        "tau_maxlag90": 58,
+        "tau_maxlag120": 58,
+        "tau_maxlag180": 58,
+        "tau_maxlag240": 58
+      },
+      {
+        "id": "2098_0_20201106",
+        "tau_maxlag60": 50,
+        "tau_maxlag90": 50,
+        "tau_maxlag120": 50,
+        "tau_maxlag180": 50,
+        "tau_maxlag240": 50
+      },
+      {
+        "id": "2099_0_20201116",
+        "tau_maxlag60": 26,
+        "tau_maxlag90": 26,
+        "tau_maxlag120": 26,
+        "tau_maxlag180": 26,
+        "tau_maxlag240": 26
+      }
+    ]
+  }
+}
