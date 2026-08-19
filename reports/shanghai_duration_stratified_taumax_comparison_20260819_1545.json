@@ -1,0 +1,38 @@
+{
+  "tau_max_60": {
+    "median_hba1c": 69.405,
+    "buckets": {
+      "short(<7d)": {
+        "n_high": 17,
+        "n_low": 7,
+        "rank_sep": 0.7899159663865546
+      },
+      "long(>=10d)": {
+        "n_high": 17,
+        "n_low": 36,
+        "rank_sep": 0.6715686274509803
+      }
+    },
+    "delta_long_minus_short": -0.11834733893557425,
+    "n_independent_patients": 100,
+    "n_excluded_repeat_visits": 9
+  },
+  "tau_max_120": {
+    "median_hba1c": 68.312,
+    "buckets": {
+      "short(<7d)": {
+        "n_high": 15,
+        "n_low": 6,
+        "rank_sep": 0.8333333333333334
+      },
+      "long(>=10d)": {
+        "n_high": 17,
+        "n_low": 34,
+        "rank_sep": 0.6730103806228374
+      }
+    },
+    "delta_long_minus_short": -0.16032295271049601,
+    "n_independent_patients": 95,
+    "n_excluded_repeat_visits": 14
+  }
+}

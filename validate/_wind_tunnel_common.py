@@ -130,12 +130,20 @@ def takens_embedding(values, tau, dim):
 LABEL_FIELDS = ("cohort", "diagnosis", "y", "insulin", "SSPG")
 
 
-def run_subject(subject, period="night"):
+def run_subject(subject, period="night", tau_max=120):
     """period='night' (Contract-faithful): estimate_dimension and the pointsSmooth fed to
     RQA/Work-Integral are computed on the night-sliced (0:00-6:00) series, exactly mirroring
     processEpochPyodide's period-gated path (index_v4.html ~3534, 3577, 3603). Tau extraction
     stays on the FULL raw series unconditionally, matching onDataReady (index_v4.html
     ~3318-3326) which never period-slices before calling extract_tau.
+
+    tau_max (default 120, matching PRODUCTION index_v4.html's max_lag as of 2026-08-19
+    /Blueprint v3.6 -- see reports/wind_tunnel_fleet_taumax60_vs_120_option2_evaluation_
+    20260819_1520.md for the fleet-wide evidence behind that atomic transaction): threaded
+    straight into eng.engine.extract_tau's max_lag parameter. Callers reproducing the PRE-2026
+    -08-19 production behavior (or diffing against historical taumax60 archives) must pass
+    tau_max=60 explicitly -- the default here always tracks current production, per Section
+    9.4 Bit-for-Bit Truth Across Tracks.
     """
     sid = subject["id"]
     log = []
@@ -150,7 +158,7 @@ def run_subject(subject, period="night"):
 
     raw_json = json.dumps(raw_vs)
 
-    tau_res = json.loads(eng.engine.extract_tau(raw_json))
+    tau_res = json.loads(eng.engine.extract_tau(raw_json, max_lag=tau_max))
     log += tau_res.get("events", [])
     tau = tau_res.get("result")
     if tau is None:
@@ -207,8 +215,8 @@ def run_subject(subject, period="night"):
     return record
 
 
-def run_cohort(cohort_name, subjects, period="night"):
-    results = [run_subject(s, period=period) for s in subjects]
+def run_cohort(cohort_name, subjects, period="night", tau_max=120):
+    results = [run_subject(s, period=period, tau_max=tau_max) for s in subjects]
     ok = [r for r in results if "error" not in r]
     failed = [r for r in results if "error" in r]
     print(f"Processed {len(subjects)} {cohort_name} subjects: {len(ok)} succeeded, {len(failed)} failed.")

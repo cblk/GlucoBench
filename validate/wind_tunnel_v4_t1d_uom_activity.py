@@ -48,7 +48,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import _wind_tunnel_common as wt
 
 PERIOD = "night"
-TAU_MAX = 60
+TAU_MAX = 120  # 2026-08-19/Blueprint v3.6: tracks production index_v4.html's max_lag default
 MIN_WEEK_POINTS = 30  # already enforced at export time; re-checked here for clarity, no new threshold invented
 
 

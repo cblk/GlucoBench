@@ -10,7 +10,7 @@ class TensorEngine:
     def log_event(self, msg):
         self.event_log.append(msg)
 
-    def extract_tau(self, values_json):
+    def extract_tau(self, values_json, max_lag=120):
         # Concurrency/Lifecycle Audit fix: self.event_log is a singleton accumulator on this
         # long-lived engine instance. Without a per-call reset, every response's "events" field
         # would leak the ENTIRE session's history (all prior calls, all prior epochs) into the
@@ -44,7 +44,20 @@ class TensorEngine:
             # wind-tunnel run showed 42/57 subjects pinned at the old 20-step ceiling -- a
             # measurement-ceiling artifact, not a real cross-subject invariant. See
             # reports/wind_tunnel_hall_20260815_2149.md and Blueprint v3.3 Sec 3.1 revision note.
-            max_lag = 60
+            #
+            # [2026-08-19 tau_max boundary calibration, Wind-Tunnel Isolation Doctrine Sec 9.4]
+            # First parameterized with default=60 (no production change) so the full-fleet sweep
+            # (validate/wind_tunnel_v4_taumax120_sweep.py) could re-invoke this SAME bit-for-bit
+            # engine at max_lag=120 across all 9 cohorts without forking a second copy of this
+            # math. That sweep's fleet-wide comparison
+            # (reports/wind_tunnel_fleet_taumax60_vs_120_option2_evaluation_20260819_1520.md)
+            # found zero directional reversals and was used to execute AGENTS.md Section B.5's
+            # atomic transaction: PRODUCTION default raised 60->120 in index_v4.html's mirrored
+            # PYTHON_ENGINE_CODE + Pipeline Blueprint v3.3 Sec 3.1 [v3.6] + Implementation
+            # Contract v1.3 Sec [v1.5], all on 2026-08-19. This default is updated to 120 to stay
+            # bit-for-bit synced with that new production value (Section 9.4) -- callers that
+            # need the OLD value for historical reproduction must pass max_lag=60 explicitly.
+            max_lag = int(max_lag)
             total_len = sum(len(c) for c in chunks)
             avg_acf = np.zeros(max_lag + 1)
             

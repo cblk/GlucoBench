@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CGM Aether相空间探针 v9.0 (Pyodide Aether-Core)</title>
+<title>[探索版·非生产] CGM Aether相空间探针 v4.2-exploratory</title>
 <!-- Pyodide -->
 <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
 <!-- SheetJS for Excel parsing -->
@@ -261,25 +261,6 @@ body.report-open { overflow: hidden; }
 }
 .metric-card:hover .info-icon { opacity: 0.9; color: var(--primary-light); }
 
-/* --- WIND-TUNNEL VALIDATION STAR (2026-08-19) ---
-   NOT a diagnosis/reliability score on the patient. Marks whether the underlying operator
-   has actually been run through the wind-tunnel research program (reports/dataset_fleet_registry.md,
-   reports/candidate_tensor_staging_matrix.md), and if so, what that program concluded.
-   gold   = fully adopted into production after fleet-wide positive validation (e.g. tau_max recalibration).
-   silver = tested, outcome leans positive, but not yet graduated (0/3 or partial candidate-matrix criteria).
-   bronze = tested, outcome is net negative/fragile (Fail-Closed majority, or explicit instability finding).
-   (no star) = this card's operator has never been touched by any wind-tunnel script. Untested, not "unreliable". */
-.validation-star {
-  font-size: 10px; margin-right: 3px; cursor: help; flex-shrink: 0;
-}
-.validation-star.star-gold   { color: #f5c518; text-shadow: 0 0 4px rgba(245,197,24,0.55); }
-/* Silver was previously #c9d2da, too close to --text-secondary (#94a3b8) to read as
-   "colored" against the dark background (2026-08-19 user report: invisible in practice).
-   Brightened toward near-white with a cool blue-white glow so it visually pops the same
-   way gold/bronze do, instead of blending into ordinary label text. */
-.validation-star.star-silver { color: #eef3f8; text-shadow: 0 0 5px rgba(200,220,255,0.75); }
-.validation-star.star-bronze { color: #c9752f; text-shadow: 0 0 4px rgba(201,117,47,0.5); }
-
 .metric-card .metric-value-box {
   display: flex; align-items: baseline; gap: 6px; margin: 4px 0; height: 26px;
 }
@@ -392,10 +373,15 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
 </head>
 <body>
 <div id="app">
+  <div style="background:#7c2d12; color:#fed7aa; padding:8px 16px; font-size:12px; line-height:1.5; border-bottom:2px solid #ea580c; flex-shrink:0;">
+    <strong>⚠ v4.2 探索版 · 非生产工具</strong> —— 本文件是 <code>index_v4.html</code>（生产版）的独立分叉，仅用于研究性参数试验（当前范围：`tau_max` 自相关探测上限的可调性），
+    未经《候选张量算子暂存区》第 B.5 节《原子化蓝图收编》审批，<strong>不代表生产标定值，不构成任何诊断或临床建议</strong>。
+    生产版本请使用 <code>index_v4.html</code>（`tau_max` 固定为 60）。两个文件长期独立并存，本文件的修改绝不回写生产文件。
+  </div>
   <header>
     <div class="header-title-box">
-      <h1>CGM 塔肯斯相空间探针</h1>
-      <span class="subtitle">v8.8 / Aether 张量引擎遥测导航</span>
+      <h1>CGM 塔肯斯相空间探针 <span style="color:#fb923c; font-size:14px;">[探索版]</span></h1>
+      <span class="subtitle">v4.2-exploratory / Aether 张量引擎遥测导航（研究性参数试验）</span>
     </div>
     <div class="health-rating" id="health-rating">
       <span class="dot" style="background:var(--text-secondary); box-shadow:none;"></span>
@@ -468,11 +454,24 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
         </h2>
         <div class="advanced-content" id="advanced-content">
           <div style="margin-bottom:12px;">
-            <label style="font-size:11px; color:var(--text-secondary);"><span class="validation-star star-silver" title="风洞测试状态：已测（正向,未毕业）。tau_max=120 边界标定后跨 9 队列秩相关≥0.95、零方向反转；'跨负荷代偿指纹'假说两次独立复现方向一致但仅 0/3 毕业条件。不代表本次读数的临床可靠性。">★</span>嵌入维度 (SYC定理+密度熔断，FNN+Jacobi Razor,estimate_dimension): <strong id="dim-display" style="color:var(--primary-light)">m=4 (dA=1.5)</strong></label>
+            <label style="font-size:11px; color:var(--text-secondary);">嵌入维度 (SYC定理+密度熔断): <strong id="dim-display" style="color:var(--primary-light)">m=4 (dA=1.5)</strong></label>
           </div>
           <div style="margin-bottom:12px;">
-            <label style="font-size:11px; color:var(--text-secondary);"><span class="validation-star star-gold" title="风洞测试状态：已毕业/已采纳。tau_max 边界标定：全舰队 9 队列 60→120 重跑零方向反转,已于 2026-08-19 原子化收编为生产默认值(Blueprint v3.6/Contract v1.5)。">★</span>Tau 延迟: <strong id="tau-display" style="color:var(--primary-light)">6</strong> 步</label>
-            <input type="range" id="tau-slider" min="1" max="120" value="6" step="1">
+            <label style="font-size:11px; color:var(--text-secondary);">Tau 延迟: <strong id="tau-display" style="color:var(--primary-light)">6</strong> 步</label>
+            <input type="range" id="tau-slider" min="1" max="60" value="6" step="1">
+          </div>
+          <div style="margin-bottom:12px; padding:8px; border:1px dashed #ea580c; border-radius:6px;">
+            <label style="font-size:11px; color:#fb923c;">[探索性参数] Tau_Max 探测上限：<strong id="taumax-display" style="color:#fb923c">60（生产默认值）</strong></label>
+            <select id="sel-taumax" style="width:100%; margin-top:6px;">
+              <option value="60" selected>60（生产默认值 / 基线）</option>
+              <option value="90">90（探索）</option>
+              <option value="120">120（ShanghaiT1DM 标定收敛值）</option>
+              <option value="180">180（探索，长尾观测）</option>
+              <option value="240">240（探索，长尾观测）</option>
+            </select>
+            <div style="font-size:10px; color:var(--text-secondary); margin-top:4px;">
+              提升此值会扩大 RQA 的 Theiler 窗口，导致 DET/ENTR 数值与 tau_max=60 的生产结果发生代际位移，不可跨设置直接比较绝对数值（详见 candidate_tensor_staging_matrix.md 2026-08-19 12:09 变更日志）。
+            </div>
           </div>
           <div style="display:flex; align-items:center; gap:8px;">
             <input type="checkbox" id="chk-smooth" checked>
@@ -516,8 +515,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
       <!-- Metrics Panel -->
       <div class="metrics-panel" id="metrics-panel">
         <div class="metrics-guide">
-          <strong>读卡规则：</strong>蓝=基线游荡，黄=高代偿做功，红/紫=拓扑死锁/临界慢化。指标仅反映物理摩擦力，非医疗诊断。<br>
-          <strong>★ 风洞测试标记：</strong><span class="validation-star star-gold">★</span>金=已毕业并采纳为生产默认值；<span class="validation-star star-silver">★</span>银=已测,结果偏正向但未毕业；<span class="validation-star star-bronze">★</span>铜=已测,结果偏负向/脆弱。无星=该卡片算子从未被风洞项目测试过（≠不可靠，只是未验证）。星标只反映"该计算口径是否经过跨队列压力测试"，不是对本次读数的临床可靠性背书，详见各卡片提示文字。
+          <strong>读卡规则：</strong>蓝=基线游荡，黄=高代偿做功，红/紫=拓扑死锁/临界慢化。指标仅反映物理摩擦力，非医疗诊断。
         </div>
 
         <!-- 0.5 Early Phase Delay -->
@@ -647,7 +645,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
         <!-- 1. Work Integral (v8.8 Core) -->
         <div class="metric-card" id="metric-workintegral">
           <div class="metric-header">
-            <div class="metric-title"><span class="validation-star star-bronze" title="风洞测试状态：已测（负向为主）。本卡片是夜间基线口径的 compute_work_integral：Stanford SSPG 未通过、T1D-UOM 连续三次零信号、Hall 仅软位移未达拓扑胜利、Shanghai T1DM 方向反转。真正通过毕业标准1的是进餐动力学口径 w_carb/strain_per_carb（另一算法，未在本 HUD 单独成卡）。">★</span>相空间磁滞做功积分 (Work Integral)</div>
+            <div class="metric-title">相空间磁滞做功积分 (Work Integral)</div>
             <span class="info-icon">ℹ️</span>
           </div>
           <div class="metric-value-box">
@@ -862,18 +860,18 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
         <!-- 8. Dimension -->
         <div class="metric-card" id="metric-dimension">
           <div class="metric-header">
-            <div class="metric-title">盒计数几何维度 (Box-Counting Dimension，非风洞测试的嵌入维度Dim)</div>
+            <div class="metric-title">盒计数几何维度 (Dimension)</div>
             <span class="info-icon">ℹ️</span>
           </div>
           <div class="metric-value-box">
             <div class="metric-value" style="color:var(--text)">-</div>
           </div>
-          <div class="metric-desc">四个网格尺度估计的有限样本充盈度。与上方"嵌入维度"是两套不同算法，未经风洞测试。</div>
+          <div class="metric-desc">四个网格尺度估计的有限样本充盈度。</div>
           <div class="metric-tooltip">
-            <div class="tooltip-title">盒计数几何维度 (Box-Counting Dimension)</div>
+            <div class="tooltip-title">盒计数几何维度 (Dimension)</div>
             <div class="tooltip-section">
               <div class="tooltip-label">物理与动力学定义</div>
-              <div class="tooltip-text">利用 Box-Counting 算法在四个尺度下估计相轨迹在相空间中的有限分形维度。注意：这与页面上方"嵌入维度 (SYC定理+密度熔断)"是两套不同的算法实现（本卡片为纯 JS box-counting，上方为 Python FNN+Jacobi Razor），未经风洞项目测试，不共享其验证状态。</div>
+              <div class="tooltip-text">利用 Box-Counting 算法在四个尺度下估计相轨迹在相空间中的有限分形维度。</div>
             </div>
             <div class="tooltip-section">
               <div class="tooltip-label">生理与临床意义</div>
@@ -908,7 +906,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
         <!-- 10. DET -->
         <div class="metric-card" id="metric-det">
           <div class="metric-header">
-            <div class="metric-title"><span class="validation-star star-bronze" title="风洞测试状态：已测（负向/脆弱）。tau_max=60→120 边界标定发现 DET 均值位移达 -0.27，对 tau/Theiler 窗口高度敏感，跨参数设置不稳定，历次队列均未达拓扑胜利。">★</span>RQA 确定性率 (DET)</div>
+            <div class="metric-title">RQA 确定性率 (DET)</div>
             <span class="info-icon">ℹ️</span>
           </div>
           <div class="metric-value-box">
@@ -931,7 +929,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
             <!-- 11. ENTR -->
             <div class="metric-card" id="metric-entr">
               <div class="metric-header">
-                <div class="metric-title"><span class="validation-star star-bronze" title="风洞测试状态：已测（负向/脆弱）。tau_max=60→120 边界标定发现 ENTR 均值位移达 -0.63，对 tau/Theiler 窗口高度敏感，跨参数设置不稳定，历次队列均未达拓扑胜利。">★</span>RQA 线长熵 (ENTR)</div>
+                <div class="metric-title">RQA 线长熵 (ENTR)</div>
                 <span class="info-icon">ℹ️</span>
               </div>
               <div class="metric-value-box">
@@ -984,7 +982,19 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
  * 🚨 [The Aether-Core Protocol] 🚨
  * ============================================================================
  * VERSION: v9.0 (WASM/Pyodide Engine)
- * DESIGN GOAL: Implement "The Implementation Contract v1.3" bit-for-bit truth.
+ * [v4.2-exploratory FORK NOTICE, non-production]: this file is an independent
+ * fork of index_v4.html created to interactively probe the tau_max=60 ceiling
+ * (see reports/wind_tunnel_shanghai_t1dm_20260819_1200_tau_max_boundary_calibration.md).
+ * The ONLY intentional divergence from index_v4.html's engine is that
+ * extract_tau() now takes max_lag as a caller-supplied parameter (default 60,
+ * so untouched behavior is identical to production) instead of a hardcoded
+ * constant. Every other operator in this file remains bit-for-bit identical to
+ * index_v4.html at fork time. This file has NOT been through Staging Matrix
+ * Standard 3 (human sign-off) or B.5 Atomic Blueprint Evolution -- it must
+ * never be presented as, or silently promoted to, the production tool, and it
+ * must never overwrite index_v4.html.
+ * DESIGN GOAL: Implement "The Implementation Contract v1.3" bit-for-bit truth
+ * (with the single documented, parameterized exception above).
  * ARCHITECTURE:
  *   1. JavaScript acts ONLY as the UI Shell, I/O pipeline, and Plotly bridge.
  *   2. ALL mathematical computations (filtering, RQA, FNN, embedding) are 
@@ -1018,7 +1028,7 @@ class TensorEngine:
     def log_event(self, msg):
         self.event_log.append(msg)
 
-    def extract_tau(self, values_json):
+    def extract_tau(self, values_json, max_lag=60):
         # Concurrency/Lifecycle Audit fix: self.event_log is a singleton accumulator on this
         # long-lived engine instance. Without a per-call reset, every response's "events" field
         # would leak the ENTIRE session's history (all prior calls, all prior epochs) into the
@@ -1052,17 +1062,12 @@ class TensorEngine:
             # wind-tunnel run showed 42/57 subjects pinned at the old 20-step ceiling -- a
             # measurement-ceiling artifact, not a real cross-subject invariant. See
             # reports/wind_tunnel_hall_20260815_2149.md and Blueprint v3.3 Sec 3.1 revision note.
-            #
-            # [2026-08-19 / Blueprint v3.6] raised again from 60 to 120 (360min) after the
-            # tau_max boundary calibration + full-fleet sweep (9 cohorts) found the SAME
-            # measurement-ceiling artifact recurring at the 60-step boundary (2.1%-68.8% of
-            # subjects pinned, worst in Shanghai T1DM). Re-running all 9 cohorts' existing
-            # directional conclusions at max_lag=120 produced ZERO reversals (Spearman rank
-            # correlation >=0.95 for Dim/Work Integral in every cohort); the only real cost was
-            # 5/109 (4.6%) Shanghai T2DM recordings honestly failing dimension estimation
-            # instead of continuing to report an already-truncated tau=60,dim=2 reading. See
-            # reports/wind_tunnel_fleet_taumax60_vs_120_option2_evaluation_20260819_1520.md.
-            max_lag = 120
+            # [v4.2-exploratory ONLY, non-production] max_lag is now a caller-supplied parameter
+            # (UI: "Tau_Max 探测上限" selector) instead of hardcoded 60, to interactively probe the
+            # boundary-effect finding from reports/wind_tunnel_shanghai_t1dm_20260819_1200_*.md
+            # (ShanghaiT1DM tau distribution only fully converges at max_lag=120). The default
+            # value of 60 preserves the exact production behavior of index_v4.html when untouched.
+            max_lag = int(max_lag)
             total_len = sum(len(c) for c in chunks)
             avg_acf = np.zeros(max_lag + 1)
             
@@ -2072,12 +2077,15 @@ function computeACF(values, maxLag) {
 // The old cap of 40 produced taus of 14-58 on 5-min CGM, degrading phase space reconstruction.
 // [DEAD CODE NOTICE] recommendTau()/computeACF() below are no longer called anywhere in this
 // file -- live tau extraction is Pyodide's engine.extract_tau() (Contract v1.3 Law Two). Kept
-// only as legacy reference; TAU_MAX updated to 60 (v9.1/Blueprint v3.4), then to 120
-// (2026-08-19/Blueprint v3.6) purely for hygiene so this constant does not silently drift from
-// the now-authoritative Python max_lag if this JS path is ever re-wired. See
-// reports/wind_tunnel_fleet_taumax60_vs_120_option2_evaluation_20260819_1520.md for the
-// evidence driving the 60->120 change.
-const TAU_MAX = 120;
+// only as legacy reference; TAU_MAX updated to 60 (v9.1/Blueprint v3.4) purely for hygiene so
+// this constant does not silently drift from the now-authoritative Python max_lag if this JS
+// path is ever re-wired. See reports/wind_tunnel_hall_20260815_2149.md for the evidence driving
+// the 20->60 change.
+// [v4.2-exploratory NOTE] This dead-code constant is intentionally NOT wired to the new
+// "Tau_Max 探测上限" UI selector -- it stays a fixed legacy reference at 60. If this JS path is
+// ever revived, whoever does so must re-derive its ceiling from the live Python max_lag at that
+// time rather than trusting this frozen number.
+const TAU_MAX = 60;
 function recommendTau(acf) {
   let decayed = false;
   for (let i = 1; i < acf.length - 1; i++) {
@@ -3371,10 +3379,14 @@ ${refs}` : ''}
     // Only recommend tau based on Epoch 0 if available, else Epoch 1
     if (epochIdx === 0 || (epochIdx === 1 && !this.epochs[0])) {
       let recTau = 6;
+      // [v4.2-exploratory ONLY] tau_max is now read from the "Tau_Max 探测上限" selector instead
+      // of being implicitly 60 inside the Python engine. Defaults to 60 if the control is absent
+      // for any reason, so behavior degrades to production-identical rather than crashing.
+      const tauMaxSetting = parseInt(document.getElementById('sel-taumax')?.value || '60', 10);
       if (pyEngineReady && pyodide) {
           try {
              const valStr = JSON.stringify(rawValues);
-             const pyResStr = await pyodide.runPythonAsync(`engine.extract_tau('${valStr}')`);
+             const pyResStr = await pyodide.runPythonAsync(`engine.extract_tau('${valStr}', ${tauMaxSetting})`);
              const pyRes = JSON.parse(pyResStr);
         if (pyRes.result) {
            recTau = pyRes.result;
@@ -3403,14 +3415,18 @@ ${refs}` : ''}
       }
 
       const slider = document.getElementById('tau-slider');
+      // [v4.2-exploratory ONLY] cap raised from the hardcoded 60 to the user-selected tauMaxSetting,
+      // so the delay slider can actually reach a tau recommended under a wider probe ceiling.
       if (recTau > parseInt(slider.max)) {
-        // Cap kept in sync with the Python engine's max_lag (Blueprint v3.6 / 2026-08-19):
-        // recTau can never exceed max_lag by construction, so this ceiling must match it or
-        // a legitimately-large recommended tau would get silently clamped by the slider.
-        slider.max = Math.min(120, recTau + 10);
+        slider.max = Math.min(tauMaxSetting, recTau + 10);
       }
       slider.value = recTau;
       document.getElementById('tau-display').textContent = slider.value;
+      const taumaxDisplay = document.getElementById('taumax-display');
+      if (taumaxDisplay) {
+        taumaxDisplay.textContent = tauMaxSetting === 60 ? '60（生产默认值）' : `${tauMaxSetting}（探索性偏离生产值）`;
+        taumaxDisplay.style.color = tauMaxSetting === 60 ? 'var(--primary-light)' : '#f59e0b';
+      }
       this._screenTau = recTau;
 
       document.getElementById('sel-period').value = 'all';
