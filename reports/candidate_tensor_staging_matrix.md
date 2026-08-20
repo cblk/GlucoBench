@@ -130,6 +130,24 @@
 
 ---
 
+### 候选 #6：`delta_rho`（S-Map 非线性可预测性增益 / Nonlinear-vs-Linear Forecast Skill Gain）
+
+- **定义：** $\Delta\rho(\theta) = \rho(\theta_{\text{best}}) - \rho(\theta{=}0)$。$\rho(\theta)$ 是留一法 S-Map（Sugihara 1994）在夜间原始轨（RAW track）上、局部化程度 $\theta$ 下的预测-实际相关系数；$\theta{=}0$ 退化为全局线性回归（"系统是线性的"零假设基线）。嵌入维度 $E$ 由留一法 Simplex 投影（Sugihara & May 1990）选取，预测步长 $tp=10$（30 分钟，源自 Hall 队列非独立样本的剂量-反应扫描，尚未被独立验证为最优）。
+- **物理领地：** 全时段夜间静息相（设计目标：替代 AR1/Lyapunov 两张几何遗留卡片，测度"系统非线性确定性结构是否已退化为线性/白噪音"）。
+- **实现位置（暂存，非生产）：** `validate/_smap_engine_v1.py`（核心算法）+ `validate/wind_tunnel_v4_hall_smap_smoke.py`（Hall 烟雾/tp 扫描）+ `validate/wind_tunnel_v4_stanford_sspg_smap.py`（Stanford SSPG 真实检验）。
+
+| # | 印证队列 | 队列性质 | 分光镜标签 | 秩分离度 $P$ | 状态 | 报告 |
+|---|---|---|---|---|---|---|
+| 1 | Stanford SSPG ($n=29$) | 静息夜间，从未被 S-Map 测过的独立队列 | SSPG 2 分类 (IS $n=16$ / IR $n=13$) | $P(\text{IR}>\text{IS})=0.4087$，置换检验 $p=0.4237$ | ❌ **Fail-Closed**：方向与工作假说一致（IS 中位数 0.1369 > IR 中位数 0.1245）但统计上与随机不可区分，远低于 0.80 门槛 | [`experiment_20260820_1630_smap_phase_c_kickoff.md`](./experiment_20260820_1630_smap_phase_c_kickoff.md) |
+
+**毕业进度：** 0/3。**第一次独立队列检验 Fail-Closed**，且用户批准的 Path A（先在 Hall 非独立样本上放宽网格确认不再顶天，再带到新队列）**已执行并诚实失败**：将 $E_{\max}$ 从 8 放宽到 16 并引入 E-scaled 库容量下限后，Hall 队列顶格比例仍高达 46/57，单受试者 $\rho(E)$ 曲线扫至 $E=20$ 依然持续攀升而非收敛——诊断为《敬畏算子发散》意义上的**结构性发散**（无复杂度惩罚的留一法 $\rho$ 裸最大化，在有限样本库上会随嵌入维度增大无限被推高），而不是"网格太窄"这一可修复的方法学噪声。按教条，**不得**继续靠放宽网格解决，也不得就此把当前配置带到新队列（那只是把同一个未解决的过拟合问题转移阵地）。**用户裁决（2026-08-20 17:20）：** 参照候选 #5 `relaxationTime` 先例，**暂停继续投入 AICc 复杂度惩罚式重构**。**终局状态（本轮）：维持观察级，0/3 毕业条件未满足，暂停研究，不升格、不撤销候选资格。** 若未来出现更根本的模型选择思路（如显式复杂度惩罚的 E/θ 选取机制）或人类架构师重新评估投入意愿，可重新开启第 4.B 节四段式流程的第 3 步（风洞对撞），但不得在未解决"结构性发散"诊断的情况下直接恢复当前配置去测试新队列。
+
+**补充观察（非生产 numpy 合成数据自检，不计入毕业标准）：** 混沌逻辑斯蒂映射 $\Delta\rho=0.666$，白噪声 $\Delta\rho\approx0.13$（已知的有限样本高 $\theta$ 过拟合偏差，记录在 `_smap_engine_v1.py` 模块文档），线性 AR(1) 过程 $\Delta\rho=0.0$——三者方向均符合理论预期，证明算法本身的数学实现无 bug，Fail-Closed 判定的原因是效应量不足/网格配置问题，不是代码错误。
+
+**重要中途发现（$tp$ 天花板效应，已写入 `validate/_smap_engine_v1.py` 模块文档 [v1.1] 供未来维护者查阅）：** 文献默认的单位预测步长（$tp=1$，预测下一个 3 分钟采样点）在 Hall 全队列（$n=57$）上产生 $\Delta\rho \equiv 0.0000$（逐字节相同）——3 分钟内血糖生理上几乎不变，任何模型（线性/非线性）都能"完美"预测，测不出任何差异。这不是"S-Map 无信号"，而是任务设置本身太简单。将预测步长扫描至 $tp\in\{3,6,10,15,20\}$（9-60 分钟）后，$\Delta\rho$ 中位数单调递增（0.0052→0.0446→0.1244→0.2321→0.2573），证实一旦逃离天花板区间，非线性局部模型确实全面跑赢全局线性模型——这是选择 $tp=10$ 作为第一个真实检验候选值的依据。
+
+---
+
 ### 第一组6张中性卡（Volume/Recovery/λ1λ2/Box-Counting Dim/Lyapunov/Core Dist）——审计+检验存档
 
 不登记为候选（无一项进入候选生命周期），仅存档避免未来重复投入：
@@ -148,6 +166,9 @@
 
 ## 变更日志 (Append-Only, 不可回填删除)
 
+- **2026-08-20 17:20** — 用户就候选 #6（S-Map）"网格放宽仍发散"的诊断结果做出裁决：参照候选 #5 `relaxationTime` 先例，暂停继续投入 AICc 复杂度惩罚式重构，登记为观察级，不删除候选资格。本轮 Phase C 风洞对撞正式收官（Stanford SSPG Fail-Closed + Hall 网格放宽发散诊断），未再动生产代码/Blueprint/Contract。
+- **2026-08-20 16:30** — 新增候选 #6（`delta_rho`/S-Map 非线性可预测性增益）登记，响应用户在 `wind_tunnel_v4_1_to_v4_2_refactoring_roadmap_20260820.md` 第 4.3 节批准的 Phase C 启动。完成算法形式化（Simplex 投影选 E + S-Map θ 扫描 + Δρ，`validate/_smap_engine_v1.py`）与合成数据自检（混沌/白噪声/线性 AR(1) 三类已知过程方向均符合理论预期）。Hall 队列（$n=57$，非独立样本）烟雾测试发现并记录了"$tp=1$ 天花板坍缩"残差（文献默认单位预测步长在 3 分钟网格上任何模型都能完美预测，$\Delta\rho\equiv0$），随后完成 $tp$ 剂量-反应扫描锁定 $tp=10$（30 分钟）为候选值。在 Stanford SSPG（$n=29$，从未被此算子测过的独立队列）完成第一次真实样本外检验：$P(\text{IR}>\text{IS})=0.4087$，置换检验 $p=0.4237$，**判定 Fail-Closed**（方向与"深度代偿失败人群夜间轨迹退化为准线性"工作假说一致，但效应量与统计显著性均不足）。同一次检验暴露 $E_{\text{best}}$/$\theta_{\text{best}}$ 网格顶天的方法学残留问题（27/29 受试者顶格），按《拒绝抢救失效指标》教条不得在同一队列上调宽网格重测，暂停在决策十字路口等待人类裁决三条后续路径。详见 [`experiment_20260820_1630_smap_phase_c_kickoff.md`](./experiment_20260820_1630_smap_phase_c_kickoff.md)。生产代码/Blueprint/Contract 均未改动。
+- **2026-08-20 15:58** — 记录用户就 v4.2 三条架构方向的裁决（进餐层冻结/CCM 降级为武器库登记/S-Map 正式启动），详见 `wind_tunnel_v4_1_to_v4_2_refactoring_roadmap_20260820.md` 第 4 节与新建的 `multimodal_causal_weapon_registry.md`。本条目本身不改动任何候选算子的毕业进度，仅存档裁决时间点。
 - **2026-08-20 15:30** — **`index_v4.html` 新增候选 #1（`w_carb`/`strain_per_carb`）的实验室试算通道（用户批准 Phase A，见 `wind_tunnel_v4_1_to_v4_2_refactoring_roadmap_20260820.md` Phase A.3）**。补完 2026-08-16 21:03 登记建立时记录的历史缺口"(b) 生产环境 `index_v4.html` 目前无碳水摄入输入通道"——新增"进餐记录"文本输入区（时间戳+碳水克数）与独立按钮，调用一个**与生产 `PYTHON_ENGINE_CODE` 完全隔离**的新增模块 `EXPERIMENTAL_MEAL_ENGINE_CODE`（纯 numpy 重新推导，非 pandas 依赖，因浏览器 Pyodide 运行时未加载 pandas；数学逻辑忠实对应 `validate/wind_tunnel_v4_cgmacros_meals.py::analyze_subject_meals()`），结果以"实验室/未毕业"视觉样式（琥珀色边框，无★星）呈现，**不写入 `this.epochMetrics`，不接入 `analyze()`/`renderMetricsDual()` 主管线，不驱动任何 warn/bad 判色**。**关键治理边界**：因候选 #1 仍卡在毕业标准 3（2026-08-19 12:31 用户裁决"暂不批准"，终局性），本次改动**未**修改 `PYTHON_ENGINE_CODE` 正式管线，**未**在 Blueprint/Contract 新增正式 L2 章节——严格遵守 AGENTS.md 第 B.5 节"双重原子事务"纪律，避免"代码已收编、算子未毕业"的认知撕裂。已用合成正弦扰动数据端到端验证（浏览器 CDP 注入含模拟进餐尖峰的血糖序列，手填进餐记录，点击试算按钮），结果与独立 Python 单元测试逐字段一致（$\Delta G=4.00$, strain\_per\_carb=0.0889, tau\_relax=123.0min, specific\_work=9.37）。此改动**不改变候选 #1 的毕业进度**（仍为 2/3，标准 3 仍待人类重新发起），仅新增一个供人类架构师用真实数据亲手试算该候选算子的只读工具通道。
 - **2026-08-19 21:50** — 完成 Work Integral / relaxationTime / Angular Velocity / Ascend Friction / Night Friction 五张卡的判色中性化（用户批准，`index_v4.html` 原子化 UI 修改，延续 earlyDelay/AR1 的处理模式）。这五张卡此前虽已在本文件登记为候选 #5 同批 Fail-Closed/观察级记录，但其生产 UI 的 warn/bad 判色逻辑此前未被同步修改——本次修复了这一"证据已记录但 UI 未跟进"的缺口。详见 `dataset_fleet_registry.md` 同时刻变更日志。不涉及任何计算逻辑或候选算子毕业进度变化，纯 UI 层面的判色关闭。
 - **2026-08-19 21:30** — 完成"第一组6张中性卡"（Volume/Recovery/λ1λ2/Box-Counting Dim/Lyapunov/Core Dist）的完整审计+检验闭环（用户批准顺序：先 Phase A 工程移植+交叉验证 → Phase B 冗余审计 → 用户裁决 Phase C 范围"仅测最独立的 Core Dist"）。Phase A：JS→Python 移植 0 处不匹配，Hall 烟雾测试零异常。Phase B：与已毕业指标（workIntegral/DET/ENTR/Dim）做队列内 Spearman 秩相关，Volume（与 workIntegral $\rho$ 高至 0.725）、Lyapunov（与 Dim $\rho$ 达 -0.753，机制上本就非独立）、Recovery（与 Volume 内部 $\rho=-0.74$ + 概念上与候选 #5 重叠）判定冗余未测；Shape Ratio/Box-Counting Dim 中等耦合用户裁决不测；Core Dist 审计通过（$|\rho|\le0.29$）。Phase C：Core Dist 在 Stanford SSPG（$P=0.5192,p=0.8598$）与 Shanghai T2DM（$P=0.4704,p=0.6454$，方向相反）两队列均判定 Fail-Closed，与抛硬币无法区分。**结论：第一组6张卡无一项进入候选生命周期**，全部诚实存档为 Fail-Closed，不登记为候选，不改动 `index_v4.html`/Blueprint/Contract。详见 [`group1_neutral_metrics_redundancy_audit_20260819_2100.md`](./group1_neutral_metrics_redundancy_audit_20260819_2100.md)。
