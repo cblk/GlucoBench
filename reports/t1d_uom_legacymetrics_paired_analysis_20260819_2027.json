@@ -1,0 +1,201 @@
+{
+  "source_file": "reports\\wind_tunnel_t1d_uom_activity_legacymetrics_night_taumax120_20260819_2027.json",
+  "n_total_weekly_runs": 246,
+  "n_success_weekly_runs": 246,
+  "n_subjects_total": 17,
+  "metrics": {
+    "earlyDelay": {
+      "n_pairs": 17,
+      "n_pos_high_gt_low": 6,
+      "n_neg_high_lt_low": 11,
+      "n_tie": 0,
+      "high_mean": 36.62352516764282,
+      "low_mean": 39.1155419743655,
+      "mean_delta_high_minus_low": -2.492016806722689,
+      "cohens_d_paired": -0.48601763299450335,
+      "wilcoxon_stat": 37.0,
+      "wilcoxon_p": 0.0638275146484375,
+      "sign_test_p": 0.332305908203125
+    },
+    "relaxationTime": {
+      "n_pairs": 17,
+      "n_pos_high_gt_low": 4,
+      "n_neg_high_lt_low": 13,
+      "n_tie": 0,
+      "high_mean": 51.50832166199813,
+      "low_mean": 54.68666337747221,
+      "mean_delta_high_minus_low": -3.17834171547407,
+      "cohens_d_paired": -0.600938181905861,
+      "wilcoxon_stat": 31.0,
+      "wilcoxon_p": 0.030517578125,
+      "sign_test_p": 0.049041748046875
+    },
+    "ar1": {
+      "n_pairs": 17,
+      "n_pos_high_gt_low": 8,
+      "n_neg_high_lt_low": 9,
+      "n_tie": 0,
+      "high_mean": 0.954140167152826,
+      "low_mean": 0.95701870147533,
+      "mean_delta_high_minus_low": -0.00287853432250393,
+      "cohens_d_paired": -0.14998267580966387,
+      "wilcoxon_stat": 72.0,
+      "wilcoxon_p": 0.8536376953125,
+      "sign_test_p": 1.0
+    },
+    "angularVelocity": {
+      "n_pairs": 17,
+      "n_pos_high_gt_low": 14,
+      "n_neg_high_lt_low": 3,
+      "n_tie": 0,
+      "high_mean": 1.2369792175514394,
+      "low_mean": 1.1750826372719603,
+      "mean_delta_high_minus_low": 0.06189658027947922,
+      "cohens_d_paired": 0.7462509088588546,
+      "wilcoxon_stat": 22.0,
+      "wilcoxon_p": 0.007904052734375,
+      "sign_test_p": 0.012725830078125
+    },
+    "ascendFriction": {
+      "n_pairs": 17,
+      "n_pos_high_gt_low": 10,
+      "n_neg_high_lt_low": 7,
+      "n_tie": 0,
+      "high_mean": 27.627678949614282,
+      "low_mean": 28.714849997291743,
+      "mean_delta_high_minus_low": -1.0871710476774643,
+      "cohens_d_paired": -0.21126895542356158,
+      "wilcoxon_stat": 68.0,
+      "wilcoxon_p": 0.7118988037109375,
+      "sign_test_p": 0.629058837890625
+    },
+    "nightFriction": {
+      "n_pairs": 17,
+      "n_pos_high_gt_low": 7,
+      "n_neg_high_lt_low": 10,
+      "n_tie": 0,
+      "high_mean": 27.149504709031625,
+      "low_mean": 28.25819473615902,
+      "mean_delta_high_minus_low": -1.1086900271273925,
+      "cohens_d_paired": -0.1752340343213062,
+      "wilcoxon_stat": 62.0,
+      "wilcoxon_p": 0.51708984375,
+      "sign_test_p": 0.629058837890625
+    },
+    "relaxationTime_v4a": {
+      "n_pairs": 17,
+      "n_pos_high_gt_low": 7,
+      "n_neg_high_lt_low": 10,
+      "n_tie": 0,
+      "high_mean": 72.68995484665886,
+      "low_mean": 73.756014720116,
+      "mean_delta_high_minus_low": -1.066059873457157,
+      "cohens_d_paired": -0.05033792782908101,
+      "wilcoxon_stat": 67.0,
+      "wilcoxon_p": 0.677703857421875,
+      "sign_test_p": 0.629058837890625
+    }
+  },
+  "confound_checks": {
+    "weekly_active_kcal_total": {
+      "n_pairs": 17,
+      "n_pos_high_gt_low": 17,
+      "n_neg_high_lt_low": 0,
+      "n_tie": 0,
+      "high_mean": 4937.582951362364,
+      "low_mean": 3095.216641201935,
+      "mean_delta_high_minus_low": 1842.3663101604277,
+      "cohens_d_paired": 0.7736627424637561,
+      "wilcoxon_stat": 0.0,
+      "wilcoxon_p": 1.52587890625e-05,
+      "sign_test_p": 1.52587890625e-05
+    },
+    "weekly_basal_dose_total": {
+      "n_pairs": 12,
+      "n_pos_high_gt_low": 8,
+      "n_neg_high_lt_low": 4,
+      "n_tie": 0,
+      "high_mean": 189.3580436507937,
+      "low_mean": 169.87420535714287,
+      "mean_delta_high_minus_low": 19.483838293650784,
+      "cohens_d_paired": 0.4369670877101811,
+      "wilcoxon_stat": 21.0,
+      "wilcoxon_p": 0.17626953125,
+      "sign_test_p": 0.3876953125
+    }
+  },
+  "holm_bonferroni_wilcoxon": {
+    "angularVelocity": {
+      "p_raw": 0.007904052734375,
+      "holm_threshold": 0.0071428571428571435,
+      "survives_holm": false
+    },
+    "relaxationTime": {
+      "p_raw": 0.030517578125,
+      "holm_threshold": 0.008333333333333333,
+      "survives_holm": false
+    },
+    "earlyDelay": {
+      "p_raw": 0.0638275146484375,
+      "holm_threshold": 0.01,
+      "survives_holm": false
+    },
+    "nightFriction": {
+      "p_raw": 0.51708984375,
+      "holm_threshold": 0.0125,
+      "survives_holm": false
+    },
+    "relaxationTime_v4a": {
+      "p_raw": 0.677703857421875,
+      "holm_threshold": 0.016666666666666666,
+      "survives_holm": false
+    },
+    "ascendFriction": {
+      "p_raw": 0.7118988037109375,
+      "holm_threshold": 0.025,
+      "survives_holm": false
+    },
+    "ar1": {
+      "p_raw": 0.8536376953125,
+      "holm_threshold": 0.05,
+      "survives_holm": false
+    }
+  },
+  "holm_bonferroni_sign_test": {
+    "angularVelocity": {
+      "p_raw": 0.012725830078125,
+      "holm_threshold": 0.0071428571428571435,
+      "survives_holm": false
+    },
+    "relaxationTime": {
+      "p_raw": 0.049041748046875,
+      "holm_threshold": 0.008333333333333333,
+      "survives_holm": false
+    },
+    "earlyDelay": {
+      "p_raw": 0.332305908203125,
+      "holm_threshold": 0.01,
+      "survives_holm": false
+    },
+    "ascendFriction": {
+      "p_raw": 0.629058837890625,
+      "holm_threshold": 0.0125,
+      "survives_holm": false
+    },
+    "nightFriction": {
+      "p_raw": 0.629058837890625,
+      "holm_threshold": 0.016666666666666666,
+      "survives_holm": false
+    },
+    "relaxationTime_v4a": {
+      "p_raw": 0.629058837890625,
+      "holm_threshold": 0.025,
+      "survives_holm": false
+    },
+    "ar1": {
+      "p_raw": 1.0,
+      "holm_threshold": 0.05,
+      "survives_holm": false
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "stanford_sspg": {
+    "cohort": "stanford_sspg",
+    "sep": 0.5192307692307693,
+    "p": 0.8598,
+    "n_a": 13,
+    "n_b": 16
+  },
+  "shanghai_t2dm": {
+    "cohort": "shanghai_t2dm",
+    "sep": 0.4704016913319239,
+    "p": 0.64545,
+    "n_a": 43,
+    "n_b": 44,
+    "median_hba1c_mmol_mol": 68.312
+  }
+}

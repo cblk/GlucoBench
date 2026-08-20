@@ -523,7 +523,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
         <!-- 0.5 Early Phase Delay -->
         <div class="metric-card" id="metric-early-delay">
           <div class="metric-header">
-            <div class="metric-title">早相加速度迟滞 (Time-to-Decel)</div>
+            <div class="metric-title"><span class="validation-star star-bronze" title="风洞测试状态：已测（负向/脆弱）。2026-08-19 在 Stanford SSPG 与 Shanghai T2DM 两个独立样本外队列上均未能穿透置换检验噪音基线（p=0.18/0.65），Shanghai 两组中位数完全相同（均48.0min，疑似量纲/离散化天花板效应）。下方 warn/bad 判色已于同日中性化，不再基于该阈值做隐含判断。见 candidate_tensor_staging_matrix.md 候选 #5 同批 Fail-Closed 记录。">★</span>早相加速度迟滞 (Time-to-Decel)</div>
             <span class="info-icon">ℹ️</span>
           </div>
           <div class="metric-value-box">
@@ -537,16 +537,17 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
               <div class="tooltip-text">从进食（血糖急速上升起点）到升糖速度最大化（二阶导数由正转负）的时间跨度。直接测量系统动力学刹车的迟滞时间。</div>
             </div>
             <div class="tooltip-section">
-              <div class="tooltip-label">绝对物理基准 / 分级</div>
+              <div class="tooltip-label">⚠ 风洞测试结论（2026-08-19）</div>
+              <div class="tooltip-text">下方数值区间是 v8.0-v8.4 时代仅基于 Hall/Colas（N=265）标签回归拟合得出的历史参考带，<strong>已在两个独立样本外队列（Stanford SSPG、Shanghai T2DM）上验证为无区分度</strong>（置换检验 p=0.18/0.65）。已不再用它们驱动本卡片的 warn/bad 判色——本卡片现在只做中性数值显示，不做隐含风险判断。区间保留仅供历史参照。</div>
               <div class="tooltip-standards">
-                • <strong>≤ 30 分钟</strong>：绝对安全包络（原生敏锐早相）<br>
-                • <strong>30 ~ 45 分钟</strong>：早期阻尼钝化（开始代偿）<br>
-                • <strong>> 45 分钟</strong>：早相实质性枯竭（高危物理残差）
+                • ≤ 30 分钟（历史参照，非现行判据）<br>
+                • 30 ~ 45 分钟（历史参照，非现行判据）<br>
+                • &gt; 45 分钟（历史参照，非现行判据）
               </div>
             </div>
             <div class="tooltip-section">
               <div class="tooltip-label">生理与临床意义</div>
-              <div class="tooltip-text">精确定量第一时相胰岛素分泌的缺失程度。时间越长，代表身体越缺乏“及时刹车”的能力，只能依赖后期胰岛素的超量堆积（高废热）来降糖。</div>
+              <div class="tooltip-text">理论上量化第一时相胰岛素分泌的相对延迟程度，但该理论映射尚未获得样本外实证支持，解读需谨慎，不构成临床判断依据。</div>
             </div>
           </div>
         </div>
@@ -554,13 +555,13 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
         <!-- 0.6 Relaxation Fatigue -->
         <div class="metric-card" id="metric-relax-time">
           <div class="metric-header">
-            <div class="metric-title">弛豫衰减疲劳度 (Relaxation Time)</div>
+            <div class="metric-title"><span class="validation-star star-bronze" title="风洞测试状态：已测（信号存在但未毕业）。2026-08-19 在 Stanford SSPG(P=0.7909,p=0.0060) 与 Shanghai T2DM(P=0.7090,p=0.0008) 两个独立样本外队列上方向一致且穿透 Holm-Bonferroni 校正,是本批唯一双队列一致复现的指标,但秩分离度两次均未达 0.80 拓扑胜利门槛;同体纵向配对(T1D-UOM)几乎无信号。下方 45/90min 判色阈值本身从未被这些测试重新校准,已于同日中性化。见 candidate_tensor_staging_matrix.md 候选 #5。">★</span>弛豫衰减疲劳度 (Relaxation Time)</div>
             <span class="info-icon">ℹ️</span>
           </div>
           <div class="metric-value-box">
             <div class="metric-value" style="color:var(--text)">-</div>
           </div>
-          <div class="metric-desc">血糖峰值回落至50%振幅的中位耗时；度量系统恢复稳态的热力学弹性。</div>
+          <div class="metric-desc">血糖峰值回落至50%振幅的中位耗时，纯物理读数（判色阈值未经样本外重新校准，已中性化）。度量系统恢复稳态的热力学弹性。</div>
           <div class="metric-tooltip">
             <div class="tooltip-title">弛豫衰减疲劳度 (Relaxation Time)</div>
             <div class="tooltip-section">
@@ -568,11 +569,12 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
               <div class="tooltip-text">在一次受迫升糖达到峰值后，系统向心弛豫（回落至振幅50%位置）所需的绝对时间。代表维持系统稳态的“代谢弹簧”阻尼与金属疲劳度。</div>
             </div>
             <div class="tooltip-section">
-              <div class="tooltip-label">绝对物理基准 / 分级</div>
+              <div class="tooltip-label">⚠ 风洞测试结论（2026-08-19）</div>
+              <div class="tooltip-text">候选算子暂存区 #5：Stanford SSPG 与 Shanghai T2DM 两个独立样本外队列均方向一致、统计显著（穿透 6 指标 Holm-Bonferroni 校正），是唯一实现"双队列一致复现"的遗留指标，但秩分离度效应量（0.7909 / 0.7090）两次均<strong>未达</strong>第 9.3 节 0.80 拓扑胜利门槛。三轮算法重设计（插值穿越、指数衰减曲线拟合）后最优版本仍未突破 Shanghai 队列的门槛，用户已裁决停止投入，维持观察级。下方 45/90 分钟数字是 v8.0-v8.4 时代基于 Hall/Colas 拟合得出、<strong>从未被重新校准</strong>的历史参考带，已不再驱动本卡片的 warn/bad 判色——本卡片现在只做中性数值显示。</div>
               <div class="tooltip-standards">
-                • <strong>≤ 45 分钟</strong>：理想弹性回弹<br>
-                • <strong>45 ~ 90 分钟</strong>：外周受体弹性疲劳（胰岛素抵抗显现）<br>
-                • <strong>> 90 分钟</strong>：代谢弹簧严重塑性形变（死锁）
+                • ≤ 45 分钟（历史参照，非现行判据）<br>
+                • 45 ~ 90 分钟（历史参照，非现行判据）<br>
+                • &gt; 90 分钟（历史参照，非现行判据）
               </div>
             </div>
             <div class="tooltip-section">
@@ -585,7 +587,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
         <!-- 0.7 Night AR1 (Critical Slowing Down) -->
         <div class="metric-card" id="metric-night-ar1">
           <div class="metric-header">
-            <div class="metric-title">夜间临界慢化 (AR1)</div>
+            <div class="metric-title"><span class="validation-star star-bronze" title="风洞测试状态：已测（负向/脆弱）。2026-08-19 在 Stanford SSPG 与 Shanghai T2DM 两个独立样本外队列上均未能穿透置换检验噪音基线（p=0.53/0.39），且 Stanford 全队列29人几乎全部落在同一 warn 区间（0.951-0.985），无法区分 IS/IR。下方 warn/bad 判色已于同日中性化。见 candidate_tensor_staging_matrix.md 候选 #5 同批 Fail-Closed 记录。">★</span>夜间临界慢化 (AR1)</div>
             <span class="info-icon">ℹ️</span>
           </div>
           <div class="metric-value-box">
@@ -599,30 +601,31 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
               <div class="tooltip-text">提取夜间（0:00-6:00）未受外源碳水干扰的纯基础相波动序列，计算其 Lag-1 自回归系数（AR1）。反映系统自我纠错的敏锐度。</div>
             </div>
             <div class="tooltip-section">
-              <div class="tooltip-label">绝对物理基准 / 分级</div>
+              <div class="tooltip-label">⚠ 风洞测试结论（2026-08-19）</div>
+              <div class="tooltip-text">下方数值区间是 v8.0-v8.4 时代仅基于 Hall/Colas（N=265）标签回归拟合得出的历史参考带，<strong>已在两个独立样本外队列（Stanford SSPG、Shanghai T2DM）上验证为无区分度</strong>（置换检验 p=0.53/0.39；Stanford 全队列几乎全部落在同一区间，无法区分代偿状态）。已不再用它们驱动本卡片的 warn/bad 判色——本卡片现在只做中性数值显示，不做隐含风险判断。区间保留仅供历史参照。</div>
               <div class="tooltip-standards">
-                • <strong>≤ 0.990</strong>：高频微调（敏锐对抗）<br>
-                • <strong>0.990 ~ 0.995</strong>：低频游荡（纠错变慢）<br>
-                • <strong>> 0.995</strong>：极度慢化（崩溃前兆）
+                • ≤ 0.990（历史参照，非现行判据）<br>
+                • 0.990 ~ 0.995（历史参照，非现行判据）<br>
+                • &gt; 0.995（历史参照，非现行判据）
               </div>
             </div>
             <div class="tooltip-section">
               <div class="tooltip-label">生理与临床意义</div>
-              <div class="tooltip-text">复杂系统崩溃前（相变）特有的“临界慢化”现象。高 AR1 代表夜间肝脏与胰岛的博弈变得极其迟钝和滞后，哪怕空腹绝对值依然正常，系统也已处于崩溃边缘。</div>
+              <div class="tooltip-text">理论上对应复杂系统崩溃前特有的"临界慢化"现象，但该理论映射尚未获得样本外实证支持，解读需谨慎，不构成临床判断依据。</div>
             </div>
           </div>
         </div>
 
         <div class="metric-card" id="metric-angular-velocity">
           <div class="metric-header">
-            <div class="metric-title">代谢引力场角速度 (Angular Vel.)</div>
+            <div class="metric-title"><span class="validation-star star-bronze" title="风洞测试状态：已测（方向一致但显著性不稳定）。2026-08-19 在 Stanford SSPG(p=0.12,未穿透6指标Holm-Bonferroni校正) 与 Shanghai T2DM(p=0.0006,穿透校正) 两个独立样本外队列上方向两次一致（危险组更低）,但显著性仅1/2队列稳健,弱于同批relaxationTime的双重显著复现,未被登记为独立候选。下方 2.05/2.20 判色阈值从未被重新校准,已于同日中性化。见 candidate_tensor_staging_matrix.md 候选 #5 同批记录。">★</span>代谢引力场角速度 (Angular Vel.)</div>
             <span class="info-icon">ℹ️</span>
           </div>
           <div class="metric-value-box">
             <div class="metric-value" style="color:var(--text)">-</div>
             <div class="metric-unit">rad/h</div>
           </div>
-          <div class="metric-desc">相空间轨道的旋转速度；探测胰岛受体向心引力的物理衰竭。</div>
+          <div class="metric-desc">相空间轨道的旋转速度，纯物理读数（判色阈值未经样本外重新校准，已中性化）。探测胰岛受体向心引力的物理衰竭。</div>
           <div class="metric-tooltip">
             <div class="tooltip-title">代谢引力场角速度 (Angular Velocity)</div>
             <div class="tooltip-section">
@@ -630,11 +633,12 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
               <div class="tooltip-text">在二维相空间 (G, dG/dt) 中，系统受到饮食扰动后偏离并绕核心中心公转的平均角速度（开普勒掠面动能提取）。</div>
             </div>
             <div class="tooltip-section">
-              <div class="tooltip-label">绝对物理基准 / 分级</div>
+              <div class="tooltip-label">⚠ 风洞测试结论（2026-08-19）</div>
+              <div class="tooltip-text">在 Stanford SSPG 与 Shanghai T2DM 两个独立样本外队列上方向两次一致（危险组角速度更低），但显著性不稳定——仅 Shanghai 穿透 6 指标 Holm-Bonferroni 校正（p=0.0006），Stanford 未穿透（p=0.12）。证据强度弱于 relaxationTime 的双重显著复现，未登记为独立候选。下方 2.05/2.20 rad/h 数字是 v8.0-v8.4 时代基于 Hall/Colas 拟合得出、<strong>从未被重新校准</strong>的历史参考带，已不再驱动本卡片的 warn/bad 判色——本卡片现在只做中性数值显示。</div>
               <div class="tooltip-standards">
-                • <strong>> 2.20 rad/h</strong>：敏锐回落（强引力汇）<br>
-                • <strong>2.05 ~ 2.20 rad/h</strong>：回落迟缓（引力轻微衰退）<br>
-                • <strong>≤ 2.05 rad/h</strong>：轨迹滞留（受体引力严重坍塌）
+                • &gt; 2.20 rad/h（历史参照，非现行判据）<br>
+                • 2.05 ~ 2.20 rad/h（历史参照，非现行判据）<br>
+                • ≤ 2.05 rad/h（历史参照，非现行判据）
               </div>
             </div>
             <div class="tooltip-section">
@@ -653,7 +657,7 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
           <div class="metric-value-box">
             <div class="metric-value" style="color:var(--text)">-</div>
           </div>
-          <div class="metric-desc">降维相图上的磁滞环绝对面积；高值代表不可逆热力学废热代偿。</div>
+          <div class="metric-desc">降维相图上的磁滞环绝对面积，纯物理读数（判色阈值未经样本外重新校准，已中性化）；高值代表不可逆热力学废热代偿。</div>
           <div class="metric-tooltip">
             <div class="tooltip-title">磁滞做功积分 (Work Integral)</div>
             <div class="tooltip-section">
@@ -661,11 +665,12 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
               <div class="tooltip-text">相空间中系统偏离与弛豫归位全过程构成的磁滞环封闭做功面积（∮ dG·dĠ），定量评估受迫与弛豫不对称性。</div>
             </div>
             <div class="tooltip-section">
-              <div class="tooltip-label">绝对物理基准 / 分级</div>
+              <div class="tooltip-label">⚠ 风洞测试结论（2026-08-19）</div>
+              <div class="tooltip-text">本卡片是<strong>夜间基线口径</strong>的 compute_work_integral：Stanford SSPG 未通过（秩分离度 0.48/0.45，等同抛硬币）、T1D-UOM 连续三次零信号、Hall（正是下方阈值的历史拟合来源队列）仅软位移未达拓扑胜利、Shanghai T1DM 方向反转。真正通过毕业标准1的是进餐动力学口径 `w_carb`/`strain_per_carb`（另一算法，暂存于候选算子暂存区，未在本 HUD 单独成卡）。下方 45.0/80.0 数字是 v8.0-v8.4 时代基于 Hall/Colas 拟合得出、<strong>在其自身拟合来源队列之外从未被证实可靠</strong>的历史参考带，已不再驱动本卡片的 warn/bad 判色——本卡片现在只做中性数值显示。</div>
               <div class="tooltip-standards">
-                • <strong>≤ 45.0</strong>：极低做功耗散（处于最小作用量区间）<br>
-                • <strong>45.0 ~ 80.0</strong>：代偿性做功（废热淤积）<br>
-                • <strong>> 80.0</strong>：不可逆病理性废热（高度代谢负荷）
+                • ≤ 45.0（历史参照，非现行判据）<br>
+                • 45.0 ~ 80.0（历史参照，非现行判据）<br>
+                • &gt; 80.0（历史参照，非现行判据）
               </div>
             </div>
             <div class="tooltip-section">
@@ -678,13 +683,13 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
         <!-- 2. Ascend Friction (v8.8 Core) -->
         <div class="metric-card" id="metric-ascendfriction">
           <div class="metric-header">
-            <div class="metric-title">上升相阻力 (Ascend Friction)</div>
+            <div class="metric-title"><span class="validation-star star-bronze" title="风洞测试状态：已测（队列间不一致，疑似标签伪影）。2026-08-19 Stanford SSPG 上 Fail-Closed(P=0.625,p=0.26),但 Shanghai T2DM 上强显著(p&lt;0.0001)。经《同态锚定熔炉》排查:Shanghai 用 HbA1c(3个月血糖暴露汇总)做分光镜,而本指标直接由血糖轨迹偏离幅度计算,二者存在标签语义重叠——判定为标签同义反复伪影,不可采信为独立生理证据,不登记为候选。下方 23.0 判色阈值从未被重新校准,已于同日中性化。">★</span>上升相阻力 (Ascend Friction)</div>
             <span class="info-icon">ℹ️</span>
           </div>
           <div class="metric-value-box">
             <div class="metric-value" style="color:var(--text)">-</div>
           </div>
-          <div class="metric-desc">受迫升糖阶段相轨迹拉回基线的向心黏滞拉扯阻力。</div>
+          <div class="metric-desc">受迫升糖阶段相轨迹拉回基线的向心黏滞拉扯阻力，纯物理读数（判色阈值未经样本外重新校准，已中性化）。</div>
           <div class="metric-tooltip">
             <div class="tooltip-title">上升相阻力 (Ascend Friction)</div>
             <div class="tooltip-section">
@@ -692,10 +697,11 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
               <div class="tooltip-text">血糖飙升阶段（dG/dt > 0）轨迹受到的向心黏滞阻力，度量受迫升糖时的机械刚度。</div>
             </div>
             <div class="tooltip-section">
-              <div class="tooltip-label">参考标准 / 分级</div>
+              <div class="tooltip-label">⚠ 风洞测试结论（2026-08-19）</div>
+              <div class="tooltip-text">在 Stanford SSPG 队列上 Fail-Closed（秩分离度 0.625，置换检验 p=0.26），但在 Shanghai T2DM 队列上强显著（p&lt;0.0001）。经《同态锚定熔炉》损耗预判排查：Shanghai 用 HbA1c（3个月血糖暴露汇总）做分光镜标签，而本指标本身直接由血糖轨迹偏离幅度计算，二者存在同一暴露过程的标签语义重叠——判定为<strong>标签同义反复伪影，不可采信为独立生理证据</strong>，不登记为候选。下方 23.0 数字是 v8.0-v8.4 时代基于 Hall/Colas 拟合得出、<strong>从未被重新校准</strong>的历史参考带，已不再驱动本卡片的 warn/bad 判色——本卡片现在只做中性数值显示。</div>
               <div class="tooltip-standards">
-                • <strong>≤ 23.0</strong>：上升弹性正常（正常）<br>
-                • <strong>> 23.0</strong>：升糖向心黏滞阻力偏高（高刚度代偿）
+                • ≤ 23.0（历史参照，非现行判据）<br>
+                • &gt; 23.0（历史参照，非现行判据）
               </div>
             </div>
             <div class="tooltip-section">
@@ -708,13 +714,13 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
         <!-- 3. Night Friction (v8.8 Core) -->
         <div class="metric-card" id="metric-nightfriction">
           <div class="metric-header">
-            <div class="metric-title">夜间相变阻力 (Night Friction)</div>
+            <div class="metric-title"><span class="validation-star star-bronze" title="风洞测试状态：已测（队列间不一致，疑似标签伪影）。2026-08-19 Stanford SSPG 上 Fail-Closed(P=0.625,p=0.26),但 Shanghai T2DM 上强显著(p&lt;0.0001)。同上升相阻力一样,经排查判定为 HbA1c 分光镜与本指标(直接由血糖轨迹幅度计算)之间的标签语义重叠伪影,不可采信为独立生理证据。下方 24.0 判色阈值从未被重新校准,已于同日中性化。">★</span>夜间相变阻力 (Night Friction)</div>
             <span class="info-icon">ℹ️</span>
           </div>
           <div class="metric-value-box">
             <div class="metric-value" style="color:var(--text)">-</div>
           </div>
-          <div class="metric-desc">夜间基础相向心归位运动时的阻力；剥离干预噪音。</div>
+          <div class="metric-desc">夜间基础相向心归位运动时的阻力，纯物理读数（判色阈值未经样本外重新校准，已中性化）；剥离干预噪音。</div>
           <div class="metric-tooltip">
             <div class="tooltip-title">夜间相变阻力 (Night Friction)</div>
             <div class="tooltip-section">
@@ -722,10 +728,11 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
               <div class="tooltip-text">夜间（00:00–06:00）基础相无进食干扰时，相轨迹向心归位运动的相位粘滞阻力。</div>
             </div>
             <div class="tooltip-section">
-              <div class="tooltip-label">参考标准 / 分级</div>
+              <div class="tooltip-label">⚠ 风洞测试结论（2026-08-19）</div>
+              <div class="tooltip-text">在 Stanford SSPG 队列上 Fail-Closed（秩分离度 0.625，置换检验 p=0.26），但在 Shanghai T2DM 队列上强显著（p&lt;0.0001）。与上升相阻力同批排查：Shanghai 用 HbA1c 做分光镜，而本指标直接由血糖轨迹幅度计算，二者存在标签语义重叠——判定为<strong>标签同义反复伪影，不可采信为独立生理证据</strong>，不登记为候选。下方 24.0 数字是 v8.0-v8.4 时代基于 Hall/Colas 拟合得出、<strong>从未被重新校准</strong>的历史参考带，已不再驱动本卡片的 warn/bad 判色——本卡片现在只做中性数值显示。</div>
               <div class="tooltip-standards">
-                • <strong>≤ 24.0</strong>：基础相正常（正常）<br>
-                • <strong>> 24.0</strong>：基础相代偿阻力抬升（高代偿）
+                • ≤ 24.0（历史参照，非现行判据）<br>
+                • &gt; 24.0（历史参照，非现行判据）
               </div>
             </div>
             <div class="tooltip-section">
@@ -3873,64 +3880,78 @@ ${refs}` : ''}
     rData.insulinPred = this.setCard('metric-insulin-pred', '已停用', '遵循标签盲化原则，已全面转向纯动力学遥测。', 'unavailable');
 
     // 0.5 Early Phase Delay
+    // [2026-08-19 中性化] 原 warn(>30min)/bad(>45min) 判色阈值源自 v8.0-v8.4 时代仅基于
+    // Hall/Colas（N=265）标签回归拟合，已在 Stanford SSPG + Shanghai T2DM 两个独立样本外
+    // 队列上验证为无区分度（置换检验 p=0.18/0.65，见 candidate_tensor_staging_matrix.md
+    // 候选 #5 同批 Fail-Closed 记录）。不再据此做 warn/bad 判色，仅中性显示数值本身。
     const ed0 = epoch0 ? epoch0.metrics.earlyDelay : null;
     const ed1 = epoch1 ? epoch1.metrics.earlyDelay : null;
     const edVal = epoch1 ? ed1 : ed0;
     if (edVal !== null && edVal !== undefined && Number.isFinite(edVal)) {
-      let edCls = 'reference', edDesc = '原生敏锐早相；系统二阶动力学无延迟。';
-      if (edVal > 45) { edCls = 'bad'; edDesc = '早相实质性枯竭（>45min）｜高危物理残差，动力学失控。'; }
-      else if (edVal > 30) { edCls = 'warn'; edDesc = '早期阻尼钝化（30-45min）｜第一时相分泌开始代偿。'; }
+      const edDesc = '受迫升糖段加速度衰减为0（速度达峰）的中位耗时，纯物理读数（判色阈值未通过样本外验证，已中性化）。';
       const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(ed0, ed1) : edVal.toFixed(1) + ' min';
-      rData.earlyDelay = this.setCard('metric-early-delay', displayStr, edDesc, edCls);
+      rData.earlyDelay = this.setCard('metric-early-delay', displayStr, edDesc, 'reference');
     } else {
       rData.earlyDelay = this.setCard('metric-early-delay', 'N/A', '未检测到有效受迫上升段。', 'unavailable');
     }
 
     // 0.6 Relaxation Time
+    // [2026-08-19 中性化] 原 warn(>45min)/bad(>90min) 判色阈值源自 v8.0-v8.4 时代仅基于
+    // Hall/Colas（N=265）标签回归拟合，两个独立样本外队列（Stanford SSPG/Shanghai T2DM）虽方向
+    // 一致且统计显著，但秩分离度效应量两次均未达 0.80 拓扑胜利门槛（见 candidate_tensor_staging_
+    // matrix.md 候选 #5）。不再据此做 warn/bad 判色，仅中性显示数值本身。
     const rtVal = epoch1 ? rt1 : rt0;
     if (rtVal !== null && rtVal !== undefined && Number.isFinite(rtVal)) {
-      let rtCls = 'reference', rtDesc = '理想弹性回弹；代谢弹簧无塑性形变。';
-      if (rtVal > 90) { rtCls = 'bad'; rtDesc = '严重塑性形变（>90min）｜失去热力学弹性，极度死锁。'; }
-      else if (rtVal > 45) { rtCls = 'warn'; rtDesc = '外周受体弹性疲劳（45-90min）｜清除效率显著降级。'; }
+      const rtDesc = '血糖峰值回落至50%振幅所需时间，纯物理读数（判色阈值未通过0.80拓扑胜利门槛，已中性化）。';
       const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(rt0, rt1) : rtVal.toFixed(1) + ' min';
-      rData.relaxTime = this.setCard('metric-relax-time', displayStr, rtDesc, rtCls);
+      rData.relaxTime = this.setCard('metric-relax-time', displayStr, rtDesc, 'reference');
     } else {
       rData.relaxTime = this.setCard('metric-relax-time', 'N/A', '缺少足够降幅的完整回落段。', 'unavailable');
     }
 
     // 0.7 Night AR1 (Critical Slowing Down)
+    // [2026-08-19 中性化] 原 warn(>0.950)/bad(>0.995) 判色阈值源自 v8.0-v8.4 时代仅基于
+    // Hall/Colas（N=265）标签回归拟合，已在 Stanford SSPG + Shanghai T2DM 两个独立样本外
+    // 队列上验证为无区分度（置换检验 p=0.53/0.39；Stanford 全队列几乎全部落在同一区间，见
+    // candidate_tensor_staging_matrix.md 候选 #5 同批 Fail-Closed 记录）。不再据此做
+    // warn/bad 判色，仅中性显示数值本身。
     const ar0 = epoch0 ? epoch0.metrics.nightAR1 : null;
     const ar1 = epoch1 ? epoch1.metrics.nightAR1 : null;
     const arVal = epoch1 ? ar1 : ar0;
     if (arVal !== null && arVal !== undefined && Number.isFinite(arVal)) {
-      let ar1Cls = 'reference', ar1Desc = '高频敏锐对抗；未出现临界慢化。';
-      if (arVal > 0.995) { ar1Cls = 'bad'; ar1Desc = '极度慢化（>0.995）｜系统自我纠错能力丧失，崩溃前兆。'; }
-      else if (arVal > 0.950) { ar1Cls = 'warn'; ar1Desc = '低频游荡（0.950-0.995）｜夜间基础相调控开始变慢。'; }
+      const ar1Desc = '夜间波动 Lag-1 自回归系数，纯物理读数（判色阈值未通过样本外验证，已中性化）。';
       const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(ar0, ar1) : arVal.toFixed(3);
-      rData.nightAR1 = this.setCard('metric-night-ar1', displayStr, ar1Desc, ar1Cls);
+      rData.nightAR1 = this.setCard('metric-night-ar1', displayStr, ar1Desc, 'reference');
     } else {
       rData.nightAR1 = this.setCard('metric-night-ar1', 'N/A', '缺少足够的夜间波动数据。', 'unavailable');
     }
 
+    // [2026-08-19 中性化] 原 warn(≤2.20)/bad(≤2.05) 判色阈值源自 v8.0-v8.4 时代仅基于
+    // Hall/Colas（N=265）标签回归拟合。两个独立样本外队列方向两次一致，但显著性仅 1/2 队列穿透
+    // 6 指标 Holm-Bonferroni 校正（Stanford p=0.12 未过，Shanghai p=0.0006 过），弱于同批
+    // relaxationTime 的双重显著复现，未登记为独立候选（见 candidate_tensor_staging_matrix.md
+    // 候选 #5 同批记录）。不再据此做 warn/bad 判色，仅中性显示数值本身。
     if (m.angularVelocity !== null && m.angularVelocity !== undefined && Number.isFinite(m.angularVelocity)) {
-      let angCls = 'reference', angDesc = '强引力汇；受迫后轨道敏锐回归。';
-      if (m.angularVelocity <= 2.05) { angCls = 'bad'; angDesc = '引力严重坍塌（≤2.05）｜轨迹在相空间滞留，向心力丧失。'; }
-      else if (m.angularVelocity <= 2.20) { angCls = 'warn'; angDesc = '引力衰退（2.05-2.20）｜掠面角速度减慢。'; }
-      rData.angularVelocity = this.setCard('metric-angular-velocity', m.angularVelocity.toFixed(2), angDesc, angCls);
+      const angDesc = '相空间轨道绕核心公转的平均角速度，纯物理读数（判色阈值显著性不稳定，已中性化）。';
+      rData.angularVelocity = this.setCard('metric-angular-velocity', m.angularVelocity.toFixed(2), angDesc, 'reference');
     } else {
       rData.angularVelocity = this.setCard('metric-angular-velocity', 'N/A', '缺少有效波动数据。', 'unavailable');
     }
 
     // 1. Work Integral
+    // [2026-08-19 中性化] 原 warn(45-80)/bad(>80) 判色阈值源自 v8.0-v8.4 时代仅基于
+    // Hall/Colas（N=265）标签回归拟合，本卡片的夜间基线口径在 Stanford SSPG/T1D-UOM×3/
+    // ShanghaiT1DM 上均 Fail-Closed 或方向反转，仅在其自身拟合来源队列 Hall 上呈软位移——
+    // 阈值在拟合来源队列之外从未被证实可靠（见 dataset_fleet_registry.md）。不再据此做
+    // warn/bad 判色，仅中性显示数值本身。真正通过毕业标准的是进餐动力学口径 w_carb/
+    // strain_per_carb（暂存于候选算子暂存区，未在本 HUD 单独成卡）。
     const w0 = epoch0 ? epoch0.metrics.workIntegral : null;
     const w1 = epoch1 ? epoch1.metrics.workIntegral : null;
     const wVal = epoch1 ? w1 : w0;
     if (wVal !== null && wVal !== undefined && Number.isFinite(wVal)) {
-      let wCls = 'reference', wDesc = '极低做功耗散；系统处于最小作用量物理区间。';
-      if (wVal > 80.0) { wCls = 'bad'; wDesc = '不可逆病理性废热（>80）｜磁滞面积过大，高度代谢负荷。'; }
-      else if (wVal > 45.0) { wCls = 'warn'; wDesc = '代偿性做功（45-80）｜热力学废热开始淤积。'; }
+      const wDesc = '相空间磁滞环做功面积（夜间基线口径），纯物理读数（判色阈值仅在拟合来源队列成立，样本外未获证实，已中性化）。';
       const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(w0, w1) : wVal.toFixed(2);
-      rData.work = this.setCard('metric-workintegral', displayStr, wDesc, wCls);
+      rData.work = this.setCard('metric-workintegral', displayStr, wDesc, 'reference');
     } else {
       rData.work = this.setCard('metric-workintegral', 'N/A', '磁滞做功不可用。', 'unavailable');
     }
@@ -3991,11 +4012,15 @@ ${refs}` : ''}
     const nf0 = epoch0 && epoch0.logContext.nightFriction !== undefined ? epoch0.logContext.nightFriction : null;
     const nf1 = epoch1 && epoch1.logContext.nightFriction !== undefined ? epoch1.logContext.nightFriction : null;
     const nfVal = epoch1 ? nf1 : nf0;
+    // [2026-08-19 中性化] 原 warn(>24) 判色阈值源自 v8.0-v8.4 时代仅基于 Hall/Colas
+    // （N=265）标签回归拟合。Stanford SSPG 上 Fail-Closed(p=0.26)，Shanghai T2DM 上强
+    // 显著(p<0.0001)但经排查判定为 HbA1c 分光镜与本指标的标签语义重叠伪影，不可采信为独立
+    // 生理证据（见 candidate_tensor_staging_matrix.md 候选 #5 同批记录）。不再据此做
+    // warn/bad 判色，仅中性显示数值本身。
     if (nfVal !== null && nfVal !== undefined && Number.isFinite(nfVal)) {
-      let nfCls = 'reference', nfDesc = '夜间基础相向心归位阻力；剥离进食干预噪音的纯基础相摩擦力。';
-      if (nfVal > 24) { nfCls = 'warn'; nfDesc = '偏高（>24）｜夜间基础相代偿阻力抬升，肝脏重置摩擦增加。'; }
+      const nfDesc = '夜间基础相向心归位阻力，纯物理读数（判色阈值仅在疑似标签伪影队列显著，已中性化）；剥离进食干预噪音的纯基础相摩擦力。';
       const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(nf0, nf1) : nfVal.toFixed(2);
-      rData.nightFric = this.setCard('metric-nightfriction', displayStr, nfDesc, nfCls);
+      rData.nightFric = this.setCard('metric-nightfriction', displayStr, nfDesc, 'reference');
     } else {
       rData.nightFric = this.setCard('metric-nightfriction', 'N/A', '缺少夜间核心。', 'unavailable');
     }
@@ -4004,11 +4029,15 @@ ${refs}` : ''}
     const af0 = epoch0 ? epoch0.metrics.ascendFriction : null;
     const af1 = epoch1 ? epoch1.metrics.ascendFriction : null;
     const afVal = epoch1 ? af1 : af0;
+    // [2026-08-19 中性化] 原 warn(>23) 判色阈值源自 v8.0-v8.4 时代仅基于 Hall/Colas
+    // （N=265）标签回归拟合。Stanford SSPG 上 Fail-Closed(p=0.26)，Shanghai T2DM 上强
+    // 显著(p<0.0001)但经排查判定为 HbA1c 分光镜与本指标的标签语义重叠伪影，不可采信为独立
+    // 生理证据（见 candidate_tensor_staging_matrix.md 候选 #5 同批记录）。不再据此做
+    // warn/bad 判色，仅中性显示数值本身。
     if (afVal !== null && afVal !== undefined && Number.isFinite(afVal)) {
-      let afCls = 'reference', afDesc = '受迫上升相阻力；反映血糖飙升时的向心拉扯刚度（早相分泌）。';
-      if (afVal > 23) { afCls = 'warn'; afDesc = '偏高（>23）｜上升黏滞阻力增加，反映早相刚度改变。'; }
+      const afDesc = '受迫上升相阻力，纯物理读数（判色阈值仅在疑似标签伪影队列显著，已中性化）；反映血糖飙升时的向心拉扯刚度（早相分泌）。';
       const displayStr = (epoch0 && epoch1) ? this.formatDualMetric(af0, af1) : afVal.toFixed(2);
-      rData.ascendFric = this.setCard('metric-ascendfriction', displayStr, afDesc, afCls);
+      rData.ascendFric = this.setCard('metric-ascendfriction', displayStr, afDesc, 'reference');
     } else {
       rData.ascendFric = this.setCard('metric-ascendfriction', 'N/A', '上升相轨迹点不足。', 'unavailable');
     }

@@ -40,6 +40,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import _extracted_tensor_engine_v4 as eng
+import _legacy_metrics_v4 as legacy
+from _legacy_metrics_v4 import _median as _legacy_median
+import _legacy_metrics_group1_v4 as legacy_g1
 
 
 def resample_raw(timestamps_iso, values):
@@ -213,6 +216,267 @@ def run_subject(subject, period="night", tau_max=120):
         if k not in ("timestamps", "values", "id"):
             record[k] = v
     return record
+
+
+def run_subject_legacy(subject, period="night", tau_max=120):
+    """Companion to run_subject() for the 2026-08-19 Group-2 test plan (dataset_fleet_registry.md
+    changelog "开始进行第二组6张判色卡的风洞测试基础设施搭建"): computes the 6 legacy-JS-ported
+    candidate metrics (Early Phase Delay / Relaxation Time / AR1 / Angular Velocity / Ascend
+    Friction / Night Friction) via _legacy_metrics_v4.py.
+
+    Deliberately NOT merged into run_subject(): that function's byte-for-byte output has been
+    regression-verified against historical taumax60 archives (Hall/Colas) multiple times this
+    session, and editing its body -- even only appending new fields -- would require re-earning
+    that guarantee from scratch. This costs ~15 duplicated lines of shared preprocessing
+    (resample/tau/dim/smooth) in exchange for run_subject()'s existing guarantee staying inert.
+
+    Track conventions (mirrors index_v4.html's default chk-smooth=checked UI state, Blueprint
+    v3.3 L0 2.2 Dual-Track Law):
+      - Ascend Friction: period-sliced RAW points, gravity core from period-sliced SMOOTH points
+        (index_v4.html:3667's shapePoints argument under the default smooth=true toggle).
+      - Night Friction: RAW night-sliced (00:00-06:00) points and core, UNCONDITIONALLY,
+        regardless of the `period` argument (index_v4.html:3640-3642).
+      - AR1/variance/skewness: full RAW series, unconditional (not period-sliced).
+      - Early Phase Delay / Relaxation Time: full SMOOTH series, unconditional.
+      - Angular Velocity / Sweep Rate: full SMOOTH series vs scalar nightMean (mean of RAW
+        night-sliced values, requires >=6 valid night points or stays None -- index_v4.html
+        :3659-3660).
+    """
+    sid = subject["id"]
+    log = []
+    try:
+        ts, raw_vs = resample_raw(subject["timestamps"], subject["values"])
+    except Exception as e:
+        return {"id": sid, "error": f"[HARNESS ERROR] resample_raw crashed: {e}"}
+
+    valid_n = sum(1 for v in raw_vs if v is not None)
+    if valid_n < 60:
+        return {"id": sid, "error": f"[L0 ERROR] Insufficient valid points after resample ({valid_n})."}
+
+    raw_json = json.dumps(raw_vs)
+    tau_res = json.loads(eng.engine.extract_tau(raw_json, max_lag=tau_max))
+    log += tau_res.get("events", [])
+    tau = tau_res.get("result")
+    if tau is None:
+        return {"id": sid, "error": f"[L1 ERROR] extract_tau failed: {tau_res.get('error')}", "events": log}
+
+    probe_vs = slice_by_period(ts, raw_vs, period)
+    probe_valid_n = sum(1 for v in probe_vs if v is not None)
+    if probe_valid_n < 30:
+        return {"id": sid, "error": f"[L1 ERROR] Insufficient {period}-sliced points for dimension estimation ({probe_valid_n}).", "events": log}
+
+    dim_res = json.loads(eng.engine.estimate_dimension(json.dumps(probe_vs), tau))
+    log += dim_res.get("events", [])
+    dim = dim_res.get("result")
+    if dim is None or dim < 2:
+        return {"id": sid, "error": f"[L1 ERROR] estimate_dimension failed or <2: {dim_res.get('error')}", "events": log}
+
+    filt_res = json.loads(eng.engine.filter_chunks(raw_json, 2, 0.08))
+    log += filt_res.get("events", [])
+    smooth_vs = filt_res.get("result")
+    if smooth_vs is None:
+        return {"id": sid, "error": f"[L0 ERROR] filter_chunks failed: {filt_res.get('error')}", "events": log}
+
+    def median_col(points, d):
+        return _legacy_median([p[d] for p in points])
+
+    # --- Ascend Friction ---
+    period_raw_vs = slice_by_period(ts, raw_vs, period)
+    period_smooth_vs = slice_by_period(ts, smooth_vs, period)
+    points_raw = takens_embedding(period_raw_vs, tau, dim)
+    points_shape = takens_embedding(period_smooth_vs, tau, dim)
+    valid_shape = [p for p in points_shape if p is not None]
+    ascend_friction = None
+    if len(valid_shape) >= 4:
+        gravity_core = [median_col(valid_shape, d) for d in range(dim)]
+        ascend_res = legacy.compute_asymmetric_friction(points_raw, gravity_core)
+        ascend_friction = ascend_res.get("ascendFriction")
+        log.append(f"[INFO] [Legacy] Ascend Friction computed from {len(valid_shape)} shape points.")
+    else:
+        log.append(f"[ERROR] [Legacy] Insufficient valid shape points for gravity core ({len(valid_shape)}). ascendFriction=None.")
+
+    # --- Night Friction (unconditional RAW night track, per L0 2.2) ---
+    night_raw_vs = slice_by_period(ts, raw_vs, "night")
+    night_points_all = takens_embedding(night_raw_vs, tau, dim)
+    night_points_valid = [p for p in night_points_all if p is not None]
+    night_friction = None
+    if len(night_points_valid) > 0:
+        night_core = [median_col(night_points_valid, d) for d in range(dim)]
+        night_res = legacy.compute_asymmetric_friction(night_points_all, night_core)
+        night_friction = night_res.get("asymFriction")
+        log.append(f"[INFO] [Legacy] Night Friction computed from {len(night_points_valid)} night points.")
+    else:
+        log.append("[ERROR] [Legacy] No valid night points. nightFriction=None.")
+
+    # --- AR1 (full RAW series, unconditional) ---
+    csd_res = legacy.compute_critical_slowing_down(ts, raw_vs)
+    if csd_res.get("ar1") is None:
+        log.append("[ERROR] [Legacy] No night with >=30 valid points found. ar1=None.")
+
+    # --- Early Phase Delay / Relaxation Time (full SMOOTH series, unconditional) ---
+    kinetics_res = legacy.compute_excursion_kinetics(ts, smooth_vs)
+    if kinetics_res.get("earlyDelay") is None:
+        log.append("[ERROR] [Legacy] No valid forced-rise excursion (>1.5) found. earlyDelay/relaxationTime=None.")
+
+    # --- Angular Velocity / Sweep Rate (full SMOOTH series vs scalar RAW nightMean) ---
+    night_raw_valid = [v for v in night_raw_vs if v is not None]
+    night_mean = sum(night_raw_valid) / len(night_raw_valid) if len(night_raw_valid) >= 6 else None
+    kepler_res = legacy.compute_kepler_kinematics(ts, smooth_vs, night_mean)
+    if kepler_res.get("angularVelocity") is None:
+        log.append("[ERROR] [Legacy] Kepler kinematics unavailable (insufficient night mean or valid r^2>=0.05 points). angularVelocity=None.")
+
+    record = {
+        "id": sid,
+        "period": period,
+        "tau": tau,
+        "dim": dim,
+        "earlyDelay": kinetics_res.get("earlyDelay"),
+        "relaxationTime": kinetics_res.get("relaxationTime"),
+        "ar1": csd_res.get("ar1"),
+        "nightVariance": csd_res.get("variance"),
+        "nightSkewness": csd_res.get("skewness"),
+        "angularVelocity": kepler_res.get("angularVelocity"),
+        "sweepRate": kepler_res.get("sweepRate"),
+        "ascendFriction": ascend_friction,
+        "nightFriction": night_friction,
+        "events": log,
+    }
+    for k, v in subject.items():
+        if k not in ("timestamps", "values", "id"):
+            record[k] = v
+    return record
+
+
+def run_subject_legacy_group1(subject, period="night", tau_max=120):
+    """Companion to run_subject_legacy() for the 2026-08-19 Group-1 test plan (dataset_fleet_
+    registry.md changelog "第一组6张中性卡的冗余审计基础设施搭建"): computes the 6
+    purely-neutral (no warn/bad color coding) legacy-JS-ported candidate metrics (Volume,
+    Recovery, Shape Ratio λ1/λ2, Box-Counting Dimension, Lyapunov, Core Dist) via
+    _legacy_metrics_group1_v4.py.
+
+    Track conventions (mirrors index_v4.html's default chk-smooth=checked UI state, Blueprint
+    v3.3 L0 2.2 Dual-Track Law, and computeAttractorMetrics()'s three-argument call signature
+    at index_v4.html:3669):
+      - Volume / Shape Ratio / Box-Counting Dimension: period-sliced SMOOTH points
+        (`shapePoints` == `pointsSmooth` under the production default smooth=true toggle,
+        since `currentValues` then equals `smoothValues` -- index_v4.html:3639 vs 3659).
+      - Recovery: period-sliced RAW points (`rawPoints`, always unsmoothed per the Dual-Track
+        Law -- index_v4.html:2902/3658).
+      - Lyapunov: period-sliced SMOOTH points (`smoothPoints` -- index_v4.html:2914/3659).
+      - Core Dist: index_v4.html:3754-3757 special-cases period==='night' to a HARDCODED 0
+        (same-night-as-itself is definitionally zero displacement), which would make Core
+        Dist untestable under this harness's period="night" default. This function therefore
+        ALWAYS additionally computes coreDistAll using the SAME "all"-period gravity core the
+        production UI actually displays Core Dist against (nightCore is unconditionally the
+        RAW night-sliced track regardless of `period`, matching Night Friction's night_core in
+        run_subject_legacy -- index_v4.html:3645-3650), independent of whatever `period` was
+        requested for the other five metrics.
+    """
+    sid = subject["id"]
+    log = []
+    try:
+        ts, raw_vs = resample_raw(subject["timestamps"], subject["values"])
+    except Exception as e:
+        return {"id": sid, "error": f"[HARNESS ERROR] resample_raw crashed: {e}"}
+
+    valid_n = sum(1 for v in raw_vs if v is not None)
+    if valid_n < 60:
+        return {"id": sid, "error": f"[L0 ERROR] Insufficient valid points after resample ({valid_n})."}
+
+    raw_json = json.dumps(raw_vs)
+    tau_res = json.loads(eng.engine.extract_tau(raw_json, max_lag=tau_max))
+    log += tau_res.get("events", [])
+    tau = tau_res.get("result")
+    if tau is None:
+        return {"id": sid, "error": f"[L1 ERROR] extract_tau failed: {tau_res.get('error')}", "events": log}
+
+    probe_vs = slice_by_period(ts, raw_vs, period)
+    probe_valid_n = sum(1 for v in probe_vs if v is not None)
+    if probe_valid_n < 30:
+        return {"id": sid, "error": f"[L1 ERROR] Insufficient {period}-sliced points for dimension estimation ({probe_valid_n}).", "events": log}
+
+    dim_res = json.loads(eng.engine.estimate_dimension(json.dumps(probe_vs), tau))
+    log += dim_res.get("events", [])
+    dim = dim_res.get("result")
+    if dim is None or dim < 2:
+        return {"id": sid, "error": f"[L1 ERROR] estimate_dimension failed or <2: {dim_res.get('error')}", "events": log}
+
+    filt_res = json.loads(eng.engine.filter_chunks(raw_json, 2, 0.08))
+    log += filt_res.get("events", [])
+    smooth_vs = filt_res.get("result")
+    if smooth_vs is None:
+        return {"id": sid, "error": f"[L0 ERROR] filter_chunks failed: {filt_res.get('error')}", "events": log}
+
+    # --- Group-1 metrics on the requested period (default "night") ---
+    period_raw_vs = slice_by_period(ts, raw_vs, period)
+    period_smooth_vs = slice_by_period(ts, smooth_vs, period)
+    points_shape = takens_embedding(period_smooth_vs, tau, dim)
+    points_raw = takens_embedding(period_raw_vs, tau, dim)
+    points_smooth = points_shape  # identical under default smooth=true (currentValues==smoothValues)
+
+    g1_metrics = legacy_g1.compute_group1_attractor_metrics(points_shape, points_raw, points_smooth)
+    if g1_metrics.get("volume") is None:
+        log.append(f"[ERROR] [Group1] compute_volume_shape returned None (<4 valid {period}-sliced shape points). volume/shapeRatio/dimension/lyapunov unaffected fields stay independently computed.")
+    if g1_metrics.get("dimension") is None:
+        log.append(f"[ERROR] [Group1] box_counting_dimension returned None (<20 valid {period}-sliced shape points).")
+    if g1_metrics.get("lyapunov") is None:
+        log.append(f"[ERROR] [Group1] lyapunov_proxy returned None (<30 valid {period}-sliced smooth points or <10 divergence samples).")
+
+    # --- Core Dist: ALWAYS computed on the "all"-period gravity core vs the RAW night core,
+    # independent of `period` above (see docstring: period="night" would trivialize this to 0
+    # by construction, matching index_v4.html:3754-3757's own special-case). ---
+    all_smooth_vs = slice_by_period(ts, smooth_vs, "all")
+    points_shape_all = takens_embedding(all_smooth_vs, tau, dim)
+    vs_all = legacy_g1.compute_volume_shape(points_shape_all)
+
+    night_raw_vs = slice_by_period(ts, raw_vs, "night")
+    night_points_all = takens_embedding(night_raw_vs, tau, dim)
+    night_points_valid = [p for p in night_points_all if p is not None]
+    core_dist_all = None
+    if vs_all is not None and len(night_points_valid) > 0:
+        night_core = [_legacy_median([p[d] for p in night_points_valid]) for d in range(dim)]
+        core_dist_all = legacy_g1.calc_distance(vs_all["gravityCore"], night_core)
+        log.append(f"[INFO] [Group1] Core Dist (all-period gravity core vs RAW night core) computed from {len(night_points_valid)} night points.")
+    else:
+        log.append("[ERROR] [Group1] coreDistAll unavailable (insufficient all-period shape points or no valid night points).")
+
+    record = {
+        "id": sid,
+        "period": period,
+        "tau": tau,
+        "dim": dim,
+        "volume": g1_metrics.get("volume"),
+        "shapeRatio": g1_metrics.get("shapeRatio"),
+        "avgRecovery": g1_metrics.get("avgRecovery"),
+        "boxCountingDim": g1_metrics.get("dimension"),
+        "lyapunov": g1_metrics.get("lyapunov"),
+        "coreDistAll": core_dist_all,
+        "events": log,
+    }
+    for k, v in subject.items():
+        if k not in ("timestamps", "values", "id"):
+            record[k] = v
+    return record
+
+
+def run_cohort_legacy_group1(cohort_name, subjects, period="night", tau_max=120):
+    results = [run_subject_legacy_group1(s, period=period, tau_max=tau_max) for s in subjects]
+    ok = [r for r in results if "error" not in r]
+    failed = [r for r in results if "error" in r]
+    print(f"[Group1] Processed {len(subjects)} {cohort_name} subjects: {len(ok)} succeeded, {len(failed)} failed.")
+    for r in failed:
+        print(f"  FAILED {r['id']}: {r['error']}")
+    return results, ok, failed
+
+
+def run_cohort_legacy(cohort_name, subjects, period="night", tau_max=120):
+    results = [run_subject_legacy(s, period=period, tau_max=tau_max) for s in subjects]
+    ok = [r for r in results if "error" not in r]
+    failed = [r for r in results if "error" in r]
+    print(f"[Legacy] Processed {len(subjects)} {cohort_name} subjects: {len(ok)} succeeded, {len(failed)} failed.")
+    for r in failed:
+        print(f"  FAILED {r['id']}: {r['error']}")
+    return results, ok, failed
 
 
 def run_cohort(cohort_name, subjects, period="night", tau_max=120):

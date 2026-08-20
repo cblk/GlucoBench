@@ -1,0 +1,16 @@
+{
+  "volumeShape": {
+    "volume": 17.296351943364126,
+    "shapeRatio": 1.0201993305641994,
+    "gravityCore": [
+      0.04714780161094251,
+      0.09484583959404541,
+      0.13602905686136174
+    ],
+    "effectiveDim": 3
+  },
+  "boxCountingDimension": 2.026412838458943,
+  "lyapunovProxy": 0.06898232660042651,
+  "normalizedRecovery": 0.21759592726028723,
+  "coreDist": 0.42492955243829966
+}

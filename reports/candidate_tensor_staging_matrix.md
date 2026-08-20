@@ -101,8 +101,61 @@
 
 ---
 
+### 候选 #5：`relaxationTime`（弛豫衰减疲劳度 / Excursion-Recovery Time-to-Half-Amplitude）
+
+- **定义：** 每次自然发生的强迫性血糖偏移（峰-谷幅度 $>1.5$ mmol/L）从峰值回落到 50% 幅度所需时间（分钟），取全记录期内所有偏移事件的中位数。与候选 #3 `tau_relax`（进食冲击相专属、基于绝对阈值 $G_{\text{base}}+\max(0.5,0.2\Delta G)$ 穿越、已撤销）是**两个不同算法**：本候选来自 `index_v4.html` 的遗留 JS 函数 `computeExcursionKinetics`（v8.0-v8.4 时代，非风洞项目产物，第一次被系统性检验），不区分进食/自然诱因，作用于全记录期而非单次进餐窗口。为避免与已撤销的候选 #3 混淆而特别注明。
+- **物理领地：** 全时段通用（不区分干预相/自然相），衡量"代偿弹簧回弹时间常数"，是 AGENTS.md 第 7.2 节《动力学映射接口》里 `Relaxation Time` 概念的直接产物。
+- **性质说明：** 该指标当前**已经是 HUD 生产卡片**（"弛豫衰减疲劳度"，纯 JS，无 Pyodide/Python 对应实现），但其 warn/bad 判色阈值源自 v8.0-v8.4 时代仅在 Hall/Colas（N=265）上做标签回归拟合的结果，从未接受过第 9 节风洞方法论的样本外检验。本条登记是"是否要把现有卡片的阈值判色升级为经过风洞验证"的候选，不是"是否要新增一个尚不存在的算子"。
+- **实现位置（暂存，非生产）：** `validate/_legacy_metrics_v4.py::compute_excursion_kinetics`（JS 端口，经 `validate/crosscheck_legacy_metrics.py` 对真实 JS 交叉验证 0 处不匹配）。
+
+| # | 印证队列 | 扰动来源 | 分光镜标签 | 秩分离度 $P(\text{高危}>\text{低危})$ | 置换检验 $p$（6 指标 Holm-Bonferroni） | 状态 | 报告 |
+|---|---|---|---|---|---|---|---|
+| 1 | Stanford SSPG ($n=29$) | 自由生活自然发生偏移（非标准化负荷） | SSPG 2 分类 (IS $n=16$ / IR $n=13$) | **0.7909** | **0.0060**（6 指标族校正后存活，排名 1/6） | 🟡 统计显著、方向与生理预期一致，但效应量**未达** 0.80 门槛（差 0.0091） | [`wind_tunnel_stanford_sspg_legacymetrics_20260819_1730_analysis.md`](./wind_tunnel_stanford_sspg_legacymetrics_20260819_1730_analysis.md) |
+| 2 | Shanghai_T2DM ($n=87$ 有效HbA1c，去重后) | 住院病历自由生活（异构协议，与 Stanford 完全不同的采集方式与标签语义） | HbA1c 全体固定中位数二分 (high $n=43$ / low $n=44$) | **0.7090** | **0.0008**（6 指标族校正后存活，排名 4/6） | 🟡 **第二次方向一致 + 统计显著复现**，效应量仍**未达** 0.80 门槛（差 0.0910） | [`wind_tunnel_shanghai_t2dm_legacymetrics_20260819_1947_analysis.md`](./wind_tunnel_shanghai_t2dm_legacymetrics_20260819_1947_analysis.md) |
+
+**毕业进度：** 标准 1 要求"至少 2 个异构队列复现秩分离度 $P>0.80$"——两次独立复现方向一致、统计显著（双重穿透各自的 6 指标 Holm-Bonferroni 校正），是本轮 6 个候选中唯一实现"双队列一致复现"的指标，但**两次效应量均未突破 0.80**（0.7909、0.7090）。按第 9.3 节严格纪律，"方向一致+统计显著"不等价于"拓扑胜利"，不因两次都"接近但未达"而放宽标准或宣布毕业。**当前状态：候选级观察中，0/3 毕业条件严格意义上仍未满足。**
+
+**算法重新设计尝试第一轮（渐进修正，2026-08-19，详见 [`relaxation_time_redesign_20260819_evaluation.md`](./relaxation_time_redesign_20260819_evaluation.md)）：** 诊断否定了"个体内事件计数过少导致噪声"的原假说（两队列事件数中位数均 $\ge 30$）；转而发现原算法用离散采样点索引做阈值穿越判定，对采样网格粒度敏感（Zero Magic-Constant 公理排查还发现原算法对未衰减事件用 `duration×1.5` 人工外推，属未文档化魔法常数）。测试两个零自由参数改造：**v2（线性插值穿越时间）** 在 Stanford 上首次突破 0.80（$P=0.8077$），Shanghai 几乎不变（$P=0.7101$）；**v3（插值+剔除未衰减事件）** 在 Stanford 进一步改善（$P=0.8413$）但在 Shanghai 反而变差（$P=0.6839$，跌破原版）——跨队列方向不一致，判定为对 Stanford 噪声结构的过拟合，**不予采纳**。
+
+**算法重新设计尝试第二轮（更根本重设计，用户批准）：** 认识到"弛豫时间"本身在世界观协议里就是指数衰减时间常数概念，而非任意百分比阈值穿越，遂放弃阈值穿越设计，改为对整段衰减轨迹做对数线性最小二乘拟合提取时间常数 $\tau$（$G(t)=G_{\text{baseline}}+(G_{\text{peak}}-G_{\text{baseline}})e^{-t/\tau}$，锚点复用既有的"前一谷值"，不新增自由参数）。**关键验证**：两队列拟合质量中位数 $R^2$ 均 $>0.92$，独立证实该物理模型是衰减轨迹的良好描述。结果（`validate/_relaxation_time_v4_expfit.py`）：**v4a（无质量门槛）** 是三轮重新设计中**唯一让两队列同时改善（无此消彼长）**的版本——Stanford $P=0.7933$（基本持平原版），Shanghai $P=0.7500$（较原版 0.7090 提升 0.041，$n=95$ 队列上有意义的改善）；加 $R^2\geq0.5$ 质量门槛（v4b）几乎不排除任何事件（说明拟合本身已经很干净），反而略微降低效应量，判定不采纳门槛。**即便如此 Shanghai 仍未突破 0.80**，两队列差距缩小但未消除。
+
+**第三队列同体配对测试（T1D-UOM，用户批准方向，详见 [`wind_tunnel_t1d_uom_legacymetrics_20260819_2027_paired_analysis.md`](./wind_tunnel_t1d_uom_legacymetrics_20260819_2027_paired_analysis.md)）：** ⚠️ **方法学性质不同，不计入毕业标准 1 的异构队列计数**——本次测的是同一受试者自己的高/低活动周同体配对（与候选 #4 `dim` 相同设计），而非跨受试者慢性代偿状态分组，是不同时间尺度的生理学问题。结果：v1（原版）留下一个未经 7 指标 Holm-Bonferroni 校正就消失的弱趋势（Wilcoxon $p=0.0305$，符号检验 $p=0.0490$，均未存活）；**v4a（指数拟合重设计版）在此配对设计上几乎无信号**（效应量 Cohen's d $\approx -0.05$）——与其在两个横截面队列上"同时改善"的表现形成反差,提示 v4a 的改进可能是横截面比较特有的,不构成"v4a 全面优于 v1"的证据。意外发现：代谢引力场角速度以极小差距（$p=0.0079$ vs Holm 阈值 $0.0071$）未能过校正,记录在案但不登记为候选。
+
+**用户裁决（2026-08-19）：** 三队列测试完毕后，用户明确决定不再继续投入 `relaxationTime` 的进一步验证/重新设计。**终局状态：维持观察级，0/3 毕业条件未满足，暂停研究，不升格、不撤销。** 若未来出现新的独立队列或更根本的算法思路，可重新评估；本条目本身作为"已充分探索但未能突破效应量门槛"的诚实记录保留。
+
+**同批次 Fail-Closed 记录（不登记为候选，仅存档避免重复测试）：**
+- 早相加速度迟滞、AR1：**两个独立队列均 Fail-Closed**（Stanford $p=0.18/0.53$；Shanghai $p=0.65/0.39$），一致性反而确认了这两张卡的现有判色阈值在样本外数据上完全没有区分度实证支持。
+- 上升相阻力、夜间相变阻力：**队列间不一致**——Stanford 上 Fail-Closed（$P=0.625,p=0.26$），但 Shanghai 上强显著（$P=0.76/0.78,p<0.0001$）。经《同态锚定熔炉》损耗预判排查：Shanghai 用 HbA1c（血糖暴露 3 个月汇总）做分光镜，而这两个摩擦力指标本身直接由血糖轨迹偏离幅度计算，二者存在标签语义重叠（同一暴露过程的两种时间尺度读数），Shanghai 的强信号判定为**标签同义反复伪影，不可采信为独立生理证据**，不登记为候选。
+- 代谢引力场角速度：方向两次一致（危险组更低），但显著性不稳定（Stanford $p=0.12$ 未过校正；Shanghai $p=0.0006$ 过校正），弱于 relaxationTime 的双重显著复现，暂不登记为独立候选。
+
+---
+
+### 第一组6张中性卡（Volume/Recovery/λ1λ2/Box-Counting Dim/Lyapunov/Core Dist）——审计+检验存档
+
+不登记为候选（无一项进入候选生命周期），仅存档避免未来重复投入：
+
+- **Phase B 冗余审计（Stanford SSPG $n=29$ + Shanghai T2DM $n=104$，与已毕业指标 workIntegral/DET/ENTR/Dim 做队列内 Spearman 秩相关）：**
+  - **Volume**：与 Work Integral 强相关（Stanford $\rho=+0.545$，Shanghai $\rho=+0.725$）——判定**实质性冗余**，未投入 Phase C 检验。
+  - **Lyapunov**：与嵌入维度 Dim 强相关（Stanford $\rho=-0.753$，Shanghai $\rho=-0.557$）——判定**实质性冗余**（机制上 `dim` 直接决定 Lyapunov 计算所用相空间坐标数，本就不独立），未投入检验。
+  - **Recovery**：与 Volume 内部强相关（Shanghai $\rho=-0.74$）+ 概念上与候选 #5 `relaxationTime` 高度重叠（同为"扰动后向核心恢复速率"，一个用几何步长一个用时间轴）——判定**双重冗余**，未投入检验。
+  - **Shape Ratio (λ1/λ2)**、**Box-Counting Dim**：与 Dim 中等耦合（$\rho\in[0.27,0.57]$，队列间不完全一致）——用户裁决暂不投入检验。
+  - **Core Dist**：与全部4个已毕业指标相关性最弱（$|\rho|\le0.29$），**审计通过，判定为6者中最独立**，是唯一进入 Phase C 的指标。
+- **Phase C 拓扑对撞检验（仅 Core Dist，用户批准范围）：** Stanford SSPG (`sspg_class`) $P(\text{IR}>\text{IS})=0.5192$，置换检验 $p=0.8598$；Shanghai T2DM (HbA1c 中位数分组) $P(\text{high}>\text{low})=0.4704$，置换检验 $p=0.6454$（方向与预期相反）。**两队列均与抛硬币无法区分，判定 Fail-Closed**——"与已毕业指标无冗余"不等于"携带有效信号"。
+
+详见 [`group1_neutral_metrics_redundancy_audit_20260819_2100.md`](./group1_neutral_metrics_redundancy_audit_20260819_2100.md)（含 Phase A 工程移植/交叉验证记录）。
+
+---
+
 ## 变更日志 (Append-Only, 不可回填删除)
 
+- **2026-08-19 21:50** — 完成 Work Integral / relaxationTime / Angular Velocity / Ascend Friction / Night Friction 五张卡的判色中性化（用户批准，`index_v4.html` 原子化 UI 修改，延续 earlyDelay/AR1 的处理模式）。这五张卡此前虽已在本文件登记为候选 #5 同批 Fail-Closed/观察级记录，但其生产 UI 的 warn/bad 判色逻辑此前未被同步修改——本次修复了这一"证据已记录但 UI 未跟进"的缺口。详见 `dataset_fleet_registry.md` 同时刻变更日志。不涉及任何计算逻辑或候选算子毕业进度变化，纯 UI 层面的判色关闭。
+- **2026-08-19 21:30** — 完成"第一组6张中性卡"（Volume/Recovery/λ1λ2/Box-Counting Dim/Lyapunov/Core Dist）的完整审计+检验闭环（用户批准顺序：先 Phase A 工程移植+交叉验证 → Phase B 冗余审计 → 用户裁决 Phase C 范围"仅测最独立的 Core Dist"）。Phase A：JS→Python 移植 0 处不匹配，Hall 烟雾测试零异常。Phase B：与已毕业指标（workIntegral/DET/ENTR/Dim）做队列内 Spearman 秩相关，Volume（与 workIntegral $\rho$ 高至 0.725）、Lyapunov（与 Dim $\rho$ 达 -0.753，机制上本就非独立）、Recovery（与 Volume 内部 $\rho=-0.74$ + 概念上与候选 #5 重叠）判定冗余未测；Shape Ratio/Box-Counting Dim 中等耦合用户裁决不测；Core Dist 审计通过（$|\rho|\le0.29$）。Phase C：Core Dist 在 Stanford SSPG（$P=0.5192,p=0.8598$）与 Shanghai T2DM（$P=0.4704,p=0.6454$，方向相反）两队列均判定 Fail-Closed，与抛硬币无法区分。**结论：第一组6张卡无一项进入候选生命周期**，全部诚实存档为 Fail-Closed，不登记为候选，不改动 `index_v4.html`/Blueprint/Contract。详见 [`group1_neutral_metrics_redundancy_audit_20260819_2100.md`](./group1_neutral_metrics_redundancy_audit_20260819_2100.md)。
+- **2026-08-19 20:38** — 用户明确决定：候选 #5（`relaxationTime`）三队列测试（Stanford SSPG / Shanghai T2DM / T1D-UOM 配对）+ 两轮算法重新设计（v2/v3 插值修正、v4 指数拟合）后，不再继续投入。**终局状态：维持观察级，暂停研究，不升格为已毕业候选，不撤销候选资格**。这是本轮"11 张遗留 HUD 卡片风洞检验"计划里第二组 6 张判色卡的第一个也是投入最深的候选，为该系列研究画上一个诚实的（非胜利、非失败）阶段性结论。
+- **2026-08-19 20:32** — 完成候选 #5（含 v4a 重设计版）在 T1D-UOM 队列的同体配对测试（用户批准方向，与候选 #4 `dim` 同设计）。**明确声明该测试方法学性质与 Stanford/Shanghai 不同（同体纵向 vs 跨受试者横截面），不计入毕业标准 1 的异构队列复现计数**。结果：v1 留下未经 7 指标 Holm-Bonferroni 校正就消失的弱趋势；**v4a 在此配对设计上几乎无信号**，与其在横截面队列上的改善形成反差，提示改进效果可能场景特定，不应假设 v4a 全面优于 v1。意外发现代谢引力场角速度以极小差距未过校正，记录在案不登记。详见 [`wind_tunnel_t1d_uom_legacymetrics_20260819_2027_paired_analysis.md`](./wind_tunnel_t1d_uom_legacymetrics_20260819_2027_paired_analysis.md)。生产代码/风洞主管线均未改动。
+- **2026-08-19 20:45** — 完成候选 #5 更根本的重新设计（用户批准方向）：放弃阈值穿越，改用指数衰减曲线拟合提取时间常数 $\tau$（`validate/_relaxation_time_v4_expfit.py`）。两队列拟合质量中位数 $R^2>0.92$，独立证实"弛豫时间常数"物理模型合理。v4a（无质量门槛）是三轮重设计中唯一让两队列同时改善的版本，Shanghai 提升幅度最大（$P$: 0.7090→0.7500），但仍未突破 0.80；$R^2$ 质量门槛测试后判定不采纳（几乎不排除数据，反而略微降低效应量）。候选 #5 维持观察级。详见 [`relaxation_time_redesign_20260819_evaluation.md`](./relaxation_time_redesign_20260819_evaluation.md) 更新章节。生产代码/风洞主管线均未改动。
+- **2026-08-19 20:20** — 完成候选 #5（`relaxationTime`）的算法重新设计尝试（用户批准方向）。诊断否定"事件计数过少"原假说；发现原算法存在采样网格敏感性与未文档化的 `duration×1.5` 魔法常数（未衰减事件回退）。测试两个零参数改造：插值穿越版本（v2）单调不劣于原版并在 Stanford 首次突破 0.80，但 Shanghai 几乎不变；插值+剔除未衰减版本（v3）在 Stanford 进一步改善但在 Shanghai 反而变差——跨队列方向不一致，判定为过拟合，不予采纳。候选 #5 维持观察级，未满足毕业标准 1。详见 [`relaxation_time_redesign_20260819_evaluation.md`](./relaxation_time_redesign_20260819_evaluation.md)。生产代码/风洞主管线均未改动。
+- **2026-08-19 19:52** — 候选 #5（`relaxationTime`）完成第二个异构队列（Shanghai_T2DM，HbA1c 分光镜）复现：方向一致、统计显著（$p=0.0008$，穿透 6 指标 Holm-Bonferroni），是本轮唯一双队列一致复现的指标，但效应量仍未达 0.80 门槛（0.7090），毕业进度维持未满足标准 1，不因两次"接近"而放宽。同批测试意外发现上升相阻力/夜间相变阻力在 Shanghai 上强显著（$p<0.0001$）而在 Stanford 上沉默——经《同态锚定熔炉》损耗预判排查，判定为 HbA1c 分光镜与摩擦力算子本身的标签语义重叠伪影（同一血糖暴露过程的两种时间尺度读数，非独立生理证据），不采信、不登记为候选。早相加速度迟滞/AR1 两队列均 Fail-Closed，确认现有 HUD 判色阈值在样本外数据无区分度支持。详见 [`wind_tunnel_shanghai_t2dm_legacymetrics_20260819_1947_analysis.md`](./wind_tunnel_shanghai_t2dm_legacymetrics_20260819_1947_analysis.md)。
+- **2026-08-19 17:38** — 新增候选 #5（`relaxationTime`/弛豫衰减疲劳度）观察性登记。这是"11 张未受风洞检验的遗留 HUD 卡片"清理工作的首个真正样本外结果：6 个被移植验证的 v8.0-v8.4 时代判色指标（早相加速度迟滞/弛豫衰减疲劳度/AR1/角速度/上升阻力/夜间阻力），在从未参与过旧阈值拟合历史的 Stanford SSPG 队列（$n=29$）上首次测试，**仅 `relaxationTime` 一项**穿透 6 指标 Holm-Bonferroni 校正（置换检验 $p=0.0060$），但效应量 $P=0.7909$ 未达 0.80 门槛，不因"接近"放宽为已满足标准；其余 5 项全部 Fail-Closed。详见 [`wind_tunnel_stanford_sspg_legacymetrics_20260819_1730_analysis.md`](./wind_tunnel_stanford_sspg_legacymetrics_20260819_1730_analysis.md)。
 - **2026-08-19 12:31** — 就候选 #1（`w_carb`）是否触发标准 3（人类架构师显式批准）向用户明确提问。**用户裁决：暂不批准，继续观察更多队列后再决定。** 遵照第 9.5 节《产物隔离》与《毕业标准》第 3 条，本决定为终局性——**不触发任何 B.5 节原子化蓝图收编**，`index_v4.html`/`Pipeline Blueprint` 均未改动。`w_carb` 维持"暂存中，2/3 毕业条件达成"状态，标准 3 的批准时点留给未来更多队列证据积累后由人类重新发起。
 - **2026-08-19 12:24** — 完成候选 #1/#2 遗留的两个开放项：(a) **毕业标准 2** 审计发现 `analyze_subject_meals()` 对显式 `carbs=None` 会抛出 `TypeError`（当前生产链路靠导出脚本的隐性填充 0.0 幸免），已修复为在使用点显式判空并跳过该条记录（不纳入计算，不用常量顶替），回归验证 CGMacros(45/45)与 BIG IDEAs(14/16)结果逐字段 byte-for-byte 一致，零回溯影响；`w_carb` 候选 #1 由此推进至 2/3 毕业条件（仅缺标准 3 人类签核）。(b) 排查 BIG IDEAs 报告遗留的 `delta_g` 反超未归一化假说：复用 CGMacros（称重进食）与 Stanford OGTT（碳水恒定，退化对照）已有结果重新计算，未观察到该反超模式的普适复现（CGMacros 结果一升一降），判定为该队列小样本噪声，不升格为结论，不改动候选算子定义。
 - **2026-08-19 12:09** — 【方法学注意事项，非候选算子登记】ShanghaiT1DM 的 `tau_max` 边界标定补充复算（详见 `wind_tunnel_shanghai_t1dm_20260819_1209_taumax120_supplementary_rerun.md`）发现：`DET`/`ENTR` 对 tau 窗口大小高度敏感（同一队列同一批受试者，tau 从 60 校正到 120 后，均值分别位移 -0.27/-0.63），机制是 RQA 的 Theiler 窗口 $T=\max(5,\tau)$ 随 tau 增大而排除更多邻近点对。**任何未来跨队列比较 DET/ENTR 绝对数值时，必须先核实各队列的 tau 是否处于同一截断状态**，否则差异可能只是窗口大小的副产品。同一次复算证实 `Dim`（恒为 2）与 Work Integral（反转方向）在两个 tau 窗口下结论一致，非截断伪影。

@@ -1,0 +1,27 @@
+{
+  "criticalSlowingDown": {
+    "ar1": 0.6846080993572907,
+    "variance": 0.040260206794147484,
+    "skewness": -0.2507396300500076
+  },
+  "ascendFriction": {
+    "asymFriction": 6.708518950572931,
+    "workIntegral": 141.088853618875,
+    "ascendFriction": 6.673287822999991,
+    "frictionGradient": 0.996792160529997
+  },
+  "nightFriction": {
+    "asymFriction": 4.563461570655601,
+    "workIntegral": 101.99246982352035,
+    "ascendFriction": 4.561893954590191,
+    "frictionGradient": 0.9991771357376275
+  },
+  "excursionKinetics": {
+    "earlyDelay": 21,
+    "relaxationTime": 22.5
+  },
+  "keplerKinematics": {
+    "angularVelocity": 2.676567308871226,
+    "sweepRate": 6.954500179428699
+  }
+}

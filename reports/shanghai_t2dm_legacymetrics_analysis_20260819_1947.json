@@ -1,0 +1,31 @@
+{
+  "median_hba1c_mmol_mol": 68.312,
+  "n_independent_patients": 95,
+  "n_excluded_repeat_visits": 9,
+  "primary_pooled": {
+    "earlyDelay": {
+      "rank_sep": 0.5280126849894292,
+      "permutation_p": 0.65085
+    },
+    "relaxationTime": {
+      "rank_sep": 0.7090380549682875,
+      "permutation_p": 0.00075
+    },
+    "ar1": {
+      "rank_sep": 0.5539112050739958,
+      "permutation_p": 0.3886
+    },
+    "angularVelocity": {
+      "rank_sep": 0.2843551797040169,
+      "permutation_p": 0.00055
+    },
+    "ascendFriction": {
+      "rank_sep": 0.7605708245243129,
+      "permutation_p": 0.0
+    },
+    "nightFriction": {
+      "rank_sep": 0.7764270613107822,
+      "permutation_p": 0.0
+    }
+  }
+}
