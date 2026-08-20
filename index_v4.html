@@ -330,6 +330,49 @@ body.report-open { overflow: hidden; }
   gap: 12px;
 }
 
+/* --- [v4.2 Phase A.3] EXPERIMENTAL LAB FOLD (进餐动力学，未毕业) ---
+   Deliberately styled DIFFERENTLY from .advanced-metrics-group (灰色虚线=已测试/已停用的历史卡片)
+   to avoid visual confusion: amber border+glow signals "未毕业候选算子实验区", per
+   candidate_tensor_staging_matrix.md 候选 #1 (w_carb/strain_per_carb, 2/3 graduation standards). */
+.experimental-lab-group {
+  margin-top: 8px;
+  border: 1px solid rgba(232,163,61,0.35);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(232,163,61,0.05);
+}
+.experimental-lab-group summary {
+  font-size: 12px;
+  color: #e8a33d;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+  padding: 4px 0;
+}
+.experimental-lab-group summary::-webkit-details-marker { display: none; }
+.experimental-lab-group summary::before {
+  content: '▶';
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+.experimental-lab-group[open] summary::before { transform: rotate(90deg); }
+.experimental-lab-group[open] summary { margin-bottom: 10px; }
+.experimental-lab-content { display: flex; flex-direction: column; gap: 10px; }
+.experimental-lab-content textarea {
+  width: 100%; min-height: 70px; resize: vertical; font-family: monospace; font-size: 12px;
+  background: rgba(15,23,42,0.6); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px; box-sizing: border-box;
+}
+.experimental-lab-result {
+  font-size: 12px; line-height: 1.7; color: var(--text-secondary);
+  background: rgba(15,23,42,0.5); border-radius: 6px; padding: 8px 10px;
+}
+.experimental-lab-result strong { color: #e8a33d; }
+
 .metric-card::before { content:''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--border); border-radius: 10px 0 0 10px; }
 .metric-card.good::before { background: var(--green); }
 .metric-card.warn::before { background: var(--yellow); }
@@ -406,6 +449,22 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
   <div class="main-layout">
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar-controls">
+      <!-- [v4.2 Phase A.1] T1D 协议锁：纯 UI 横幅，不禁用/不改动任何计算逻辑（AGENTS.md 第 7.3 节
+           红线——生产计算层永远只处理 (Time, Glucose)，不感知宿主类型标签）。补完
+           wind_tunnel_v4_to_v4_1_architecture_review.md 第 4.3 节"新增交互2"的历史遗留项。 -->
+      <section>
+        <h2>宿主代谢类型</h2>
+        <div class="control-group">
+          <select id="sel-host-type">
+            <option value="default">默认（内源胰岛素代偿）</option>
+            <option value="t1d">T1D / 外源胰岛素接管</option>
+          </select>
+        </div>
+        <div id="t1d-protocol-banner" style="display:none; margin-top:8px; padding:8px 10px; border-radius:6px; background:rgba(232,163,61,0.12); border:1px solid rgba(232,163,61,0.35); color:#e8a33d; font-size:11px; line-height:1.6;">
+          ⚠ <strong>T1D 协议提示：</strong>本工具全部历史阈值参照（AR1/早相延迟/Work Integral 等卡片的历史参考带）均来自非 T1D 队列拟合，风洞测试证实外源胰岛素主导的代谢流形与非 T1D 不可公度（`dataset_fleet_registry.md` 第3节）。当前模式下请仅将各卡片数值作为<strong>同一受试者跨 Epoch 的纵向 Δ</strong>参考，不要参照任何绝对数值区间做判断。此提示不改变下方任何计算逻辑，纯 UI 声明。
+        </div>
+      </section>
+
       <section>
         <h2>双周期动力学导航 (Epoch 0 & 1)</h2>
         
@@ -517,7 +576,8 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
       <div class="metrics-panel" id="metrics-panel">
         <div class="metrics-guide">
           <strong>读卡规则：</strong>蓝=基线游荡，黄=高代偿做功，红/紫=拓扑死锁/临界慢化。指标仅反映物理摩擦力，非医疗诊断。<br>
-          <strong>★ 风洞测试标记：</strong><span class="validation-star star-gold">★</span>金=已毕业并采纳为生产默认值；<span class="validation-star star-silver">★</span>银=已测,结果偏正向但未毕业；<span class="validation-star star-bronze">★</span>铜=已测,结果偏负向/脆弱。无星=该卡片算子从未被风洞项目测试过（≠不可靠，只是未验证）。星标只反映"该计算口径是否经过跨队列压力测试"，不是对本次读数的临床可靠性背书，详见各卡片提示文字。
+          <strong>★ 风洞测试标记：</strong><span class="validation-star star-gold">★</span>金=已毕业并采纳为生产默认值；<span class="validation-star star-silver">★</span>银=已测,结果偏正向但未毕业；<span class="validation-star star-bronze">★</span>铜=已测,结果偏负向/脆弱。无星=该卡片算子从未被风洞项目测试过（≠不可靠，只是未验证）。星标只反映"该计算口径是否经过跨队列压力测试"，不是对本次读数的临床可靠性背书，详见各卡片提示文字。<br>
+          <strong>⏱ 版本提示（v4.2 起补充）：</strong>当前引擎 <code>max_lag=120</code>（v4.1 起，2026-08-19 原子化收编）。若手动比较更早期 v4.0 报告/JSON（<code>max_lag=60</code>）的 <code>DET</code>/<code>ENTR</code> 绝对数值，两者<strong>不可直接跨版本对齐</strong>（全舰队均值位移 -0.27/-0.63，见 `wind_tunnel_fleet_taumax60_vs_120_option2_evaluation_20260819_1520.md`）。
         </div>
 
         <!-- 0.5 Early Phase Delay -->
@@ -741,6 +801,22 @@ input[type=range] { width: 100%; margin: 8px 0; accent-color: var(--primary); }
             </div>
           </div>
         </div>
+
+        <!-- [v4.2 Phase A.3] 实验室区块：进餐动力学（未毕业候选算子，Section 9.5 产物隔离）。
+             补完 wind_tunnel_v4_to_v4_1_architecture_review.md 第 4.3 节"新增交互1"的历史遗留项。
+             无★星（未通过毕业标准3，见 candidate_tensor_staging_matrix.md 候选 #1），与下方
+             .advanced-metrics-group（已测试/已停用的历史卡片）视觉/语义均严格区分。 -->
+        <details class="experimental-lab-group">
+          <summary>🧪 实验室：进餐动力学 (w_carb / strain_per_carb，未毕业候选)</summary>
+          <div class="experimental-lab-content">
+            <div style="font-size:11px; color:var(--text-secondary); line-height:1.6;">
+              候选算子暂存区 #1：在 CGMacros 与 Stanford OGTT 两个协议独立、扰动源异构的队列上均测出强悍秩分离度（P≥0.83），已满足毕业标准1/2，<strong>但标准3（人类架构师签字批准生产采纳）尚未通过</strong>——用户已明确裁决"暂不批准，继续观察更多队列后再决定"。此区块仅供您用<strong>自己的真实进餐记录</strong>亲手试算该候选算子，结果<strong>不驱动任何 warn/bad 判色</strong>，不写入正式 L2 管线，不计入 Blueprint。计算基于当前已加载的 Epoch 0（若未加载则用 Epoch 1）原始血糖序列。
+            </div>
+            <textarea id="meal-annotations-textarea" placeholder="每行一条，格式：YYYY-MM-DD HH:MM, 碳水克数&#10;例如：&#10;2026-08-15 08:00, 45&#10;2026-08-15 12:30, 60"></textarea>
+            <button class="btn" id="btn-compute-meals" style="align-self:flex-start;">试算进餐动力学（实验性）</button>
+            <div id="experimental-lab-result" class="experimental-lab-result" style="display:none;"></div>
+          </div>
+        </details>
 
         <details class="advanced-metrics-group">
           <summary>查看拓扑与混沌指标 (Advanced/Legacy)</summary>
@@ -1446,6 +1522,123 @@ class TensorEngine:
 engine = TensorEngine()
 `;
 
+// ==========================================
+// 🧪 EXPERIMENTAL / UNGRADUATED MODULE — Section 9.5 Product Isolation
+// ==========================================
+// This block is DELIBERATELY kept separate from PYTHON_ENGINE_CODE above. It powers ONLY the
+// "进餐动力学 (实验性/未毕业)" panel and is never called by analyze()/processEpochPyodide() or any
+// graduated L2 metric card. It is a pure-numpy re-derivation of validate/wind_tunnel_v4_cgmacros_
+// meals.py's analyze_subject_meals() (candidate #1 w_carb/strain_per_carb in candidate_tensor_
+// staging_matrix.md — 2/3 graduation standards met, still awaiting Standard 3 human sign-off),
+// adapted to the browser's irregular resampleData() grid instead of pandas' 1-min resample (no
+// pandas dependency loaded in this Pyodide runtime). Per AGENTS.md Section B.5, because this
+// operator has NOT cleared Standard 3, it must NOT be wired into PYTHON_ENGINE_CODE and the
+// Blueprint/Contract must NOT gain a new formal L2 section for it — doing either without the other
+// would be the "code assimilated, operator not graduated" cognitive tear the doctrine forbids.
+const EXPERIMENTAL_MEAL_ENGINE_CODE = `
+import numpy as np
+import json as _json
+
+def analyze_meals_experimental(values_json, timestamps_ms_json, meals_json, min_carbs=25.0, window_min=240):
+    vs = _json.loads(values_json)
+    ts_ms = _json.loads(timestamps_ms_json)
+    meals = _json.loads(meals_json)
+    events = []
+    n = len(vs)
+    if n != len(ts_ms) or n == 0:
+        return _json.dumps({"result": None, "error": "[L0 ERROR] values/timestamps length mismatch or empty series.", "events": events})
+
+    ts_min = np.asarray(ts_ms, dtype=float) / 60000.0
+
+    def window_idx(lo_ms, hi_ms):
+        lo_min, hi_min = lo_ms / 60000.0, hi_ms / 60000.0
+        return [i for i in range(n) if lo_min <= ts_min[i] <= hi_min]
+
+    results = []
+    for m in meals:
+        carbs = m.get("carbs")
+        t_meal_ms = m.get("timestamp_ms")
+        if carbs is None or not isinstance(carbs, (int, float)) or carbs < min_carbs:
+            events.append(f"[INFO] [EXP-MEAL] Skipped meal (carbs missing/below {min_carbs}g floor; no fallback fabricated, Section 8.3 Zero-Magic-Constant).")
+            continue
+        if t_meal_ms is None:
+            events.append("[ERROR] [EXP-MEAL] Meal record missing timestamp; skipped.")
+            continue
+
+        pre_idx = window_idx(t_meal_ms - 30 * 60000, t_meal_ms + 10 * 60000)
+        pre_vals = [vs[i] for i in pre_idx if vs[i] is not None]
+        if not pre_vals:
+            events.append("[ERROR] [EXP-MEAL] No valid pre-meal baseline points in [-30,+10]min window; skipped.")
+            continue
+        g_base = min(pre_vals)
+
+        peak_idx = window_idx(t_meal_ms, t_meal_ms + 180 * 60000)
+        peak_candidates = [(i, vs[i]) for i in peak_idx if vs[i] is not None]
+        if not peak_candidates:
+            events.append("[ERROR] [EXP-MEAL] No valid post-meal points in [0,180]min window to locate peak; skipped.")
+            continue
+        i_peak, g_peak = max(peak_candidates, key=lambda kv: kv[1])
+
+        delta_g = g_peak - g_base
+        if delta_g <= 0.2:
+            events.append(f"[INFO] [EXP-MEAL] Insignificant glucose rise (delta_g={delta_g:.3f}); skipped.")
+            continue
+
+        t_ascend_min = max(1.0, ts_min[i_peak] - t_meal_ms / 60000.0)
+        strain_per_carb = delta_g / carbs
+
+        relax_thresh = g_base + max(0.5, 0.2 * delta_g)
+        post_idx = window_idx(t_meal_ms, t_meal_ms + window_min * 60000)
+        post_after_peak = [i for i in post_idx if i >= i_peak]
+        tau_relax = None
+        for i in post_after_peak:
+            if vs[i] is not None and vs[i] <= relax_thresh:
+                tau_relax = ts_min[i] - ts_min[i_peak]
+                break
+        if tau_relax is None:
+            tau_relax = (ts_min[post_after_peak[-1]] - ts_min[i_peak]) if post_after_peak else 0.0
+
+        xs, ys = [], []
+        for i in post_idx:
+            if vs[i] is not None:
+                xs.append(ts_min[i]); ys.append(max(0.0, vs[i] - g_base))
+        if len(xs) < 2:
+            events.append("[ERROR] [EXP-MEAL] Insufficient valid points for work-integral trapezoidal integration; skipped.")
+            continue
+        # Manual trapezoidal sum (not np.trapz/np.trapezoid) to stay independent of numpy's
+        # version-dependent rename of that function (removed in numpy>=2.0) inside Pyodide.
+        work_meal = 0.0
+        for i in range(1, len(xs)):
+            work_meal += 0.5 * (ys[i] + ys[i - 1]) * (xs[i] - xs[i - 1])
+        work_meal = float(work_meal)
+        specific_work = work_meal / carbs
+
+        results.append({
+            "carbs": carbs, "g_base": g_base, "g_peak": g_peak, "delta_g": delta_g,
+            "t_ascend_min": t_ascend_min, "strain_per_carb": strain_per_carb,
+            "tau_relax_min": tau_relax, "work_meal": work_meal, "specific_work": specific_work,
+        })
+
+    if not results:
+        return _json.dumps({"result": None, "error": "[HONEST FAIL-CLOSED] No valid meal challenges found among the input records (see events for per-meal reasons).", "events": events})
+
+    def _median(arr):
+        s = sorted(arr); k = len(s)
+        return s[k // 2] if k % 2 else (s[k // 2 - 1] + s[k // 2]) / 2.0
+
+    agg = {
+        "n_meals": len(results),
+        "n_input": len(meals),
+        "median_delta_g": _median([r["delta_g"] for r in results]),
+        "median_strain_per_carb": _median([r["strain_per_carb"] for r in results]),
+        "median_tau_relax_min": _median([r["tau_relax_min"] for r in results]),
+        "median_specific_work": _median([r["specific_work"] for r in results]),
+        "meals": results,
+    }
+    events.append(f"[INFO] [EXP-MEAL] Computed {len(results)}/{len(meals)} valid meal challenges.")
+    return _json.dumps({"result": agg, "error": None, "events": events})
+`;
+
 async function initPyodide() {
     // Add loading indicator to DOM if not present
     if (!document.getElementById('pyodide-loader')) {
@@ -1468,6 +1661,10 @@ async function initPyodide() {
         updateUIState("Aether-Core: 编译物理引擎...");
         document.getElementById('pyodide-status').innerText = '(3/3) Compiling Physics Engine';
         await pyodide.runPythonAsync(PYTHON_ENGINE_CODE);
+        // Isolated per Section 9.5 Product Isolation: loaded into a SEPARATE namespace
+        // (module-level function, not a TensorEngine method) so it can never be reached
+        // through `engine.*` calls used by the graduated pipeline.
+        await pyodide.runPythonAsync(EXPERIMENTAL_MEAL_ENGINE_CODE);
         
         pyEngineReady = true;
         document.getElementById('pyodide-loader').style.display = 'none';
@@ -3223,6 +3420,66 @@ ${refs}` : ''}
     };
     document.getElementById('chk-smooth').onchange = () => this.analyze();
 
+    // [v4.2 Phase A.1] T1D 协议锁横幅：纯 UI 提示，不触发 this.analyze()，不改动任何计算路径。
+    document.getElementById('sel-host-type').onchange = e => {
+      document.getElementById('t1d-protocol-banner').style.display = e.target.value === 't1d' ? 'block' : 'none';
+    };
+
+    // [v4.2 Phase A.3] 实验室区块：进餐动力学（未毕业候选 #1 w_carb/strain_per_carb）。
+    // 独立按钮触发，绝不接入 this.analyze()/renderMetricsDual()，绝不写入 this.epochMetrics。
+    document.getElementById('btn-compute-meals').onclick = async () => {
+      const resultBox = document.getElementById('experimental-lab-result');
+      resultBox.style.display = 'block';
+      if (!pyEngineReady || !pyodide) {
+        resultBox.innerHTML = '⚠ Aether-Core 尚未就绪，请等待引擎加载完毕后重试。';
+        return;
+      }
+      const data = this.epochs[0] || this.epochs[1];
+      if (!data) {
+        resultBox.innerHTML = '⚠ 请先加载 Epoch 0 或 Epoch 1 的血糖数据。';
+        return;
+      }
+      const raw = resampleData(data, false);
+      const timestampsMs = raw.timestamps.map(t => t.getTime());
+      const values = raw.values;
+
+      const lines = document.getElementById('meal-annotations-textarea').value.split('\n').map(s => s.trim()).filter(Boolean);
+      const meals = [];
+      const parseErrors = [];
+      for (const line of lines) {
+        const m = line.match(/^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})\s*,\s*([\d.]+)\s*$/);
+        if (!m) { parseErrors.push(line); continue; }
+        const t = new Date(m[1].replace(' ', 'T'));
+        if (isNaN(t.getTime())) { parseErrors.push(line); continue; }
+        meals.push({ timestamp_ms: t.getTime(), carbs: parseFloat(m[2]) });
+      }
+      if (meals.length === 0) {
+        resultBox.innerHTML = `⚠ 未解析出任何有效进餐记录${parseErrors.length ? '，以下行格式有误：<br>' + parseErrors.map(l => `<code>${l}</code>`).join('<br>') : '（输入为空）。'}`;
+        return;
+      }
+
+      try {
+        const valuesJson = JSON.stringify(values);
+        const tsJson = JSON.stringify(timestampsMs);
+        const mealsJson = JSON.stringify(meals);
+        const resStr = await pyodide.runPythonAsync(`analyze_meals_experimental('${valuesJson}', '${tsJson}', '${mealsJson}')`);
+        const res = JSON.parse(resStr);
+        if (res.error) {
+          resultBox.innerHTML = `⚠ <strong>${res.error}</strong><br>${(res.events || []).map(ev => `<div style="opacity:0.7;">${ev}</div>`).join('')}`;
+          return;
+        }
+        const r = res.result;
+        resultBox.innerHTML = `
+          <div>成功试算 <strong>${r.n_meals}/${r.n_input}</strong> 条进餐记录（其余因缺碳水/无法定位峰值等原因被诚实剔除，未伪造回退值，见下方日志）。</div>
+          <div style="margin-top:6px;">中位 Δ血糖：<strong>${r.median_delta_g.toFixed(2)}</strong> mmol/L　|　中位应变敏感度 strain_per_carb：<strong>${r.median_strain_per_carb.toFixed(4)}</strong> mmol/L·g⁻¹</div>
+          <div>中位弛豫时间：<strong>${r.median_tau_relax_min.toFixed(1)}</strong> min　|　中位特异性做功 specific_work：<strong>${r.median_specific_work.toFixed(2)}</strong> mmol·min·L⁻¹·g⁻¹</div>
+          <div style="margin-top:6px; opacity:0.7;">⚠ 未毕业候选算子（毕业标准3待人类签核），仅供您本人试算参考，不构成任何临床判断依据，不驱动本页面任何 warn/bad 判色。${parseErrors.length ? ` ${parseErrors.length} 行输入格式有误已忽略。` : ''}</div>
+        `;
+      } catch (e) {
+        resultBox.innerHTML = `⚠ 计算出错：${e.message}`;
+      }
+    };
+
     // Auditable log preview, resilient clipboard copy, and structured JSON download.
     const logButton = document.getElementById('btn-copy-oracle');
     logButton.onclick = () => this.openReportModal();
@@ -3448,7 +3705,12 @@ ${refs}` : ''}
     const values = [];
 
     for (let i = 0; i < N; i++) {
-      times.push(startTime + i * dt);
+      // [v4.2 bugfix, 2026-08-20] Must push Date objects, not raw ms numbers — resampleDataImpl()
+      // (and every other epoch consumer) calls `.getTime()` on each timestamp element. The raw
+      // number form previously threw "ts[i].getTime is not a function" the instant analyze() ran,
+      // silently leaving the UI stuck on "等待数据输入" with no visible error (discovered while
+      // manually verifying Phase A via these very airgap buttons).
+      times.push(new Date(startTime + i * dt));
       let v = 5.5;
       if (type === 'sine') {
         v = 5.5 + 2.0 * Math.sin(2 * Math.PI * i / 100);
